@@ -95,20 +95,20 @@ private[journal] object Batch_4_1_0_Alternative_with_Vector {
   }
 
   final case class Appends(
-    offset: Offset,
-    records: NonEmptyList[ActionRecord[Action.Append]],
+      offset: Offset,
+      records: NonEmptyList[ActionRecord[Action.Append]],
   ) extends Batch_4_1_0_Alternative_with_Vector
 
   final case class Delete(
-    offset: Offset,
-    to: DeleteTo,
-    origin: Option[Origin],
-    version: Option[Version],
+      offset: Offset,
+      to: DeleteTo,
+      origin: Option[Origin],
+      version: Option[Version],
   ) extends Batch_4_1_0_Alternative_with_Vector
 
   final case class Purge(
-    offset: Offset,
-    origin: Option[Origin],
-    version: Option[Version],
+      offset: Offset,
+      origin: Option[Origin],
+      version: Option[Version],
   ) extends Batch_4_1_0_Alternative_with_Vector
 }

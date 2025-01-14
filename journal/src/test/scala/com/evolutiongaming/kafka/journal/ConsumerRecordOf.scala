@@ -9,7 +9,7 @@ import com.evolutiongaming.skafka.{Offset, TimestampAndType, TimestampType, Topi
 object ConsumerRecordOf {
 
   def apply[F[_]: Functor](action: Action, topicPartition: TopicPartition, offset: Offset)(
-    implicit actionToProducerRecord: ActionToProducerRecord[F],
+      implicit actionToProducerRecord: ActionToProducerRecord[F],
   ): F[ConsRecord] = {
 
     for {

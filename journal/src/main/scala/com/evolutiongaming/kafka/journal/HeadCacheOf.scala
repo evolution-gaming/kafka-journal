@@ -12,8 +12,8 @@ import com.evolutiongaming.skafka.consumer.ConsumerConfig
 trait HeadCacheOf[F[_]] {
 
   def apply(
-    consumerConfig: ConsumerConfig,
-    eventualJournal: EventualJournal[F],
+      consumerConfig: ConsumerConfig,
+      eventualJournal: EventualJournal[F],
   ): Resource[F, HeadCache[F]]
 }
 
@@ -28,7 +28,7 @@ object HeadCacheOf {
   def apply[F[_]](implicit F: HeadCacheOf[F]): HeadCacheOf[F] = F
 
   def apply[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
-    metrics: Option[HeadCacheMetrics[F]],
+      metrics: Option[HeadCacheMetrics[F]],
   ): HeadCacheOf[F] = { (consumerConfig: ConsumerConfig, eventualJournal: EventualJournal[F]) =>
     {
       HeadCache.make[F](consumerConfig, eventualJournal, metrics)

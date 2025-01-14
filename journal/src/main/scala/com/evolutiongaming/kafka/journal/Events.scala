@@ -27,12 +27,12 @@ object Events {
   }
 
   implicit def eventsToBytes[F[_]: FromAttempt, A](
-    implicit eventCodec: Codec[Event[A]],
-    metadataCodec: Codec[PayloadMetadata],
+      implicit eventCodec: Codec[Event[A]],
+      metadataCodec: Codec[PayloadMetadata],
   ): ToBytes[F, Events[A]] = ToBytes.fromEncoder
 
   implicit def eventsFromBytes[F[_]: FromAttempt, A](
-    implicit eventCodec: Codec[Event[A]],
-    metadataCodec: Codec[PayloadMetadata],
+      implicit eventCodec: Codec[Event[A]],
+      metadataCodec: Codec[PayloadMetadata],
   ): FromBytes[F, Events[A]] = FromBytes.fromDecoder
 }

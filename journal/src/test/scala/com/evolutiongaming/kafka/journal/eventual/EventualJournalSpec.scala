@@ -57,7 +57,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
   }
 
   private def test1[F[_]: MonadThrowable: Fail](
-    withJournals: (Key, Instant) => ((Eventual[F], Replicated[F]) => F[Assertion]) => F[Assertion],
+      withJournals: (Key, Instant) => ((Eventual[F], Replicated[F]) => F[Assertion]) => F[Assertion],
   ): Unit = {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
@@ -539,9 +539,9 @@ object EventualJournalSpec {
   object Replicated {
 
     def apply[F[_]: FlatMap](
-      journal: ReplicatedJournalFlat[F],
-      key: Key,
-      timestamp: Instant,
+        journal: ReplicatedJournalFlat[F],
+        key: Key,
+        timestamp: Instant,
     ): Replicated[F] = {
       new Replicated[F] {
 

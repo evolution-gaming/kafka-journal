@@ -22,7 +22,7 @@ private[journal] object CreateSchema {
    *   present in a keyspace.
    */
   def apply[F[_]: Concurrent: CassandraCluster: CassandraSession: CassandraSync: LogOf](
-    config: SchemaConfig,
+      config: SchemaConfig,
   ): F[(Schema, MigrateSchema.Fresh)] = {
     for {
       createTables  <- CreateTables.of[F]
@@ -32,9 +32,9 @@ private[journal] object CreateSchema {
   }
 
   private[cassandra] def create[F[_]: Monad](
-    config: SchemaConfig,
-    createKeyspace: CreateKeyspace[F],
-    createTables: CreateTables[F],
+      config: SchemaConfig,
+      createKeyspace: CreateKeyspace[F],
+      createTables: CreateTables[F],
   ): F[(Schema, MigrateSchema.Fresh)] = {
 
     def createTables1: F[(Schema, Boolean)] = {

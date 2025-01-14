@@ -37,13 +37,13 @@ object EventualCassandra {
     * Underlying schema is automatically created or migrated if required.
     */
   def make[
-    F[_]: Async: Parallel: ToTry: LogOf: FromGFuture: MeasureDuration: JsonCodec.Decode,
+      F[_]: Async: Parallel: ToTry: LogOf: FromGFuture: MeasureDuration: JsonCodec.Decode,
   ](
-    config: EventualCassandraConfig,
-    origin: Option[Origin],
-    metrics: Option[EventualJournal.Metrics[F]],
-    cassandraClusterOf: CassandraClusterOf[F],
-    dataIntegrity: DataIntegrityConfig,
+      config: EventualCassandraConfig,
+      origin: Option[Origin],
+      metrics: Option[EventualJournal.Metrics[F]],
+      cassandraClusterOf: CassandraClusterOf[F],
+      dataIntegrity: DataIntegrityConfig,
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
@@ -62,13 +62,13 @@ object EventualCassandra {
     * Underlying schema is automatically created or migrated if required.
     */
   def of[
-    F[_]: Temporal: Parallel: ToTry: LogOf: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Decode,
+      F[_]: Temporal: Parallel: ToTry: LogOf: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Decode,
   ](
-    schemaConfig: SchemaConfig,
-    origin: Option[Origin],
-    metrics: Option[EventualJournal.Metrics[F]],
-    consistencyConfig: CassandraConsistencyConfig,
-    dataIntegrity: DataIntegrityConfig,
+      schemaConfig: SchemaConfig,
+      origin: Option[Origin],
+      metrics: Option[EventualJournal.Metrics[F]],
+      consistencyConfig: CassandraConsistencyConfig,
+      dataIntegrity: DataIntegrityConfig,
   ): F[EventualJournal[F]] = {
 
     for {
@@ -221,9 +221,9 @@ object EventualCassandra {
   }
 
   private[journal] final case class Statements[F[_]](
-    records: JournalStatements.SelectRecords[F],
-    metaJournal: MetaJournalStatements[F],
-    selectOffset2: Pointer2Statements.SelectOffset[F],
+      records: JournalStatements.SelectRecords[F],
+      metaJournal: MetaJournalStatements[F],
+      selectOffset2: Pointer2Statements.SelectOffset[F],
   )
 
   private[journal] object Statements {
@@ -231,10 +231,10 @@ object EventualCassandra {
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
     def of[F[_]: Concurrent: CassandraSession: ToTry: JsonCodec.Decode](
-      schema: Schema,
-      segmentNrsOf: SegmentNrs.Of[F],
-      segments: Segments,
-      consistencyConfig: CassandraConsistencyConfig.Read,
+        schema: Schema,
+        segmentNrsOf: SegmentNrs.Of[F],
+        segments: Segments,
+        consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[Statements[F]] = {
       for {
         selectRecords <- JournalStatements.SelectRecords.of[F](schema.journal, consistencyConfig)
@@ -258,19 +258,19 @@ object EventualCassandra {
   private[journal] object MetaJournalStatements {
 
     def of[F[_]: Concurrent: CassandraSession](
-      schema: Schema,
-      segmentNrsOf: SegmentNrs.Of[F],
-      segments: Segments,
-      consistencyConfig: CassandraConsistencyConfig.Read,
+        schema: Schema,
+        segmentNrsOf: SegmentNrs.Of[F],
+        segments: Segments,
+        consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[MetaJournalStatements[F]] = {
       of(schema.metaJournal, segmentNrsOf, segments, consistencyConfig)
     }
 
     def of[F[_]: Concurrent: CassandraSession](
-      metaJournal: TableName,
-      segmentNrsOf: SegmentNrs.Of[F],
-      segments: Segments,
-      consistencyConfig: CassandraConsistencyConfig.Read,
+        metaJournal: TableName,
+        segmentNrsOf: SegmentNrs.Of[F],
+        segments: Segments,
+        consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[MetaJournalStatements[F]] = {
       for {
         selectJournalHead    <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal, consistencyConfig)
@@ -282,11 +282,11 @@ object EventualCassandra {
     }
 
     def fromMetaJournal[F[_]: Concurrent](
-      segmentNrsOf: SegmentNrs.Of[F],
-      journalHead: cassandra.MetaJournalStatements.SelectJournalHead[F],
-      journalPointer: cassandra.MetaJournalStatements.SelectJournalPointer[F],
-      ids: cassandra.MetaJournalStatements.SelectIds[F],
-      segments: Segments,
+        segmentNrsOf: SegmentNrs.Of[F],
+        journalHead: cassandra.MetaJournalStatements.SelectJournalHead[F],
+        journalPointer: cassandra.MetaJournalStatements.SelectJournalPointer[F],
+        ids: cassandra.MetaJournalStatements.SelectIds[F],
+        segments: Segments,
     ): MetaJournalStatements[F] = {
 
       val journalHead1    = journalHead

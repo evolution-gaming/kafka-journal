@@ -45,10 +45,10 @@ private[journal] object MigrateSchema {
     *   The instance of schema migrator.
     */
   def forSettingKey[F[_]: MonadThrow](
-    cassandraSync: CassandraSync[F],
-    settings: Settings[F],
-    settingKey: String,
-    migrations: Nel[String],
+      cassandraSync: CassandraSync[F],
+      settings: Settings[F],
+      settingKey: String,
+      migrations: Nel[String],
   ): MigrateSchema[F] = new MigrateSchema[F] {
 
     def setVersion(version: Int): F[Unit] =

@@ -7,7 +7,7 @@ import cats.syntax.all.*
 private[journal] object StartResource {
 
   def apply[F[_]: Concurrent, A, B](res: Resource[F, A])(
-    use: A => F[B],
+      use: A => F[B],
   ): F[Fiber[F, Throwable, B]] = {
 
     res

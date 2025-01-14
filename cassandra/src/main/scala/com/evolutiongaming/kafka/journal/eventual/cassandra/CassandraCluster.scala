@@ -20,8 +20,8 @@ object CassandraCluster {
   def apply[F[_]](implicit F: CassandraCluster[F]): CassandraCluster[F] = F
 
   def apply[F[_]: Async: Parallel: FromGFuture](
-    cluster: scassandra.CassandraCluster[F],
-    retries: Int,
+      cluster: scassandra.CassandraCluster[F],
+      retries: Int,
   ): CassandraCluster[F] = new CassandraCluster[F] {
 
     def session = {
@@ -43,9 +43,9 @@ object CassandraCluster {
   }
 
   def make[F[_]: Async: Parallel: FromGFuture](
-    config: CassandraConfig,
-    cassandraClusterOf: CassandraClusterOf[F],
-    retries: Int,
+      config: CassandraConfig,
+      cassandraClusterOf: CassandraClusterOf[F],
+      retries: Int,
   ): Resource[F, CassandraCluster[F]] = {
 
     for {

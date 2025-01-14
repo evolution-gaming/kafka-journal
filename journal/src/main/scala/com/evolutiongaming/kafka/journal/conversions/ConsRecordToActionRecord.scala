@@ -16,8 +16,8 @@ trait ConsRecordToActionRecord[F[_]] {
 object ConsRecordToActionRecord {
 
   implicit def apply[F[_]: MonadThrowable](
-    implicit consRecordToActionHeader: ConsRecordToActionHeader[F],
-    headerToTuple: HeaderToTuple[F],
+      implicit consRecordToActionHeader: ConsRecordToActionHeader[F],
+      headerToTuple: HeaderToTuple[F],
   ): ConsRecordToActionRecord[F] = { (consRecord: ConsRecord) =>
     {
 

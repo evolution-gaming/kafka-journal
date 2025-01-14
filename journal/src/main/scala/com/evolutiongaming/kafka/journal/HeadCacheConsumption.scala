@@ -47,10 +47,10 @@ private[journal] object HeadCacheConsumption {
     *   succeeds.
     */
   def apply[F[_]: BracketThrowable: Sleep](
-    topic: Topic,
-    pointers: F[Map[Partition, Offset]],
-    consumer: Resource[F, TopicCache.Consumer[F]],
-    log: Log[F],
+      topic: Topic,
+      pointers: F[Map[Partition, Offset]],
+      consumer: Resource[F, TopicCache.Consumer[F]],
+      log: Log[F],
   ): Stream[F, ConsumerRecords[String, Unit]] = {
 
     def partitions(consumer: Consumer[F], random: Random.State): F[Nes[Partition]] = {

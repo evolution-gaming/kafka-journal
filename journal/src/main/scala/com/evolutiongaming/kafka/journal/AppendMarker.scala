@@ -12,7 +12,7 @@ trait AppendMarker[F[_]] {
 object AppendMarker {
 
   def apply[F[_]: FlatMap: RandomIdOf](
-    produce: Produce[F],
+      produce: Produce[F],
   ): AppendMarker[F] = { (key: Key) =>
     {
       for {

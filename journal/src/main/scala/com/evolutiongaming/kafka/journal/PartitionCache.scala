@@ -116,18 +116,18 @@ private[journal] object PartitionCache {
     *   parameters did not change.
     */
   def make[F[_]: Async](
-    maxSize: Int          = 10000,
-    dropUponLimit: Double = 0.1,
-    timeout: FiniteDuration,
+      maxSize: Int          = 10000,
+      dropUponLimit: Double = 0.1,
+      timeout: FiniteDuration,
   ): Resource[F, PartitionCache[F]] = {
     main(maxSize = maxSize.max(1), dropUponLimit = dropUponLimit.max(0.01).min(1.0), timeout = timeout)
   }
 
   /** Same as [[#of]], but without default parameters */
   private def main[F[_]: Async](
-    maxSize: Int,
-    dropUponLimit: Double,
-    timeout: FiniteDuration,
+      maxSize: Int,
+      dropUponLimit: Double,
+      timeout: FiniteDuration,
   ): Resource[F, PartitionCache[F]] = {
 
     /** Listener waiting for latest [[HeadInfo]] to appear in the cache.
@@ -155,10 +155,10 @@ private[journal] object PartitionCache {
       * Listener waiting for latest [[HeadInfo]] to appear in the cache.
       */
     final case class State(
-      listenerId: ListenerId,
-      offset: Option[Offset],
-      entries: Option[Entries],
-      listeners: Map[ListenerId, Listener],
+        listenerId: ListenerId,
+        offset: Option[Offset],
+        entries: Option[Entries],
+        listeners: Map[ListenerId, Listener],
     ) { self =>
 
       /** Checks if current state is ahead of Cassandra.

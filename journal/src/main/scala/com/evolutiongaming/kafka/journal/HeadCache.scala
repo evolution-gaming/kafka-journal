@@ -99,9 +99,9 @@ object HeadCache {
     *   did not change.
     */
   def make[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
-    consumerConfig: ConsumerConfig,
-    eventualJournal: EventualJournal[F],
-    metrics: Option[HeadCacheMetrics[F]],
+      consumerConfig: ConsumerConfig,
+      eventualJournal: EventualJournal[F],
+      metrics: Option[HeadCacheMetrics[F]],
   ): Resource[F, HeadCache[F]] = {
     for {
       log    <- LogOf[F].apply(HeadCache.getClass).toResource
@@ -141,11 +141,11 @@ object HeadCache {
     *   did not change.
     */
   def make[F[_]: Async: Parallel: Runtime: FromJsResult: MeasureDuration: JsonCodec.Decode](
-    eventual: Eventual[F],
-    log: Log[F],
-    consumer: Resource[F, TopicCache.Consumer[F]],
-    metrics: Option[HeadCacheMetrics[F]],
-    config: HeadCacheConfig = HeadCacheConfig.default,
+      eventual: Eventual[F],
+      log: Log[F],
+      consumer: Resource[F, TopicCache.Consumer[F]],
+      metrics: Option[HeadCacheMetrics[F]],
+      config: HeadCacheConfig = HeadCacheConfig.default,
   ): Resource[F, HeadCache[F]] = {
 
     val consRecordToActionHeader = ConsRecordToActionHeader[F]
@@ -396,8 +396,8 @@ object HeadCache {
       *   Prefix to use for the registered metrics.
       */
     def make[F[_]: Monad](
-      registry: CollectorRegistry[F],
-      prefix: Prefix = Prefix.default,
+        registry: CollectorRegistry[F],
+        prefix: Prefix = Prefix.default,
     ): Resource[F, Metrics[F]] = {
 
       val getLatencySummary = registry.summary(

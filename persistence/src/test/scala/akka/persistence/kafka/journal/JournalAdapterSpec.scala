@@ -120,13 +120,13 @@ object JournalAdapterSpec {
   final case class Pointer(key: Key)
 
   final case class State(
-    events: List[EventRecord[EventualPayloadAndType]] = List.empty,
-    appends: List[Append]                             = List.empty,
-    pointers: List[Pointer]                           = List.empty,
-    deletes: List[Delete]                             = List.empty,
-    reads: List[Read]                                 = List.empty,
-    replayed: List[PersistentRepr]                    = List.empty,
-    actions: List[Action]                             = List.empty,
+      events: List[EventRecord[EventualPayloadAndType]] = List.empty,
+      appends: List[Append]                             = List.empty,
+      pointers: List[Pointer]                           = List.empty,
+      deletes: List[Delete]                             = List.empty,
+      reads: List[Read]                                 = List.empty,
+      replayed: List[PersistentRepr]                    = List.empty,
+      actions: List[Action]                             = List.empty,
   )
 
   object State {
@@ -161,7 +161,7 @@ object JournalAdapterSpec {
       def apply(key: Key) = new Journal[StateT] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[StateT, A],
+            implicit kafkaWrite: KafkaWrite[StateT, A],
         ) =
           for {
             payloadAndType <- kafkaWrite(Events(events, metadata.payload))

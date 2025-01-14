@@ -23,9 +23,9 @@ private[journal] object CassandraSync {
   def apply[F[_]](implicit F: CassandraSync[F]): CassandraSync[F] = F
 
   def apply[F[_]: Temporal: CassandraSession](
-    keyspace: KeyspaceConfig,
-    table: String,
-    origin: Option[Origin],
+      keyspace: KeyspaceConfig,
+      table: String,
+      origin: Option[Origin],
   ): CassandraSync[F] = {
 
     val autoCreate = if (keyspace.autoCreate) AutoCreate.Table else AutoCreate.None
@@ -33,10 +33,10 @@ private[journal] object CassandraSync {
   }
 
   def apply[F[_]: Temporal: CassandraSession](
-    keyspace: String,
-    table: String,
-    autoCreate: AutoCreate,
-    metadata: Option[String],
+      keyspace: String,
+      table: String,
+      autoCreate: AutoCreate,
+      metadata: Option[String],
   ): CassandraSync[F] = {
 
     new CassandraSync[F] {
@@ -71,9 +71,9 @@ private[journal] object CassandraSync {
     * @see [[com.evolutiongaming.cassandra.sync.CassandraSync]] for more details.
     */
   def of[F[_]: Temporal: CassandraSession](
-    keyspace: KeyspaceConfig,
-    table: String,
-    origin: Option[Origin],
+      keyspace: KeyspaceConfig,
+      table: String,
+      origin: Option[Origin],
   ): F[CassandraSync[F]] = {
 
     for {

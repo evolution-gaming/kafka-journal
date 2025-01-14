@@ -17,12 +17,12 @@ import java.nio.charset.StandardCharsets
 object Instances {
 
   implicit def kafkaWrite[F[_]: MonadThrowable](
-    implicit payloadJsonToBytes: ToBytes[F, PayloadJson[Json]],
+      implicit payloadJsonToBytes: ToBytes[F, PayloadJson[Json]],
   ): KafkaWrite[F, Json] =
     KafkaWrite.writeJson(EventJsonPayloadAndType(_, PayloadType.Json), payloadJsonToBytes)
 
   implicit def kafkaRead[F[_]: MonadThrowable](
-    implicit payloadJsonFromBytes: FromBytes[F, PayloadJson[Json]],
+      implicit payloadJsonFromBytes: FromBytes[F, PayloadJson[Json]],
   ): KafkaRead[F, Json] =
     KafkaRead.readJson(payloadJsonFromBytes, (json: EventJsonPayloadAndType[Json]) => json.payload.pure[F])
 

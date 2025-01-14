@@ -21,8 +21,8 @@ object KafkaWriteMetrics {
   }
 
   def make[F[_]](
-    registry: CollectorRegistry[F],
-    prefix: String = "journal",
+      registry: CollectorRegistry[F],
+      prefix: String = "journal",
   ): Resource[F, KafkaWriteMetrics[F]] = {
 
     val durationSummary = registry.summary(

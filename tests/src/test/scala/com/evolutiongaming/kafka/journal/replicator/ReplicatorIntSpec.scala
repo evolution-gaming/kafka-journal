@@ -45,7 +45,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
   private implicit val randomIdOf: RandomIdOf[IO] = RandomIdOf.uuid[IO]
 
   private def resources[F[_]: Async: LogOf: Parallel: FromFuture: ToFuture: RandomIdOf: MeasureDuration: FromTry: ToTry: Fail](
-    cassandraClusterOf: CassandraClusterOf[F],
+      cassandraClusterOf: CassandraClusterOf[F],
   ) = {
 
     def eventualJournal(conf: Config) = {
@@ -61,8 +61,8 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     }
 
     def journal(
-      conf: Config,
-      eventualJournal: EventualJournal[F],
+        conf: Config,
+        eventualJournal: EventualJournal[F],
     ) = {
 
       val config = ConfigSource

@@ -9,8 +9,8 @@ import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory
 private[journal] object ForkJoinPoolOf {
 
   def apply[F[_]: Sync](
-    name: String,
-    parallelism: Int,
+      name: String,
+      parallelism: Int,
   ): Resource[F, ForkJoinPool] = {
 
     val threadFactory = ForkJoinPool.defaultForkJoinWorkerThreadFactory.withPrefix(name)

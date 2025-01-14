@@ -296,8 +296,8 @@ object ReplicatedCassandraMetaJournalStatementsTest {
   val expiry: Expiry                   = Expiry(1.day.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn)
 
   final case class State(
-    metadata: Map[Topic, Map[String, MetaJournalEntry]]                 = Map.empty,
-    metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]] = Map.empty,
+      metadata: Map[Topic, Map[String, MetaJournalEntry]]                 = Map.empty,
+      metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]] = Map.empty,
   )
 
   object State {

@@ -15,7 +15,7 @@ object KafkaProducerOf {
   def apply[F[_]](implicit F: KafkaProducerOf[F]): KafkaProducerOf[F] = F
 
   def apply[F[_]: Async: MeasureDuration: ToTry](
-    metrics: Option[ProducerMetrics[F]] = None,
+      metrics: Option[ProducerMetrics[F]] = None,
   ): KafkaProducerOf[F] = {
     val producerOf = ProducerOf.apply1(metrics)
     apply(producerOf)

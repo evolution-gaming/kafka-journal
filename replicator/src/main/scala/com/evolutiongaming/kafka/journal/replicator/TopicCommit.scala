@@ -25,9 +25,9 @@ object TopicCommit {
   def empty[F[_]: Applicative]: TopicCommit[F] = (_: Nem[Partition, Offset]) => ().pure[F]
 
   def apply[F[_]](
-    topic: Topic,
-    metadata: String,
-    consumer: KafkaConsumer[F, _, _],
+      topic: Topic,
+      metadata: String,
+      consumer: KafkaConsumer[F, _, _],
   ): TopicCommit[F] = { (offsets: Nem[Partition, Offset]) =>
     {
       val offsets1 = offsets.mapKV { (partition, offset) =>
@@ -40,8 +40,8 @@ object TopicCommit {
   }
 
   def delayed[F[_]: Concurrent: Clock](
-    delay: FiniteDuration,
-    commit: TopicCommit[F],
+      delay: FiniteDuration,
+      commit: TopicCommit[F],
   ): F[TopicCommit[F]] = {
 
     case class State(until: Instant, offsets: SortedMap[Partition, Offset] = SortedMap.empty)

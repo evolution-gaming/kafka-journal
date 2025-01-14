@@ -33,8 +33,8 @@ private[journal] object PointerStatements {
   object Insert {
 
     def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write,
+        name: TableName,
+        consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Insert[F]] = {
 
       val query =
@@ -68,8 +68,8 @@ private[journal] object PointerStatements {
   object Update {
 
     def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write,
+        name: TableName,
+        consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Update[F]] = {
 
       val query =

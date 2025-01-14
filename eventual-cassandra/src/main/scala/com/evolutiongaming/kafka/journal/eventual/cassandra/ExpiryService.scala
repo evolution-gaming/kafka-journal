@@ -45,7 +45,7 @@ private[journal] object ExpiryService {
   }
 
   def apply[F[_]: BracketThrowable](
-    zoneId: ZoneId,
+      zoneId: ZoneId,
   ): ExpiryService[F] = {
 
     new ExpiryService[F] {

@@ -18,9 +18,9 @@ import com.evolutiongaming.scassandra.TableName
  * @param setting used to track schema migrations, see [[SetupSchema]] and [[MigrateSchema]] for details
  */
 private[journal] final case class Schema(
-  journal: TableName,
-  metaJournal: TableName,
-  pointer: TableName, // TODO MR remove with next major release
-  pointer2: TableName,
-  setting: TableName,
+    journal: TableName,
+    metaJournal: TableName,
+    pointer: TableName, // TODO MR remove with next major release
+    pointer2: TableName,
+    setting: TableName,
 )

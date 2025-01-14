@@ -60,12 +60,12 @@ object StreamActionRecords {
     *   Underlying reader of Kafka records.
     */
   def apply[F[_]: BracketThrowable](
-    // TODO add range argument
-    key: Key,
-    from: SeqNr,
-    marker: Marker,
-    offsetReplicated: Option[Offset],
-    consumeActionRecords: ConsumeActionRecords[F],
+      // TODO add range argument
+      key: Key,
+      from: SeqNr,
+      marker: Marker,
+      offsetReplicated: Option[Offset],
+      consumeActionRecords: ConsumeActionRecords[F],
   ): StreamActionRecords[F] = {
 
     // TODO compare partitions !

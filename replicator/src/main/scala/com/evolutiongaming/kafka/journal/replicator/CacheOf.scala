@@ -40,8 +40,8 @@ private[journal] object CacheOf {
   }
 
   def apply[F[_]: Temporal: Runtime: Parallel: MeasureDuration](
-    expireAfter: FiniteDuration,
-    cacheMetrics: Option[CacheMetrics.Name => CacheMetrics[F]],
+      expireAfter: FiniteDuration,
+      cacheMetrics: Option[CacheMetrics.Name => CacheMetrics[F]],
   ): CacheOf[F] = {
     class Main
     new Main with CacheOf[F] {

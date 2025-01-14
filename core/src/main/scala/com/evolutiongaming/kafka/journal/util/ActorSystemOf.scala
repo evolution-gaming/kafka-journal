@@ -10,8 +10,8 @@ import com.typesafe.config.Config
 private[journal] object ActorSystemOf {
 
   def apply[F[_]: Sync: FromFuture](
-    name: String,
-    config: Option[Config] = None,
+      name: String,
+      config: Option[Config] = None,
   ): Resource[F, ActorSystem] = {
 
     val system = Sync[F].delay { config.fold(ActorSystem(name)) { config => ActorSystem(name, config) } }

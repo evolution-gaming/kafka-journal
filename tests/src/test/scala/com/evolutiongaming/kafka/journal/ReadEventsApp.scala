@@ -45,9 +45,9 @@ object ReadEventsApp extends IOApp {
   }
 
   private def runF[F[
-    _,
+      _,
   ]: Async: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](
-    log: Log[F],
+      log: Log[F],
   ): F[Unit] = {
 
     implicit val kafkaConsumerOf = KafkaConsumerOf[F]()

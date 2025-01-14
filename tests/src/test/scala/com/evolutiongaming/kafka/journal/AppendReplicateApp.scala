@@ -40,7 +40,7 @@ object AppendReplicateApp extends IOApp {
   }
 
   private def runF[
-    F[_]: Async: Parallel: ToFuture: FromGFuture: MeasureDuration: FromAttempt: FromTry: ToTry: Fail,
+      F[_]: Async: Parallel: ToFuture: FromGFuture: MeasureDuration: FromAttempt: FromTry: ToTry: Fail,
   ](topic: Topic)(implicit system: ActorSystem): F[Unit] = {
 
     implicit val logOf      = LogOfFromAkka[F](system)
@@ -53,8 +53,8 @@ object AppendReplicateApp extends IOApp {
       .liftTo[F]
 
     def journal(config: JournalConfig, hostName: Option[HostName], log: Log[F])(
-      implicit kafkaConsumerOf: KafkaConsumerOf[F],
-      kafkaProducerOf: KafkaProducerOf[F],
+        implicit kafkaConsumerOf: KafkaConsumerOf[F],
+        kafkaProducerOf: KafkaProducerOf[F],
     ) = {
 
       for {
@@ -99,7 +99,7 @@ object AppendReplicateApp extends IOApp {
   }
 
   private def append[F[_]: Concurrent: Sleep: Parallel](topic: Topic, journals: Journals[F])(
-    implicit kafkaWrite: KafkaWrite[F, Payload],
+      implicit kafkaWrite: KafkaWrite[F, Payload],
   ) = {
 
     def append(id: String) = {

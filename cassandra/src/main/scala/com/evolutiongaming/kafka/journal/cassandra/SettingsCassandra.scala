@@ -12,8 +12,8 @@ import com.evolutiongaming.sstream.Stream
 private[journal] object SettingsCassandra {
 
   def apply[F[_]: Monad: Clock](
-    statements: Statements[F],
-    origin: Option[Origin],
+      statements: Statements[F],
+      origin: Option[Origin],
   ): Settings[F] = new Settings[F] {
 
     def get(key: K): F[Option[Setting]] = {
@@ -46,9 +46,9 @@ private[journal] object SettingsCassandra {
   }
 
   def of[F[_]: Monad: Parallel: Clock: CassandraSession](
-    table: TableName,
-    origin: Option[Origin],
-    consistencyConfig: CassandraConsistencyConfig,
+      table: TableName,
+      origin: Option[Origin],
+      consistencyConfig: CassandraConsistencyConfig,
   ): F[Settings[F]] = {
     for {
       statements <- Statements.of[F](table, consistencyConfig)
@@ -58,16 +58,16 @@ private[journal] object SettingsCassandra {
   }
 
   final case class Statements[F[_]](
-    select: SettingStatements.Select[F],
-    insert: SettingStatements.Insert[F],
-    all: SettingStatements.All[F],
-    delete: SettingStatements.Delete[F],
+      select: SettingStatements.Select[F],
+      insert: SettingStatements.Insert[F],
+      all: SettingStatements.All[F],
+      delete: SettingStatements.Delete[F],
   )
 
   object Statements {
     def of[F[_]: Monad: Parallel: CassandraSession](
-      table: TableName,
-      consistencyConfig: CassandraConsistencyConfig,
+        table: TableName,
+        consistencyConfig: CassandraConsistencyConfig,
     ): F[Statements[F]] = {
 
       val statements = (

@@ -69,8 +69,8 @@ object ReplicatedTopicJournal {
     }
 
     def withLog(
-      topic: Topic,
-      log: Log[F],
+        topic: Topic,
+        log: Log[F],
     )(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedTopicJournal[F] = {
       new WithLog with ReplicatedTopicJournal[F] {
 
@@ -83,8 +83,8 @@ object ReplicatedTopicJournal {
     }
 
     def withMetrics(
-      topic: Topic,
-      metrics: ReplicatedJournal.Metrics[F],
+        topic: Topic,
+        metrics: ReplicatedJournal.Metrics[F],
     )(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedTopicJournal[F] = {
       new WithMetrics with ReplicatedTopicJournal[F] {
 

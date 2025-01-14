@@ -185,8 +185,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   }
 
   def adapterIO[A](
-    serializer: EventSerializer[IO, A],
-    journalReadWrite: JournalReadWrite[IO, A],
+      serializer: EventSerializer[IO, A],
+      journalReadWrite: JournalReadWrite[IO, A],
   ): Resource[IO, JournalAdapter[IO]] = {
     for {
       config  <- kafkaJournalConfig.toResource
@@ -195,9 +195,9 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   }
 
   def adapterIO[A](
-    config: KafkaJournalConfig,
-    serializer: EventSerializer[IO, A],
-    journalReadWrite: JournalReadWrite[IO, A],
+      config: KafkaJournalConfig,
+      serializer: EventSerializer[IO, A],
+      journalReadWrite: JournalReadWrite[IO, A],
   ): Resource[IO, JournalAdapter[IO]] = {
     for {
       logOf <- logOf
@@ -259,21 +259,21 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   }
 
   def adapterOf[A](
-    toKey: ToKey[IO],
-    origin: Option[Origin],
-    serializer: EventSerializer[IO, A],
-    journalReadWrite: JournalReadWrite[IO, A],
-    config: KafkaJournalConfig,
-    metrics: JournalAdapter.Metrics[IO],
-    appendMetadataOf: AppendMetadataOf[IO],
-    batching: Batching[IO],
-    log: Log[IO],
-    cassandraClusterOf: CassandraClusterOf[IO],
+      toKey: ToKey[IO],
+      origin: Option[Origin],
+      serializer: EventSerializer[IO, A],
+      journalReadWrite: JournalReadWrite[IO, A],
+      config: KafkaJournalConfig,
+      metrics: JournalAdapter.Metrics[IO],
+      appendMetadataOf: AppendMetadataOf[IO],
+      batching: Batching[IO],
+      log: Log[IO],
+      cassandraClusterOf: CassandraClusterOf[IO],
   )(
-    implicit logOf: LogOf[IO],
-    randomIdOf: RandomIdOf[IO],
-    measureDuration: MeasureDuration[IO],
-    jsonCodec: JsonCodec[IO],
+      implicit logOf: LogOf[IO],
+      randomIdOf: RandomIdOf[IO],
+      measureDuration: MeasureDuration[IO],
+      jsonCodec: JsonCodec[IO],
   ): Resource[IO, JournalAdapter[IO]] = {
 
     JournalAdapter.make[IO, A](
@@ -308,7 +308,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   }
 
   def asyncReplayMessages(persistenceId: PersistenceId, from: Long, to: Long, max: Long)(
-    f: PersistentRepr => Unit,
+      f: PersistentRepr => Unit,
   ): Future[Unit] = {
     val seqNrFrom = SeqNr
       .of[Option](from)

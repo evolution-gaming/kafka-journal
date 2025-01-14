@@ -32,16 +32,16 @@ object CassandraSession {
   def apply[F[_]](implicit F: CassandraSession[F]): CassandraSession[F] = F
 
   def apply[F[_]](
-    session: CassandraSession[F],
-    retries: Int,
-    trace: Boolean = false,
+      session: CassandraSession[F],
+      retries: Int,
+      trace: Boolean = false,
   ): CassandraSession[F] = {
     val retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries))
     session.configured(retryPolicy, trace)
   }
 
   private def apply[F[_]: Async: FromGFuture](
-    session: scassandra.CassandraSession[F],
+      session: scassandra.CassandraSession[F],
   ): CassandraSession[F] = {
     new CassandraSession[F] {
 
@@ -60,7 +60,7 @@ object CassandraSession {
   }
 
   def make[F[_]: Async: Parallel: FromGFuture](
-    session: scassandra.CassandraSession[F],
+      session: scassandra.CassandraSession[F],
   ): Resource[F, CassandraSession[F]] = {
     apply[F](session)
       .enhanceError
@@ -70,8 +70,8 @@ object CassandraSession {
   implicit class CassandraSessionOps[F[_]](val self: CassandraSession[F]) extends AnyVal {
 
     def configured(
-      retryPolicy: RetryPolicy,
-      trace: Boolean,
+        retryPolicy: RetryPolicy,
+        trace: Boolean,
     ): CassandraSession[F] = new CassandraSession[F] {
 
       def prepare(query: String) = {

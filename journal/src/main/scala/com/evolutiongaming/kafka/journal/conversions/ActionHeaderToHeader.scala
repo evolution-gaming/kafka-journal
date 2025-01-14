@@ -13,7 +13,7 @@ trait ActionHeaderToHeader[F[_]] {
 object ActionHeaderToHeader {
 
   implicit def apply[F[_]: ApplicativeThrowable](
-    implicit actionHeaderToBytes: ToBytes[F, ActionHeader],
+      implicit actionHeaderToBytes: ToBytes[F, ActionHeader],
   ): ActionHeaderToHeader[F] = { (actionHeader: ActionHeader) =>
     {
       val result = for {

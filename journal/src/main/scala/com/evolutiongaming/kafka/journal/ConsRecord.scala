@@ -7,12 +7,12 @@ import scodec.bits.ByteVector
 object ConsRecord {
 
   def apply(
-    topicPartition: TopicPartition,
-    offset: Offset,
-    timestampAndType: Option[TimestampAndType],
-    key: Option[WithSize[String]]       = None,
-    value: Option[WithSize[ByteVector]] = None,
-    headers: List[Header]               = Nil,
+      topicPartition: TopicPartition,
+      offset: Offset,
+      timestampAndType: Option[TimestampAndType],
+      key: Option[WithSize[String]]       = None,
+      value: Option[WithSize[ByteVector]] = None,
+      headers: List[Header]               = Nil,
   ): ConsRecord = {
 
     ConsumerRecord(

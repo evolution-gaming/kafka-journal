@@ -23,10 +23,10 @@ private[journal] trait TopicConsumer[F[_]] {
 private[journal] object TopicConsumer {
 
   def apply[F[_]: Monad](
-    topic: Topic,
-    pollTimeout: FiniteDuration,
-    commit: TopicCommit[F],
-    consumer: KafkaConsumer[F, String, ByteVector],
+      topic: Topic,
+      pollTimeout: FiniteDuration,
+      commit: TopicCommit[F],
+      consumer: KafkaConsumer[F, String, ByteVector],
   ): TopicConsumer[F] = {
 
     val commit1 = commit

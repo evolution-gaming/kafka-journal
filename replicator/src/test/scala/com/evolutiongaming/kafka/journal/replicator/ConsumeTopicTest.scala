@@ -126,8 +126,8 @@ object ConsumeTopicTest {
   val partitions: Nes[Partition] = Nes.of(Partition.min)
 
   final case class State(
-    commands: List[Command] = List.empty,
-    actions: List[Action]   = List.empty,
+      commands: List[Command] = List.empty,
+      actions: List[Action]   = List.empty,
   ) {
 
     def +(action: Action): State = copy(actions = action :: actions)
@@ -317,8 +317,8 @@ object ConsumeTopicTest {
   }
 
   def recordOf(
-    partition: Int,
-    offset: Long,
+      partition: Int,
+      offset: Long,
   ): ConsRecord = {
     ConsRecord(
       topicPartition   = TopicPartition(topic = topic, partition = Partition.unsafe(partition)),

@@ -15,8 +15,8 @@ trait ActionToProducerRecord[F[_]] {
 object ActionToProducerRecord {
 
   implicit def apply[F[_]: MonadThrowable](
-    implicit actionHeaderToHeader: ActionHeaderToHeader[F],
-    tupleToHeader: TupleToHeader[F],
+      implicit actionHeaderToHeader: ActionHeaderToHeader[F],
+      tupleToHeader: TupleToHeader[F],
   ): ActionToProducerRecord[F] = { (action: Action) =>
     {
       val key = action.key

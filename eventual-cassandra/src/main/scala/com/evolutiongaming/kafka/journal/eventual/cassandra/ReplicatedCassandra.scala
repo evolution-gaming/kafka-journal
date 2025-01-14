@@ -29,11 +29,11 @@ private[journal] object ReplicatedCassandra {
   private sealed abstract class Main
 
   def of[
-    F[_]: Async: Parallel: ToTry: LogOf: Fail: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Encode,
+      F[_]: Async: Parallel: ToTry: LogOf: Fail: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Encode,
   ](
-    config: EventualCassandraConfig,
-    origin: Option[Origin],
-    metrics: Option[ReplicatedJournal.Metrics[F]],
+      config: EventualCassandraConfig,
+      origin: Option[Origin],
+      metrics: Option[ReplicatedJournal.Metrics[F]],
   ): F[ReplicatedJournal[F]] = {
 
     for {
@@ -52,10 +52,10 @@ private[journal] object ReplicatedCassandra {
   }
 
   def apply[F[_]: Sync: Parallel: Fail: UUIDGen](
-    segmentSizeDefault: SegmentSize,
-    segmentNrsOf: SegmentNrs.Of[F],
-    statements: Statements[F],
-    expiryService: ExpiryService[F],
+      segmentSizeDefault: SegmentSize,
+      segmentNrsOf: SegmentNrs.Of[F],
+      statements: Statements[F],
+      expiryService: ExpiryService[F],
   ): ReplicatedJournal[F] = {
 
     new Main with ReplicatedJournal[F] {
@@ -134,10 +134,10 @@ private[journal] object ReplicatedCassandra {
                     new Main with ReplicatedKeyJournal[F] {
 
                       def append(
-                        offset: Offset,
-                        timestamp: Instant,
-                        expireAfter: Option[ExpireAfter],
-                        events: Nel[EventRecord[EventualPayloadAndType]],
+                          offset: Offset,
+                          timestamp: Instant,
+                          expireAfter: Option[ExpireAfter],
+                          events: Nel[EventRecord[EventualPayloadAndType]],
                       ): F[Changed] = {
 
                         def partitionOffset = PartitionOffset(partition, offset)
@@ -146,9 +146,9 @@ private[journal] object ReplicatedCassandra {
 
                           @tailrec
                           def loop(
-                            events: List[EventRecord[EventualPayloadAndType]],
-                            s: Option[(Segment, Nel[EventRecord[EventualPayloadAndType]])],
-                            result: F[Unit],
+                              events: List[EventRecord[EventualPayloadAndType]],
+                              s: Option[(Segment, Nel[EventRecord[EventualPayloadAndType]])],
+                              result: F[Unit],
                           ): F[Unit] = {
 
                             def insert(segment: Segment, events: Nel[EventRecord[EventualPayloadAndType]]) = {
@@ -280,10 +280,10 @@ private[journal] object ReplicatedCassandra {
                       }
 
                       def delete(
-                        offset: Offset,
-                        timestamp: Instant,
-                        deleteTo: DeleteTo,
-                        origin: Option[Origin],
+                          offset: Offset,
+                          timestamp: Instant,
+                          deleteTo: DeleteTo,
+                          origin: Option[Origin],
                       ): F[Changed] = {
 
                         def partitionOffset = PartitionOffset(partition, offset)
@@ -381,8 +381,8 @@ private[journal] object ReplicatedCassandra {
                       }
 
                       def purge(
-                        offset: Offset,
-                        timestamp: Instant,
+                          offset: Offset,
+                          timestamp: Instant,
                       ): F[Changed] = {
                         for {
                           journalHead <- journalHeadRef.get
@@ -478,15 +478,15 @@ private[journal] object ReplicatedCassandra {
   private[journal] object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
-      schema: Schema,
-      consistencyConfig: CassandraConsistencyConfig,
+        schema: Schema,
+        consistencyConfig: CassandraConsistencyConfig,
     ): F[MetaJournalStatements[F]] = {
       of[F](schema.metaJournal, consistencyConfig)
     }
 
     def of[F[_]: Monad: CassandraSession](
-      metaJournal: TableName,
-      consistencyConfig: CassandraConsistencyConfig,
+        metaJournal: TableName,
+        consistencyConfig: CassandraConsistencyConfig,
     ): F[MetaJournalStatements[F]] = {
 
       for {
@@ -517,15 +517,15 @@ private[journal] object ReplicatedCassandra {
     private sealed abstract class MetaJournal
 
     def apply[F[_]](
-      selectJournalHead: cassandra.MetaJournalStatements.SelectJournalHead[F],
-      insert: cassandra.MetaJournalStatements.Insert[F],
-      update: cassandra.MetaJournalStatements.Update[F],
-      updateSeqNr: cassandra.MetaJournalStatements.UpdateSeqNr[F],
-      updateExpiry: cassandra.MetaJournalStatements.UpdateExpiry[F],
-      updateDeleteTo: cassandra.MetaJournalStatements.UpdateDeleteTo[F],
-      updatePartitionOffset: cassandra.MetaJournalStatements.UpdatePartitionOffset[F],
-      delete: cassandra.MetaJournalStatements.Delete[F],
-      deleteExpiry: cassandra.MetaJournalStatements.DeleteExpiry[F],
+        selectJournalHead: cassandra.MetaJournalStatements.SelectJournalHead[F],
+        insert: cassandra.MetaJournalStatements.Insert[F],
+        update: cassandra.MetaJournalStatements.Update[F],
+        updateSeqNr: cassandra.MetaJournalStatements.UpdateSeqNr[F],
+        updateExpiry: cassandra.MetaJournalStatements.UpdateExpiry[F],
+        updateDeleteTo: cassandra.MetaJournalStatements.UpdateDeleteTo[F],
+        updatePartitionOffset: cassandra.MetaJournalStatements.UpdatePartitionOffset[F],
+        delete: cassandra.MetaJournalStatements.Delete[F],
+        deleteExpiry: cassandra.MetaJournalStatements.DeleteExpiry[F],
     ): MetaJournalStatements[F] = {
 
       val inset1        = insert
@@ -608,17 +608,17 @@ private[journal] object ReplicatedCassandra {
   }
 
   private[journal] final case class Statements[F[_]](
-    insertRecords: JournalStatements.InsertRecords[F],
-    deleteRecordsTo: JournalStatements.DeleteTo[F],
-    deleteRecords: JournalStatements.Delete[F],
-    metaJournal: MetaJournalStatements[F],
-    selectOffset2: Pointer2Statements.SelectOffset[F],
-    selectPointer2: Pointer2Statements.Select[F],
-    insertPointer: PointerStatements.Insert[F],
-    insertPointer2: Pointer2Statements.Insert[F],
-    updatePointer: PointerStatements.Update[F],
-    updatePointer2: Pointer2Statements.Update[F],
-    selectTopics2: Pointer2Statements.SelectTopics[F],
+      insertRecords: JournalStatements.InsertRecords[F],
+      deleteRecordsTo: JournalStatements.DeleteTo[F],
+      deleteRecords: JournalStatements.Delete[F],
+      metaJournal: MetaJournalStatements[F],
+      selectOffset2: Pointer2Statements.SelectOffset[F],
+      selectPointer2: Pointer2Statements.Select[F],
+      insertPointer: PointerStatements.Insert[F],
+      insertPointer2: Pointer2Statements.Insert[F],
+      updatePointer: PointerStatements.Update[F],
+      updatePointer2: Pointer2Statements.Update[F],
+      selectTopics2: Pointer2Statements.SelectTopics[F],
   )
 
   private[journal] object Statements {
@@ -626,8 +626,8 @@ private[journal] object ReplicatedCassandra {
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
     def of[F[_]: Monad: CassandraSession: ToTry: JsonCodec.Encode](
-      schema: Schema,
-      consistencyConfig: CassandraConsistencyConfig,
+        schema: Schema,
+        consistencyConfig: CassandraConsistencyConfig,
     ): F[Statements[F]] = {
       for {
         insertRecords   <- JournalStatements.InsertRecords.of[F](schema.journal, consistencyConfig.write)

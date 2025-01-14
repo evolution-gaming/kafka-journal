@@ -28,11 +28,11 @@ trait PurgeExpired[F[_]] {
 object PurgeExpired {
 
   def make[F[_]: MonadThrowable: KafkaProducerOf: CassandraSession: FromTry: Fail: Clock: MeasureDuration: JsonCodec.Encode](
-    origin: Option[Origin],
-    producerConfig: ProducerConfig,
-    tableName: TableName,
-    metrics: Option[Metrics[F]],
-    consistencyConfig: CassandraConsistencyConfig.Read,
+      origin: Option[Origin],
+      producerConfig: ProducerConfig,
+      tableName: TableName,
+      metrics: Option[Metrics[F]],
+      consistencyConfig: CassandraConsistencyConfig.Read,
   ): Resource[F, PurgeExpired[F]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
@@ -49,8 +49,8 @@ object PurgeExpired {
   }
 
   def apply[F[_]: Monad](
-    selectExpired: MetaJournalStatements.IdByTopicAndExpireOn[F],
-    produce: Produce[F],
+      selectExpired: MetaJournalStatements.IdByTopicAndExpireOn[F],
+      produce: Produce[F],
   ): PurgeExpired[F] = {
 
     new PurgeExpired[F] {
@@ -129,8 +129,8 @@ object PurgeExpired {
     def const[F[_]](unit: F[Unit]): Metrics[F] = (_: Topic, _: FiniteDuration, _: Long) => unit
 
     def make[F[_]: Monad](
-      registry: CollectorRegistry[F],
-      prefix: String = "purge_expired",
+        registry: CollectorRegistry[F],
+        prefix: String = "purge_expired",
     ): Resource[F, Metrics[F]] = {
 
       val latencySummary = registry.summary(
