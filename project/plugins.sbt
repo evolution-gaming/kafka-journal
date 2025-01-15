@@ -12,6 +12,6 @@ addSbtPlugin("ch.epfl.scala" % "sbt-version-policy" % "3.2.1")
 
 addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.13.0")
 
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.3")
 
 addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")
