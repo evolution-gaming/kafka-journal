@@ -117,7 +117,7 @@ object DistributeJob {
         Defer[F].defer {
           jobs.parFoldMap1 {
             case (name, (_, release)) =>
-              release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
+              release.handleErrorWith { e => log.error(s"release failed, job: $name, error: $e", e) }
           }
         }
       }
@@ -159,7 +159,7 @@ object DistributeJob {
                 .parTraverse {
                   case (name, (job, release)) =>
                     for {
-                      _ <- release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
+                      _ <- release.handleErrorWith { e => log.error(s"release failed, job: $name, error: $e", e) }
                       a <- job(partitions) match {
                         case Some(job) =>
                           job
@@ -227,7 +227,7 @@ object DistributeJob {
                           .jobs
                           .parFoldMap1 {
                             case (name, (_, release)) =>
-                              release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
+                              release.handleErrorWith { e => log.error(s"release failed, job: $name, error: $e", e) }
                           }
                       }
                       val jobs = s.jobs.map { case (name, (job, _)) => (name, job) }
