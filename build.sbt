@@ -7,13 +7,12 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://evolution.com")),
   homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
-  crossScalaVersions := Seq("2.13.15"),
+  crossScalaVersions := Seq("2.13.16"),
   scalaVersion := crossScalaVersions.value.head,
   scalacOptions ++= Seq(
     "-release:17",
     "-deprecation",
     "-Xsource:3",
-    "-Wconf:cat=unused-pat-vars:s", // workaround for https://github.com/scala/bug/issues/13041 (since 2.13.15)
   ),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
