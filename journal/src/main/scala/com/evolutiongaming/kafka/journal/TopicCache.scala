@@ -210,7 +210,7 @@ private[journal] object TopicCache {
               }
           } yield result
         }
-        .onError { case a => log.error(s"consuming failed with $a", a) } /*TODO headcache: fail head cache*/
+        .onError { case e => log.error(s"consuming failed with $e", e) } /*TODO headcache: fail head cache*/
         .background
       random <- Random.State.fromClock[F]().toResource
       strategy = Strategy
@@ -221,7 +221,7 @@ private[journal] object TopicCache {
         .sleep(config.removeInterval)
         .productR { remove }
         .retry(strategy)
-        .handleErrorWith { a => log.error(s"remove failed, error: $a", a) }
+        .handleErrorWith { e => log.error(s"remove failed, error: $e", e) }
         .foreverM[Unit]
         .background
       _ <- metrics.foldMapM { metrics =>
@@ -231,7 +231,7 @@ private[journal] object TopicCache {
           a <- metrics.meters(topic, entries = a.entries, listeners = a.listeners)
         } yield a
         result
-          .handleErrorWith { a => log.error(s"metrics.listeners failed, error: $a", a) }
+          .handleErrorWith { e => log.error(s"metrics.listeners failed, error: $e", e) }
           .foreverM[Unit]
           .background
           .void

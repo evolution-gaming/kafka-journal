@@ -138,7 +138,7 @@ private[journal] object Batch {
               case None => state
             }
 
-          case Some(next: Delete) =>
+          case Some(_: Delete) =>
             val record  = ActionRecord(append, partitionOffset)
             val appends = Appends(partitionOffset.offset, NonEmptyList.one(record))
             state.prepend(appends)

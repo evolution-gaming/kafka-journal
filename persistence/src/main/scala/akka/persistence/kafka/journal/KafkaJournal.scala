@@ -251,7 +251,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
             case (adapter, release0) =>
               val release = release0
                 .timeout(config.startTimeout)
-                .handleErrorWith { error => log.error(s"release failed with $error", error) }
+                .handleErrorWith { e => log.error(s"release failed with $e", e) }
               (adapter, release)
           }
       }

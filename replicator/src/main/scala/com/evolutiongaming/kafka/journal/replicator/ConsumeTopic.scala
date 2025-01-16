@@ -82,7 +82,7 @@ private[journal] object ConsumeTopic {
                           .traverse { offsets =>
                             consumer
                               .commit(offsets)
-                              .handleErrorWith { a => log.error(s"commit failed for $offsets: $a") }
+                              .handleErrorWith { e => log.error(s"commit failed for $offsets: $e", e) }
                           }
                       } yield {}
                     }
