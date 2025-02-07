@@ -57,9 +57,10 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics   = List(topic),
-            commits  = List(Nem.of((0, 5), (1, 5))),
-            pointers = Map((topic, Map((0, 4L), (1, 4L)))),
+            topics                        = List(topic),
+            commits                       = List(Nem.of((0, 5), (1, 5))),
+            pointers                      = Map((topic, Map((0, 4L), (1, 4L)))),
+            replicatedOffsetNotifications = Map((topic, Map((0, Vector(4L)), (1, Vector(4L))))),
             journal = Map(
               ("0-0", List(record(seqNr = 1, partition = 0, offset = 1), record(seqNr = 2, partition = 0, offset = 3))),
               (
@@ -113,9 +114,10 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(state).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics   = List(topic),
-            commits  = List(Nem.of((0, 2))),
-            pointers = Map((topic, Map((0, 1L)))),
+            topics                        = List(topic),
+            commits                       = List(Nem.of((0, 2))),
+            pointers                      = Map((topic, Map((0, 1L)))),
+            replicatedOffsetNotifications = Map((topic, Map((0, Vector(1L))))),
             journal = Map(
               (
                 "id",
@@ -173,7 +175,8 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
               Nem.of((0, 3)),
               Nem.of((0, 2)),
             ),
-            pointers = Map((topic, Map((0, 4L), (1, 4L)))),
+            pointers                      = Map((topic, Map((0, 4L), (1, 4L)))),
+            replicatedOffsetNotifications = Map((topic, Map((0, Vector(1L, 2L, 3L, 4L)), (1, Vector(1L, 2L, 3L, 4L))))),
             journal = Map(
               ("0-0", List(record(seqNr = 2, partition = 0, offset = 3), record(seqNr = 1, partition = 0, offset = 1))),
               (
@@ -270,9 +273,10 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics   = List(topic),
-            commits  = List(Nem.of((0, 10), (1, 10), (2, 10))),
-            pointers = Map((topic, Map((0, 9L), (1, 9L), (2, 9L)))),
+            topics                        = List(topic),
+            commits                       = List(Nem.of((0, 10), (1, 10), (2, 10))),
+            pointers                      = Map((topic, Map((0, 9L), (1, 9L), (2, 9L)))),
+            replicatedOffsetNotifications = Map((topic, Map((0, Vector(9L)), (1, Vector(9L)), (2, Vector(9L))))),
             journal = Map(
               ("0-0", List(record(seqNr = 1, partition = 0, offset = 1), record(seqNr = 2, partition = 0, offset = 5))),
               (
@@ -353,6 +357,39 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       }
     }
 
+    "replicate when mark only" in {
+      val tp0 = topicPartitionOf(0)
+      val tp1 = topicPartitionOf(1)
+
+      def keyOf(tp: TopicPartition, id: String) = Key(id = s"${tp.partition}-$id", topic = tp.topic)
+
+      val records = ConsumerRecords(
+        Map(
+          tp0 -> Nel.of(
+            consumerRecordOf(markOf(keyOf(tp0, "1")), tp0, offset = 1L),
+          ),
+          tp1 -> Nel.of(
+            consumerRecordOf(markOf(keyOf(tp1, "1")), tp1, offset = 10L),
+            consumerRecordOf(markOf(keyOf(tp1, "2")), tp1, offset = 11L),
+          ),
+        ),
+      )
+
+      val data = State(records = List(records))
+      topicReplicator.run(data).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics                        = List(topic),
+            commits                       = List(Nem.of(0 -> 2L, 1 -> 12L)),
+            pointers                      = Map(topic -> Map(0 -> 1L, 1 -> 11L)),
+            replicatedOffsetNotifications = Map(topic -> Map(0 -> Vector(1L), 1 -> Vector(11L))),
+            journal                       = Map.empty,
+            metaJournal                   = Map.empty,
+            metrics                       = List(Metrics.Round(records = 3)),
+          )
+      }
+    }
+
     "replicate appends and deletes" in {
       val records = {
         val records = for {
@@ -406,9 +443,10 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics   = List(topic),
-            commits  = List(Nem.of((0, 11), (1, 11))),
-            pointers = Map((topic, Map((0, 10L), (1, 10L)))),
+            topics                        = List(topic),
+            commits                       = List(Nem.of((0, 11), (1, 11))),
+            pointers                      = Map((topic, Map((0, 10L), (1, 10L)))),
+            replicatedOffsetNotifications = Map((topic, Map((0, Vector(10L)), (1, Vector(10L))))),
             journal = Map(
               ("0-0", List(record(seqNr = 1, partition = 0, offset = 1), record(seqNr = 2, partition = 0, offset = 5))),
               ("0-1", List(record(seqNr = 3, partition = 0, offset = 8))),
@@ -522,7 +560,8 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
               Nem.of((0, 3)),
               Nem.of((0, 2)),
             ),
-            pointers = Map((topic, Map((0, 12L)))),
+            pointers                      = Map((topic, Map((0, 12L)))),
+            replicatedOffsetNotifications = Map((topic, Map((0, Vector(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))))),
             journal = Map(
               ("0-0", Nil),
               (
@@ -614,9 +653,10 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics   = List(topic),
-            commits  = List(Nem.of((0, 4), (1, 4), (2, 4))),
-            pointers = Map((topic, Map((0, 3L), (1, 3L), (2, 3L)))),
+            topics                        = List(topic),
+            commits                       = List(Nem.of((0, 4), (1, 4), (2, 4))),
+            pointers                      = Map((topic, Map((0, 3L), (1, 3L), (2, 3L)))),
+            replicatedOffsetNotifications = Map((topic, Map((0, Vector(3L)), (1, Vector(3L)), (2, Vector(3L))))),
             journal = Map(
               ("0-0", List(record(seqNr = 2, partition = 0, offset = 2))),
               (
@@ -685,10 +725,11 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
         .map {
           case (result, _) =>
             result shouldEqual State(
-              topics   = List(topic),
-              commits  = List(Nem.of((0, 2))),
-              pointers = Map((topic, Map((0, 1L)))),
-              metrics  = List(Metrics.Round(records = 2), Metrics.Purge(actions = 1)),
+              topics                        = List(topic),
+              commits                       = List(Nem.of((0, 2))),
+              pointers                      = Map((topic, Map((0, 1L)))),
+              replicatedOffsetNotifications = Map((topic, Map((0, Vector(1L))))),
+              metrics                       = List(Metrics.Round(records = 2), Metrics.Purge(actions = 1)),
             )
         }
         .unsafeToFuture()
@@ -919,6 +960,13 @@ object TopicReplicatorSpec {
     def topics = SortedSet.empty[Topic].pure[StateT]
   }
 
+  val replicatedOffsetNotifier: ReplicatedOffsetNotifier[StateT] =
+    (topicPartition: TopicPartition, offset: Offset) => {
+      StateT.unit { state =>
+        state.addReplicatedOffsetNotification(topicPartition, offset.value)
+      }
+    }
+
   implicit val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
     def subscribe(listener: RebalanceListener1[StateT]) = {
@@ -1012,17 +1060,19 @@ object TopicReplicatorSpec {
       metrics                  = metrics,
       log                      = Log.empty[StateT],
       cacheOf                  = CacheOf.empty[StateT],
+      replicatedOffsetNotifier = replicatedOffsetNotifier,
     )
   }
 
   final case class State(
-    topics: List[Topic]                                             = Nil,
-    commits: List[Nem[Int, Long]]                                   = Nil,
-    records: List[ConsRecords]                                      = Nil,
-    pointers: Map[Topic, Map[Int, Long]]                            = Map.empty,
-    journal: Map[String, List[EventRecord[EventualPayloadAndType]]] = Map.empty,
-    metaJournal: Map[String, MetaJournal]                           = Map.empty,
-    metrics: List[Metrics]                                          = Nil,
+    topics: List[Topic]                                               = Nil,
+    commits: List[Nem[Int, Long]]                                     = Nil,
+    records: List[ConsRecords]                                        = Nil,
+    pointers: Map[Topic, Map[Int, Long]]                              = Map.empty,
+    replicatedOffsetNotifications: Map[Topic, Map[Int, Vector[Long]]] = Map.empty,
+    journal: Map[String, List[EventRecord[EventualPayloadAndType]]]   = Map.empty,
+    metaJournal: Map[String, MetaJournal]                             = Map.empty,
+    metrics: List[Metrics]                                            = Nil,
   ) { self =>
 
     def +(metrics: Metrics): (State, Unit) = {
@@ -1056,6 +1106,22 @@ object TopicReplicatorSpec {
         )
         copy(journal = self.journal.updated(id, records), metaJournal = self.metaJournal.updated(id, metaJournal))
       }
+    }
+
+    def addReplicatedOffsetNotification(topicPartition: TopicPartition, offset: Long): State = {
+      val topic                  = topicPartition.topic
+      val partition              = topicPartition.partition.value
+      val prevPartitionToOffsets = replicatedOffsetNotifications.getOrElse(topic, Map.empty)
+      val prevOffsets            = prevPartitionToOffsets.getOrElse(partition, Vector.empty)
+      copy(
+        replicatedOffsetNotifications = replicatedOffsetNotifications.updated(
+          topic,
+          prevPartitionToOffsets.updated(
+            partition,
+            prevOffsets :+ offset,
+          ),
+        ),
+      )
     }
   }
 
