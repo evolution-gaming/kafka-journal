@@ -56,8 +56,26 @@ object Replicator {
       cassandraCluster  <- CassandraCluster.make(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
       cassandraSession  <- cassandraCluster.session
       replicatedJournal <- replicatedJournal(cassandraCluster, cassandraSession).toResource
-      result            <- make(config, metrics, replicatedJournal, hostName)
+      result            <- make(config, metrics, replicatedJournal, hostName, ReplicatedOffsetNotifier.empty)
     } yield result
+  }
+
+  @deprecated(since = "4.1.7", message = "use 'make' version with added arguments")
+  def make[
+    F[_]: Temporal: Parallel: Runtime: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec,
+  ](
+    config: ReplicatorConfig,
+    metrics: Option[Metrics[F]],
+    journal: ReplicatedJournal[F],
+    hostName: Option[HostName],
+  ): Resource[F, F[Unit]] = {
+    make(
+      config                   = config,
+      metrics                  = metrics,
+      journal                  = journal,
+      hostName                 = hostName,
+      replicatedOffsetNotifier = ReplicatedOffsetNotifier.empty,
+    )
   }
 
   def make[
@@ -67,6 +85,7 @@ object Replicator {
     metrics: Option[Metrics[F]],
     journal: ReplicatedJournal[F],
     hostName: Option[HostName],
+    replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
   ): Resource[F, F[Unit]] = {
 
     val topicReplicator: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]] =
@@ -78,7 +97,7 @@ object Replicator {
           .fold { TopicReplicatorMetrics.empty[F] } { metrics => metrics(topic) }
 
         val cacheOf = CacheOf[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
-        TopicReplicator.make(topic, journal, consumer, metrics1, cacheOf)
+        TopicReplicator.make(topic, journal, consumer, metrics1, cacheOf, replicatedOffsetNotifier)
       }
 
     val consumer = Consumer.make[F](config.kafka.consumer)

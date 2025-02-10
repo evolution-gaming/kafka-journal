@@ -4,17 +4,17 @@ import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.*
 import cats.effect.implicits.*
 import cats.implicits.*
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.retry.Sleep
+import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
-import com.evolutiongaming.skafka.{Metadata, Offset, Partition, Topic}
 import scodec.bits.ByteVector
 
 import java.time.Instant
@@ -36,6 +36,7 @@ private[journal] object TopicReplicator {
     consumer: Resource[F, TopicConsumer[F]],
     metrics: TopicReplicatorMetrics[F],
     cacheOf: CacheOf[F],
+    replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
   ): Resource[F, F[Outcome[F, Throwable, Unit]]] = {
 
     implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
@@ -61,6 +62,7 @@ private[journal] object TopicReplicator {
         metrics                  = metrics,
         log                      = log,
         cacheOf                  = cacheOf,
+        replicatedOffsetNotifier = replicatedOffsetNotifier,
       )
     }
 
@@ -86,6 +88,7 @@ private[journal] object TopicReplicator {
     metrics: TopicReplicatorMetrics[F],
     log: Log[F],
     cacheOf: CacheOf[F],
+    replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
   ): F[Unit] = {
 
     trait PartitionFlow {
@@ -173,18 +176,19 @@ private[journal] object TopicReplicator {
                               result <- {
                                 val offset1 = records.maximumBy { _.offset }.offset
 
-                                def set = offsetRef.set(offset1.some)
+                                def setAndNotify = offsetRef.set(offset1.some) >>
+                                  replicatedOffsetNotifier.onReplicatedOffset(TopicPartition(topic, partition), offset1)
 
                                 offset.fold {
                                   for {
                                     a <- offsets.create(offset1, timestamp)
-                                    _ <- set
+                                    _ <- setAndNotify
                                   } yield a
                                 } { offset =>
                                   if (offset1 > offset) {
                                     for {
                                       a <- offsets.update(offset1, timestamp)
-                                      _ <- set
+                                      _ <- setAndNotify
                                     } yield a
                                   } else {
                                     ().pure[F]
