@@ -30,24 +30,42 @@ class ActionHeaderJsonSpec extends AnyFunSuite with Matchers {
       test(s"Append format, origin: $origin, payloadType: $payloadType, metadata: $metadataStr") {
         val range = SeqRange.unsafe(1, 5)
         val header =
-          ActionHeader.Append(range = range, origin = origin, version = none, payloadType = payloadType, metadata = metadata)
+          ActionHeader.Append(
+            range       = range,
+            origin      = origin,
+            version     = Version.obsolete,
+            payloadType = payloadType,
+            metadata    = metadata,
+          )
         verify(header, s"Append-$originStr-$payloadType-$metadataStr")
       }
     }
 
     test(s"Delete format, origin: $origin") {
-      val seqNr  = SeqNr.unsafe(3)
-      val header = ActionHeader.Delete(seqNr.toDeleteTo, origin, Version("0.0.1").some)
+      val seqNr = SeqNr.unsafe(3)
+      val version = origin match {
+        case Some(_) => Version("0.0.1")
+        case None    => Version.obsolete
+      }
+      val header = ActionHeader.Delete(seqNr.toDeleteTo, origin, version)
       verify(header, s"Delete-$originStr")
     }
 
     test(s"Purge format, origin: $origin") {
-      val header = ActionHeader.Purge(origin, none)
+      val version = origin match {
+        case Some(_) => Version("0.0.1")
+        case None    => Version.obsolete
+      }
+      val header = ActionHeader.Purge(origin, version)
       verify(header, s"Purge-$originStr")
     }
 
     test(s"Mark format, origin: $origin") {
-      val header = ActionHeader.Mark("id", origin, none)
+      val version = origin match {
+        case Some(_) => Version("0.0.1")
+        case None    => Version.obsolete
+      }
+      val header = ActionHeader.Mark("id", origin, version)
       verify(header, s"Mark-$originStr")
     }
   }

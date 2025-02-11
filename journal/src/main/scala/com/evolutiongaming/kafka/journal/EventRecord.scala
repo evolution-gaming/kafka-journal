@@ -14,7 +14,7 @@ final case class EventRecord[A](
   timestamp: Instant,
   partitionOffset: PartitionOffset,
   origin: Option[Origin],
-  version: Option[Version],
+  version: Version,
   metadata: RecordMetadata,
   headers: Headers,
 ) {
