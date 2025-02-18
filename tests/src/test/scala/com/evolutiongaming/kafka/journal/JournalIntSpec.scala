@@ -97,7 +97,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
             _         = pointer shouldEqual None
             anEvent   = event(seqNr)
             offset   <- journal.append(Nel.of(anEvent), recordMetadata, headers)
-            record    = EventRecord(anEvent, timestamp, offset, origin.some, version.some, recordMetadata, headers)
+            record    = EventRecord(anEvent, timestamp, offset, origin.some, version, recordMetadata, headers)
             partition = offset.partition
             events   <- journal.read
             _         = events shouldEqual List(record)
@@ -115,7 +115,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
             _         = events shouldEqual List.empty
             metadata  = recordMetadata.withExpireAfter(1.day.toExpireAfter.some)
             offset   <- journal.append(Nel.of(anEvent), metadata, headers)
-            record    = EventRecord(anEvent, timestamp, offset, origin.some, version.some, metadata, headers)
+            record    = EventRecord(anEvent, timestamp, offset, origin.some, version, metadata, headers)
             events   <- journal.read
             _         = events shouldEqual List(record)
             pointer  <- journal.delete(DeleteTo.max)
@@ -212,7 +212,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
             _       <- append
             offset  <- append
             records = events.map { event =>
-              EventRecord(event, timestamp, offset, origin.some, version.some, recordMetadata, headers)
+              EventRecord(event, timestamp, offset, origin.some, version, recordMetadata, headers)
             }
             partition = offset.partition
             events   <- journal.read
