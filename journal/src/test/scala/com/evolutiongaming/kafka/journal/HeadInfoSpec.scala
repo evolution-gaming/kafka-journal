@@ -66,7 +66,7 @@ class HeadInfoSpec extends AnyFunSuite with Matchers {
     ActionHeader.Append(
       range       = SeqRange.unsafe(from, to),
       origin      = None,
-      version     = Version.current.some,
+      version     = Version.current,
       payloadType = PayloadType.Json,
       metadata    = HeaderMetadata.empty,
     )
@@ -74,12 +74,12 @@ class HeadInfoSpec extends AnyFunSuite with Matchers {
 
   private def delete(seqNr: Int) = {
     val deleteTo = SeqNr.unsafe(seqNr).toDeleteTo
-    ActionHeader.Delete(deleteTo, none, Version.current.some)
+    ActionHeader.Delete(deleteTo, none, Version.current)
   }
 
-  private def mark = ActionHeader.Mark("id", none, Version.current.some)
+  private def mark = ActionHeader.Mark("id", none, Version.current)
 
-  private def purge = ActionHeader.Purge(none, Version.current.some)
+  private def purge = ActionHeader.Purge(none, Version.current)
 
   private def deleteInfo(seqNr: Int) = {
     val deleteTo = SeqNr.unsafe(seqNr).toDeleteTo

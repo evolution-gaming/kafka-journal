@@ -90,7 +90,7 @@ private[journal] object Produce {
             ActionHeader.Append(
               range       = range,
               origin      = origin,
-              version     = version.some,
+              version     = version,
               payloadType = payloadAndType.payloadType,
               metadata    = metadata,
             ),
@@ -109,7 +109,7 @@ private[journal] object Produce {
       def delete(key: Key, to: DeleteTo): F[PartitionOffset] = {
         for {
           timestamp <- Clock[F].instant
-          action     = Action.Delete(key, timestamp, to, origin, version.some)
+          action     = Action.Delete(key, timestamp, to, origin, version)
           result    <- send(action)
         } yield result
       }
@@ -117,7 +117,7 @@ private[journal] object Produce {
       def purge(key: Key): F[PartitionOffset] = {
         for {
           timestamp <- Clock[F].instant
-          action     = Action.Purge(key, timestamp, origin, version.some)
+          action     = Action.Purge(key, timestamp, origin, version)
           result    <- send(action)
         } yield result
       }
@@ -126,7 +126,7 @@ private[journal] object Produce {
         for {
           timestamp <- Clock[F].instant
           id         = randomId.value
-          action     = Action.Mark(key, timestamp, id, origin, version.some)
+          action     = Action.Mark(key, timestamp, id, origin, version)
           result    <- send(action)
         } yield result
       }
