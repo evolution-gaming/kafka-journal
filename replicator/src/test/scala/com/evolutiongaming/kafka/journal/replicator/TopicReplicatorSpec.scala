@@ -766,7 +766,7 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       timestamp,
       partitionOffset,
       origin.some,
-      version.some,
+      version,
       recordMetadata.withExpireAfter(expireAfter),
       headers,
     )
@@ -780,7 +780,7 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
         key       = key,
         timestamp = timestamp,
         origin    = origin.some,
-        version   = version.some,
+        version   = version,
         events = Events(
           events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) },
           recordMetadata.payload.copy(expireAfter = expireAfter),
@@ -792,15 +792,15 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
   }
 
   private def markOf(key: Key) = {
-    Action.Mark(key, timestamp, "id", origin.some, version.some)
+    Action.Mark(key, timestamp, "id", origin.some, version)
   }
 
   private def deleteOf(key: Key, to: Int) = {
-    Action.Delete(key, timestamp, SeqNr.unsafe(to).toDeleteTo, origin.some, version.some)
+    Action.Delete(key, timestamp, SeqNr.unsafe(to).toDeleteTo, origin.some, version)
   }
 
   private def purgeOf(key: Key) = {
-    Action.Purge(key, timestamp, origin.some, version.some)
+    Action.Purge(key, timestamp, origin.some, version)
   }
 }
 

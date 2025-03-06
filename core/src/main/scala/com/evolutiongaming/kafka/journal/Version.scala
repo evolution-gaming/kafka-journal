@@ -14,6 +14,9 @@ object Version {
 
   val current: Version = Version(Option(Version.getClass.getPackage.getImplementationVersion).getOrElse("unknown"))
 
+  /** The last release before [[Version]] was introduced, should be used only as fallback during data recovery */
+  val obsolete: Version = Version("0.0.152")
+
   implicit val eqVersion: Eq[Version] = Eq.fromUniversalEquals
 
   implicit val showVersion: Show[Version] = Show.fromToString

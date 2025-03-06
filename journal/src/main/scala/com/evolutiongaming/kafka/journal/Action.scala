@@ -17,7 +17,7 @@ sealed abstract class Action extends Product {
 
   def origin: Option[Origin] = header.origin
 
-  def version: Option[Version] = header.version
+  def version: Version = header.version
 }
 
 object Action {
@@ -79,7 +79,7 @@ object Action {
       key: Key,
       timestamp: Instant,
       origin: Option[Origin],
-      version: Option[Version],
+      version: Version,
       events: Events[A],
       metadata: HeaderMetadata,
       headers: Headers,
@@ -120,7 +120,7 @@ object Action {
       timestamp: Instant,
       to: DeleteTo,
       origin: Option[Origin],
-      version: Option[Version],
+      version: Version,
     ): Delete = {
       val header = ActionHeader.Delete(to, origin, version)
       Delete(key, timestamp, header)
@@ -135,7 +135,7 @@ object Action {
 
   object Purge {
 
-    def apply(key: Key, timestamp: Instant, origin: Option[Origin], version: Option[Version]): Purge = {
+    def apply(key: Key, timestamp: Instant, origin: Option[Origin], version: Version): Purge = {
       val header = ActionHeader.Purge(origin, version)
       Purge(key, timestamp, header)
     }
@@ -157,7 +157,7 @@ object Action {
       timestamp: Instant,
       id: String,
       origin: Option[Origin],
-      version: Option[Version],
+      version: Version,
     ): Mark = {
       val header = ActionHeader.Mark(id, origin, version)
       Mark(key, timestamp, header)
