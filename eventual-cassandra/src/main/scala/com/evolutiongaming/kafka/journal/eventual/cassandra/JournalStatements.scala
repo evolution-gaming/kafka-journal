@@ -122,7 +122,7 @@ private[journal] object JournalStatements {
             .encode(record.event.partitionOffset)
             .encode("timestamp", record.event.timestamp)
             .encodeSome(record.event.origin)
-            .encodeSome(record.event.version)
+            .encode(record.event.version)
             .encode("tags", record.event.event.tags)
             .encodeSome("meta_record_id", record.metaRecordId)
             .encodeSome("payload_type", payloadType)
@@ -189,7 +189,7 @@ private[journal] object JournalStatements {
       } yield {
         new SelectRecords[F] {
 
-          def apply(key: Key, segment: SegmentNr, range: SeqRange) = {
+          def apply(key: Key, segment: SegmentNr, range: SeqRange): Stream[F, JournalRecord] = {
 
             def readPayload(row: Row): Option[EventualPayloadAndType] = {
               val payloadType = row.decode[Option[PayloadType]]("payload_type")
@@ -226,7 +226,7 @@ private[journal] object JournalStatements {
                 event           = event,
                 timestamp       = row.decode[Instant]("timestamp"),
                 origin          = row.decode[Option[Origin]],
-                version         = row.decode[Option[Version]],
+                version         = row.decode[Option[Version]].getOrElse(Version.obsolete),
                 partitionOffset = partitionOffset,
                 metadata        = metadata,
                 headers         = headers,
