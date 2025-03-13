@@ -11,7 +11,7 @@ object Dependencies {
   val `executor-tools`           = "com.evolutiongaming"    %% "executor-tools"                 % "1.0.3"
   val `akka-serialization`       = "com.evolutiongaming"    %% "akka-serialization"             % "1.1.0"
   val `kafka-launcher`           = "com.evolutiongaming"    %% "kafka-launcher"                 % "0.2.0"
-  val `testcontainers-cassandra` = "com.dimafeng"           %% "testcontainers-scala-cassandra" % "0.41.8"
+  val `testcontainers-cassandra` = "com.dimafeng"           %% "testcontainers-scala-cassandra" % "0.43.0"
   val hostname                   = "com.evolutiongaming"    %% "hostname"                       % "0.2.0"
   val scassandra                 = "com.evolutiongaming"    %% "scassandra"                     % "5.3.0"
   val `cassandra-sync`           = "com.evolutiongaming"    %% "cassandra-sync"                 % "3.0.0"
