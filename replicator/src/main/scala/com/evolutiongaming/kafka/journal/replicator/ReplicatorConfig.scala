@@ -16,7 +16,7 @@ final case class ReplicatorConfig(
   topicPrefixes: Nel[String]             = Nel.of("journal"),
   topicDiscoveryInterval: FiniteDuration = 3.seconds,
   cacheExpireAfter: FiniteDuration       = 1.minute,
-  kafka: KafkaConfig                     = KafkaConfig("replicator"),
+  kafka: KafkaConfig                     = ReplicatorConfig.defaultKafkaConfig,
   cassandra: EventualCassandraConfig = EventualCassandraConfig(
     client = CassandraConfig(
       name  = "replicator",
@@ -27,6 +27,16 @@ final case class ReplicatorConfig(
 )
 
 object ReplicatorConfig {
+
+  private val defaultKafkaConfig: KafkaConfig = {
+    val config         = KafkaConfig("replicator")
+    val consumerConfig = config.consumer
+    config.copy(
+      consumer = consumerConfig.copy(
+        partitionAssignmentStrategy = "org.apache.kafka.clients.consumer.CooperativeStickyAssignor",
+      ),
+    )
+  }
 
   val default: ReplicatorConfig = ReplicatorConfig()
 
