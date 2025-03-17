@@ -161,12 +161,12 @@ private[journal] object Batch {
     offset: Offset,
     to: DeleteTo,
     origin: Option[Origin],
-    version: Option[Version],
+    version: Version,
   ) extends Batch
 
   final case class Purge(
     offset: Offset,
     origin: Option[Origin], // used only for logging
-    version: Option[Version], // used only for logging
+    version: Version, // used only for logging
   ) extends Batch
 }
