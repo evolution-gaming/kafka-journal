@@ -85,7 +85,7 @@ private[journal] object ReplicateRecords {
                 expiration    = expiration,
                 measurements  = measurements,
               )
-              _ <- log.info(msg(events, measurements.replicationLatency, expireAfter))
+              _ <- log.trace(msg(events, measurements.replicationLatency, expireAfter))
             } yield result
           }
 
@@ -124,7 +124,7 @@ private[journal] object ReplicateRecords {
               measurements <- measurements(1)
               latency       = measurements.replicationLatency
               _            <- metrics.delete(measurements)
-              result       <- log.info(msg(latency))
+              result       <- log.trace(msg(latency))
             } yield result
           }
 
@@ -147,7 +147,7 @@ private[journal] object ReplicateRecords {
               measurements <- measurements(1)
               latency       = measurements.replicationLatency
               _            <- metrics.purge(measurements)
-              result       <- log.info(msg(latency))
+              result       <- log.trace(msg(latency))
             } yield result
           }
 
