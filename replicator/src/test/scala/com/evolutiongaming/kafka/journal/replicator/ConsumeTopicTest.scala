@@ -10,6 +10,7 @@ import com.evolutiongaming.kafka.journal.ConsRecord
 import com.evolutiongaming.kafka.journal.util.TestTemporal.temporalTry
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.*
+import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*
 import com.evolutiongaming.skafka.consumer.{RebalanceCallback, RebalanceListener1, WithSize}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AsyncFunSuite
@@ -41,7 +42,8 @@ class ConsumeTopicTest extends AsyncFunSuite with Matchers {
             Action.ReleaseTopicFlow(topic),
             Action.Commit(Nem.of((Partition.min, Offset.min))),
             Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
-            Action.AssignPartitions(partitions),
+            Action.CommitAssignPartitions(partitions),
+            Action.FlowAssignPartitions(partitions),
             Action.Subscribe()(RebalanceListener1.empty[StateT]),
             Action.AcquireTopicFlow(topic),
             Action.AcquireConsumer,
@@ -70,14 +72,16 @@ class ConsumeTopicTest extends AsyncFunSuite with Matchers {
             Action.ReleaseTopicFlow(topic),
             Action.Commit(Nem.of((Partition.min, Offset.min))),
             Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
-            Action.AssignPartitions(partitions),
+            Action.CommitAssignPartitions(partitions),
+            Action.FlowAssignPartitions(partitions),
             Action.Subscribe()(RebalanceListener1.empty),
             Action.AcquireTopicFlow(topic),
             Action.AcquireConsumer,
             Action.RetryOnError(Error, OnError.Decision.retry(1.millis)),
             Action.ReleaseConsumer,
             Action.ReleaseTopicFlow(topic),
-            Action.AssignPartitions(partitions),
+            Action.CommitAssignPartitions(partitions),
+            Action.FlowAssignPartitions(partitions),
             Action.Subscribe()(RebalanceListener1.empty),
             Action.AcquireTopicFlow(topic),
             Action.AcquireConsumer,
@@ -105,9 +109,12 @@ class ConsumeTopicTest extends AsyncFunSuite with Matchers {
             Action.ReleaseTopicFlow(topic),
             Action.Commit(Nem.of((Partition.min, Offset.min))),
             Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
-            Action.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
-            Action.AssignPartitions(Nes.of(Partition.unsafe(2))),
-            Action.AssignPartitions(Nes.of(Partition.unsafe(1))),
+            Action.CommitRevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
+            Action.FlowRevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
+            Action.CommitAssignPartitions(Nes.of(Partition.unsafe(2))),
+            Action.FlowAssignPartitions(Nes.of(Partition.unsafe(2))),
+            Action.CommitAssignPartitions(Nes.of(Partition.unsafe(1))),
+            Action.FlowAssignPartitions(Nes.of(Partition.unsafe(1))),
             Action.Subscribe()(RebalanceListener1.empty[StateT]),
             Action.AcquireTopicFlow(topic),
             Action.AcquireConsumer,
@@ -160,14 +167,14 @@ object ConsumeTopicTest {
     def runAsIO(state: State): IO[(State, A)] = {
 
       IO.delay {
-        var result: State = null // i know what i'm doing, but if you don't like it - never use StateT
+        var result: State = state
 
         implicit val toTryStateT = new ToTry[StateT] {
 
           val ioToTry = ToTry.ioToTry
 
           def apply[B](stateT: StateT[B]): Try[B] = {
-            val io = stateT.run(state)
+            val io = stateT.run(result)
             val tr = ioToTry(io)
             tr match {
               case Success((s, tryB)) => result = s; tryB
@@ -197,7 +204,7 @@ object ConsumeTopicTest {
 
           def assign(partitions: Nes[Partition]) = {
             StateT.unit {
-              _ + Action.AssignPartitions(partitions)
+              _ + Action.FlowAssignPartitions(partitions)
             }
           }
 
@@ -210,13 +217,13 @@ object ConsumeTopicTest {
 
           def revoke(partitions: Nes[Partition]) = {
             StateT.unit {
-              _ + Action.RevokePartitions(partitions)
+              _ + Action.FlowRevokePartitions(partitions)
             }
           }
 
           def lose(partitions: Nes[Partition]) = {
             StateT.unit {
-              _ + Action.LosePartitions(partitions)
+              _ + Action.FlowLosePartitions(partitions)
             }
           }
         }
@@ -288,10 +295,34 @@ object ConsumeTopicTest {
         Stream.whileSome(stateT)
       }
 
-      val commit = offsets =>
-        StateT.unit {
-          _ + Action.Commit(offsets)
+      val commit: TopicCommit[StateT] = {
+        new TopicCommit[StateT] {
+
+          override def apply(offsets: Nem[Partition, Offset]): StateT[Unit] = {
+            StateT.unit {
+              _ + Action.Commit(offsets)
+            }
+          }
+
+          override def onPartitionsAssigned(partitions: Nes[Partition]): RebalanceCallback[StateT, Unit] = {
+            StateT.unit {
+              _ + Action.CommitAssignPartitions(partitions)
+            }.lift
+          }
+
+          override def onPartitionsRevoked(partitions: Nes[Partition]): RebalanceCallback[StateT, Unit] = {
+            StateT.unit {
+              _ + Action.CommitRevokePartitions(partitions)
+            }.lift
+          }
+
+          override def onPartitionsLost(partitions: Nes[Partition]): RebalanceCallback[StateT, Unit] = {
+            StateT.unit {
+              _ + Action.CommitLosePartitions(partitions)
+            }.lift
+          }
         }
+      }
     }
 
     val result = StateT.pure { state =>
@@ -364,11 +395,17 @@ object ConsumeTopicTest {
 
     case object ReleaseConsumer extends Action
 
-    final case class AssignPartitions(partitions: Nes[Partition]) extends Action
+    final case class FlowAssignPartitions(partitions: Nes[Partition]) extends Action
 
-    final case class RevokePartitions(partitions: Nes[Partition]) extends Action
+    final case class FlowRevokePartitions(partitions: Nes[Partition]) extends Action
 
-    final case class LosePartitions(partitions: Nes[Partition]) extends Action
+    final case class FlowLosePartitions(partitions: Nes[Partition]) extends Action
+
+    final case class CommitAssignPartitions(partitions: Nes[Partition]) extends Action
+
+    final case class CommitRevokePartitions(partitions: Nes[Partition]) extends Action
+
+    final case class CommitLosePartitions(partitions: Nes[Partition]) extends Action
 
     final case class Subscribe()(val listener: RebalanceListener1[StateT]) extends Action
 

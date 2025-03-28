@@ -9,7 +9,7 @@ import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*
-import com.evolutiongaming.skafka.consumer.RebalanceListener1
+import com.evolutiongaming.skafka.consumer.{RebalanceCallback, RebalanceListener1}
 
 import scala.concurrent.duration.*
 
@@ -42,21 +42,22 @@ private[journal] object ConsumeTopic {
     retry: Retry[F],
   ): F[Unit] = {
 
-    def rebalanceListenerOf(topicFlow: TopicFlow[F]): RebalanceListener1[F] = {
+    def rebalanceListenerOf(topicFlow: TopicFlow[F], topicCommit: TopicCommit[F]): RebalanceListener1[F] = {
       new RebalanceListener1[F] {
 
-        def onPartitionsAssigned(partitions: Nes[TopicPartition]) = {
+        def onPartitionsAssigned(partitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] = {
           val partitions1 = partitions.map { _.partition }
-          topicFlow.assign(partitions1).lift
+          topicFlow.assign(partitions1).lift >> topicCommit.onPartitionsAssigned(partitions1)
         }
 
-        def onPartitionsRevoked(partitions: Nes[TopicPartition]) = {
+        def onPartitionsRevoked(partitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] = {
           val partitions1 = partitions.map { _.partition }
-          topicFlow.revoke(partitions1).lift
+          topicFlow.revoke(partitions1).lift >> topicCommit.onPartitionsRevoked(partitions1)
         }
-        def onPartitionsLost(partitions: Nes[TopicPartition]) = {
+
+        def onPartitionsLost(partitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] = {
           val partitions1 = partitions.map { _.partition }
-          topicFlow.lose(partitions1).lift
+          topicFlow.lose(partitions1).lift >> topicCommit.onPartitionsLost(partitions1)
         }
       }
     }
@@ -66,7 +67,7 @@ private[journal] object ConsumeTopic {
         .tupled
         .use {
           case (consumer, topicFlow) =>
-            val listener = rebalanceListenerOf(topicFlow)
+            val listener = rebalanceListenerOf(topicFlow, consumer.commit)
             for {
               _ <- consumer.subscribe(listener)
               a <- consumer
