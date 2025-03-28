@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import cats.Monad
 import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.*
 import cats.effect.implicits.*
@@ -66,16 +67,14 @@ private[journal] object TopicReplicator {
       )
     }
 
-    def log = for {
-      log <- LogOf[F].apply(TopicReplicator.getClass)
-    } yield {
-      log prefixed topic
-    }
-
     for {
-      log  <- log.toResource
+      log  <- topicLoggerOf(topic).toResource
       done <- consume(consumer, log).background
     } yield done
+  }
+
+  private def topicLoggerOf[F[_]: LogOf: Monad](topic: Topic): F[Log[F]] = {
+    LogOf[F].apply(TopicReplicator.getClass).map(_ prefixed topic)
   }
 
   def of[F[_]: Concurrent: Sleep: MeasureDuration, A](
@@ -239,7 +238,7 @@ private[journal] object TopicReplicator {
 
   object ConsumerOf {
 
-    def make[F[_]: Concurrent: KafkaConsumerOf: FromTry: Clock](
+    def make[F[_]: Temporal: KafkaConsumerOf: FromTry: LogOf](
       topic: Topic,
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,
@@ -267,9 +266,15 @@ private[journal] object TopicReplicator {
 
       for {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
+        log      <- topicLoggerOf[F](topic).toResource
         metadata  = hostName.fold { Metadata.empty } { _.value }
-        commit    = TopicCommit(topic, metadata, consumer)
-        commit   <- TopicCommit.delayed(5.seconds, commit).toResource
+        commit <- TopicCommit.asyncPeriodic(
+          topic          = topic,
+          commitMetadata = metadata,
+          commitPeriod   = 5.seconds,
+          consumer       = consumer,
+          log            = log,
+        )
       } yield {
         TopicConsumer(topic, pollTimeout, commit, consumer)
       }

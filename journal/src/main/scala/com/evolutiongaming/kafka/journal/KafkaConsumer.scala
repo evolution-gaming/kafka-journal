@@ -23,6 +23,8 @@ trait KafkaConsumer[F[_], K, V] {
 
   def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit]
 
+  def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit]
+
   def topics: F[Set[Topic]]
 
   def partitions(topic: Topic): F[Set[Partition]]
@@ -82,6 +84,10 @@ object KafkaConsumer {
         consumer.commit(offsets)
       }
 
+      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = {
+        consumer.commitLater(offsets)
+      }
+
       def topics: F[Set[Topic]] = {
         consumer
           .topics
@@ -125,6 +131,8 @@ object KafkaConsumer {
 
       def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = fg(self.commit(offsets))
 
+      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = fg(self.commitLater(offsets))
+
       def topics = fg(self.topics)
 
       def partitions(topic: Topic) = fg(self.partitions(topic))
@@ -145,6 +153,8 @@ object KafkaConsumer {
       def poll(timeout: FiniteDuration) = f(self.poll(timeout), "poll")
 
       def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets), "commit")
+
+      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = f(self.commitLater(offsets), "commit_later")
 
       def topics = f(self.topics, "topics")
 
@@ -173,6 +183,8 @@ object KafkaConsumer {
         }
 
         def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = self.commit(offsets)
+
+        def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = self.commitLater(offsets)
 
         def topics = self.topics
 

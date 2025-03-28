@@ -8,7 +8,9 @@ import java.time.Instant
 import scala.concurrent.duration.*
 import scala.util.{Failure, Try}
 
-object EmptyRebalanceConsumer extends RebalanceConsumer {
+object EmptyRebalanceConsumer extends EmptyRebalanceConsumer
+
+trait EmptyRebalanceConsumer extends RebalanceConsumer {
   override def assignment(): Try[Set[TopicPartition]] = Failure(new NotImplementedError)
 
   override def beginningOffsets(partitions: NonEmptySet[TopicPartition]): Try[Map[TopicPartition, Offset]] = Failure(

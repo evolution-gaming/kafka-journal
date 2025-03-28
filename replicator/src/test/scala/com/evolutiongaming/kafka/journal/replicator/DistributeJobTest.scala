@@ -47,8 +47,9 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
                 .sleep(timeout)
                 .as(ConsumerRecords.empty[K, V])
             }
-            def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = ().pure[IO]
-            def topics                                                  = Set.empty[Topic].pure[IO]
+            def commit(offsets: Nem[TopicPartition, OffsetAndMetadata])      = ().pure[IO]
+            def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = ().pure[IO]
+            def topics                                                       = Set.empty[Topic].pure[IO]
             def partitions(topic: Topic) = {
               Set(partition0, partition1, partition2).pure[IO]
             }
