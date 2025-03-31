@@ -8,15 +8,17 @@ import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.*
 
-class TopicCommitTest extends AsyncFunSuite with Matchers {
+@nowarn("cat=deprecation")
+class DelayedTopicCommitTest extends AsyncFunSuite with Matchers {
 
   test("delayed") {
 
     def commitOf(deferred: Deferred[IO, Unit], commitsRef: Ref[IO, List[Nem[Partition, Offset]]])(implicit clock: Clock[IO]) = {
       val commit = new TopicCommit[IO] {
-        def apply(offsets: Nem[Partition, Offset]) = {
+        def apply(offsets: Nem[Partition, Offset]): IO[Unit] = {
           commitsRef.update { offsets :: _ } *> deferred.complete(()).void
         }
       }
