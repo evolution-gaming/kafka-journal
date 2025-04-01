@@ -109,7 +109,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             result <- Concurrent[IO].start { headCache.get(key = key, partition = partition, offset = marker) }
             _      <- stateRef.update { _.copy(topics = Map((topic, List(partition)))) }
             _ <- stateRef.update { state =>
-              val action  = Action.Mark(key, timestamp, ActionHeader.Mark("mark", none, Version.current.some))
+              val action  = Action.Mark(key, timestamp, ActionHeader.Mark("mark", none, Version.current))
               val record  = consumerRecordOf(action, topicPartition, marker)
               val records = ConsumerRecordsOf(List(record))
               state.enqueue(records.pure[Try])
@@ -260,7 +260,7 @@ object HeadCacheSpec {
         key       = key,
         timestamp = timestamp,
         origin    = none,
-        version   = Version.current.some,
+        version   = Version.current,
         events    = Events(Nel.of(Event(seqNr)), PayloadMetadata.empty),
         metadata  = recordMetadata,
         headers   = headers,

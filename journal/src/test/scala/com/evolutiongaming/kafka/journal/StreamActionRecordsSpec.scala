@@ -73,7 +73,7 @@ object StreamActionRecordsSpec {
 
     val (marker, markRecord) = {
       val offset          = pointers.lastOption.fold(1L) { _.offset + 1 }
-      val mark            = Action.Mark(key, timestamp, ActionHeader.Mark("mark", none, Version.current.some))
+      val mark            = Action.Mark(key, timestamp, ActionHeader.Mark("mark", none, Version.current))
       val partitionOffset = PartitionOffset(offset = Offset.unsafe(offset))
       val record          = ActionRecord(mark, partitionOffset)
       val marker          = Marker(mark.id, partitionOffset)
@@ -87,7 +87,7 @@ object StreamActionRecordsSpec {
       val header = ActionHeader.Append(
         range       = range,
         origin      = none,
-        version     = Version.current.some,
+        version     = Version.current,
         payloadType = PayloadType.Json,
         metadata    = HeaderMetadata.empty,
       )

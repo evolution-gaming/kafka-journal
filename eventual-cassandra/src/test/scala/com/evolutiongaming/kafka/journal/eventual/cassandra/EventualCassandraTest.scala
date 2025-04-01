@@ -42,7 +42,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       timestamp       = timestamp0,
       partitionOffset = partitionOffset,
       origin          = origin.some,
-      version         = version.some,
+      version         = version,
       metadata        = RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata.empty),
       headers         = Headers(("key", "value")),
     )
