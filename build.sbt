@@ -120,7 +120,7 @@ lazy val journal = project
       Akka.stream,
       Akka.testkit % Test,
       Akka.slf4j   % Test,
-      Kafka.`kafka-clients`,
+      `kafka-clients`,
       skafka,
       scalatest        % Test,
       `executor-tools` % Test,
@@ -177,22 +177,20 @@ lazy val `tests` = project
       Test / fork := true,
       Test / parallelExecution := false,
       Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
-      Test / envVars ++= Map("TESTCONTAINERS_RYUK_DISABLED" -> "true"),
     ),
   )
   .dependsOn(persistence % "test->test;compile->compile", `persistence-circe`, replicator)
   .settings(
     libraryDependencies ++= Seq(
       `cats-helper`,
-      Kafka.kafka                % Test,
-      `kafka-launcher`           % Test,
-      `testcontainers-cassandra` % Test,
-      scalatest                  % Test,
-      Akka.`persistence-tck`     % Test,
-      Slf4j.`log4j-over-slf4j`   % Test,
-      Logback.core               % Test,
-      Logback.classic            % Test,
-      scalatest                  % Test,
+      TestContainers.cassandra % Test,
+      TestContainers.kafka     % Test,
+      scalatest                % Test,
+      Akka.`persistence-tck`   % Test,
+      Slf4j.`log4j-over-slf4j` % Test,
+      Logback.core             % Test,
+      Logback.classic          % Test,
+      scalatest                % Test,
     ),
   )
 

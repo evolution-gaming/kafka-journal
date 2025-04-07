@@ -3,9 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.effect.*
 import cats.effect.implicits.*
 import cats.syntax.all.*
-import com.dimafeng.testcontainers.CassandraContainer
 import com.evolutiongaming.catshelper.*
-import com.evolutiongaming.kafka.StartKafka
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
@@ -14,52 +12,52 @@ import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.CollectorRegistry
 import com.github.dockerjava.api.model.{ExposedPort, HostConfig, PortBinding, Ports}
 import com.typesafe.config.ConfigFactory
+import org.testcontainers.cassandra.CassandraContainer
+import org.testcontainers.containers.GenericContainer
+import org.testcontainers.kafka.KafkaContainer
+import org.testcontainers.utility.DockerImageName
 
 object IntegrationSuite {
+  // Cassandra version: latest 4.x
+  private val CassandraDockerImage = DockerImageName.parse("cassandra:4.1.8")
+  // Kafka version: 4.0.0 is too new to be the main test version, 3.9.0 container doesn't start
+  private val KafkaDockerImage = DockerImageName.parse("apache/kafka-native:3.8.1")
 
   def startF[F[_]: Async: ToFuture: LogOf: MeasureDuration: FromTry: ToTry: Fail](
     cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, Unit] = {
 
-    def cassandra(log: Log[F]) = {
-      // To ensure all default '127.0.0.1:9042' configurations work, we need to bind to the host's 9042 port manually
+    def cassandraContainer(log: Log[F]): Resource[F, Unit] =
+      testContainer(log, exposeStaticPort = 9042)(new CassandraContainer(CassandraDockerImage))
+
+    def kafkaContainer(log: Log[F]): Resource[F, Unit] =
+      testContainer(log, exposeStaticPort = 9092)(new KafkaContainer(KafkaDockerImage))
+
+    def testContainer[C <: GenericContainer[C]](
+      log: Log[F],
+      exposeStaticPort: Int,
+    )(makeContainer: => C): Resource[F, Unit] = {
       Resource.make {
-        Sync[F].delay {
-          val cassandra = CassandraContainer
-            .apply()
-            .configure { container =>
-              container.withCreateContainerCmdModifier { cmd =>
-                cmd.withHostConfig {
-                  new HostConfig()
-                    .withPortBindings(new PortBinding(Ports.Binding.bindPort(9042), new ExposedPort(9042)))
-                }
-                ()
-              }
+        Sync[F].blocking {
+          val container = makeContainer
+            .withCreateContainerCmdModifier { cmd =>
+              cmd.withHostConfig(
+                new HostConfig()
+                  .withPortBindings(new PortBinding(Ports.Binding.bindPort(exposeStaticPort), new ExposedPort(exposeStaticPort))),
+              )
               ()
             }
-          cassandra.start()
-          cassandra
+          container.start()
+          container
         }
-      } { cassandra =>
+      } { container =>
         Sync[F]
-          .delay { cassandra.stop() }
+          .blocking { container.stop() }
           .onError {
-            case e =>
-              log.error(s"failed to release cassandra with $e", e)
+            case t =>
+              log.error(s"failed to stop $container: ${t.getMessage}", t)
           }
-      }
-    }
-
-    def kafka(log: Log[F]) = Resource {
-      for {
-        kafka <- Sync[F].delay { StartKafka() }
-      } yield {
-        val release = Sync[F].delay { kafka() }.onError {
-          case e =>
-            log.error(s"failed to release kafka with $e", e)
-        }
-        (().pure[F], release)
-      }
+      }.void
     }
 
     def replicator(log: Log[F]) = {
@@ -80,8 +78,7 @@ object IntegrationSuite {
 
     for {
       log <- LogOf[F].apply(IntegrationSuite.getClass).toResource
-      _   <- cassandra(log)
-      _   <- kafka(log)
+      _   <- cassandraContainer(log) both kafkaContainer(log) // start in parallel
       _   <- replicator(log)
     } yield {}
   }
