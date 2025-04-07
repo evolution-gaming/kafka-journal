@@ -23,8 +23,8 @@ lazy val commonSettings = Seq(
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
   libraryDependencySchemes ++= Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
-    "org.scala-lang.modules" %% "scala-xml"          % "always",
-    "com.evolutiongaming"    %% "scassandra"         % "semver-spec",
+    "org.scala-lang.modules" %% "scala-xml" % "always",
+    "com.evolutiongaming" %% "scassandra" % "semver-spec",
     // scache didn't set any versioning policy for itself, so versionCheck fails on even minor updates for scache
     // https://github.com/evolution-gaming/scache/issues/299
     "com.evolution" %% "scache" % "semver-spec",
@@ -52,10 +52,10 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
-  addCommandAlias("fmt", "all scalafmtAll scalafmtSbt; scalafixEnable; scalafixAll") ++
+  addCommandAlias("fmt", "all scalafmtAll scalafmtSbt") ++
     addCommandAlias(
       "check",
-      "all versionPolicyCheck Compile/doc scalafmtCheckAll scalafmtSbtCheck; scalafixEnable; scalafixAll --check",
+      "all versionPolicyCheck Compile/doc scalafmtCheckAll scalafmtSbtCheck",
     ) ++
     addCommandAlias("build", "all compile test")
 
@@ -116,10 +116,10 @@ lazy val journal = project
       Akka.actor,
       Akka.stream,
       Akka.testkit % Test,
-      Akka.slf4j   % Test,
+      Akka.slf4j % Test,
       `kafka-clients`,
       skafka,
-      scalatest        % Test,
+      scalatest % Test,
       `executor-tools` % Test,
       random,
       retry,
@@ -141,7 +141,7 @@ lazy val journal = project
       Scodec.core,
       Scodec.bits,
       `resource-pool`,
-      Logback.core    % Test,
+      Logback.core % Test,
       Logback.classic % Test,
     ),
   )
@@ -181,13 +181,13 @@ lazy val `tests` = project
     libraryDependencies ++= Seq(
       `cats-helper`,
       TestContainers.cassandra % Test,
-      TestContainers.kafka     % Test,
-      scalatest                % Test,
-      Akka.`persistence-tck`   % Test,
+      TestContainers.kafka % Test,
+      scalatest % Test,
+      Akka.`persistence-tck` % Test,
       Slf4j.`log4j-over-slf4j` % Test,
-      Logback.core             % Test,
-      Logback.classic          % Test,
-      scalatest                % Test,
+      Logback.core % Test,
+      Logback.classic % Test,
+      scalatest % Test,
     ),
   )
 
