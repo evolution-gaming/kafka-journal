@@ -41,29 +41,14 @@ lazy val commonSettings = Seq(
   },
 )
 
-import com.typesafe.tools.mima.core.*
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
-  ProblemFilters.exclude[IncompatibleMethTypeProblem](
-    "com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra#MetaJournalStatements.of",
-  ),
-  ProblemFilters.exclude[IncompatibleMethTypeProblem](
-    "com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra#MetaJournalStatements.fromMetaJournal",
-  ),
-  ProblemFilters.exclude[IncompatibleMethTypeProblem](
-    "com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra#Statements.of",
-  ),
-  // TODO: [4.2.0 release] remove
-  // package-private method change
-  ProblemFilters.exclude[IncompatibleMethTypeProblem](
-    "com.evolutiongaming.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
-  ),
-  // TODO: [4.2.0 release] remove
-  // added method to a public trait without default implementation:
-  // - there could be no sane default implementation but ???, so it will lead to runtime errors either way
-  // - implementing this interface anew is not supposed to be done by the library users in production code.
-  //   test code implementations shouldn't be affected by the bincompat issues and actually benefit from compilation
-  //   error on missing method
-  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.kafka.journal.KafkaConsumer.commitLater"),
+  // add mima check exceptions here, i.e.:
+  //
+  //    // TODO: [4.2.0 release] remove
+  //    // package-private method change
+  //    ProblemFilters.exclude[IncompatibleMethTypeProblem](
+  //      "com.evolutiongaming.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
+  //    ),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
