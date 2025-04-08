@@ -15,7 +15,8 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 private[journal] object ConsumerPool {
 
   /**
-   * @return The outer Resource is for the pool, the inner is for consumers
+   * @return
+   *   The outer Resource is for the pool, the inner is for consumers
    */
   def make[F[_]: Async: Runtime: MeasureDuration](
     poolConfig: ConsumerPoolConfig,
@@ -26,8 +27,8 @@ private[journal] object ConsumerPool {
     for {
       cores <- Runtime[F].availableCores.toResource
       pool <- consumer.toResourcePool(
-        maxSize               = math.max(1, (cores.toDouble * poolConfig.multiplier).intValue),
-        expireAfter           = poolConfig.idleTimeout,
+        maxSize = math.max(1, (cores.toDouble * poolConfig.multiplier).intValue),
+        expireAfter = poolConfig.idleTimeout,
         discardTasksOnRelease = true,
       )
     } yield {
@@ -47,10 +48,10 @@ private[journal] object ConsumerPool {
           } { metrics =>
             for {
               duration <- MeasureDuration[F].start
-              result   <- consumer.attempt
+              result <- consumer.attempt
               duration <- duration
-              _        <- metrics.acquire(duration)
-              result   <- result.liftTo[F]
+              _ <- metrics.acquire(duration)
+              result <- result.liftTo[F]
               duration <- MeasureDuration[F].start
             } yield {
               val (consumer, release) = result
@@ -59,8 +60,8 @@ private[journal] object ConsumerPool {
                 (_: ExitCase) =>
                   for {
                     duration <- duration
-                    _        <- metrics.use(duration)
-                    result   <- release
+                    _ <- metrics.use(duration)
+                    result <- release
                   } yield result,
               )
             }

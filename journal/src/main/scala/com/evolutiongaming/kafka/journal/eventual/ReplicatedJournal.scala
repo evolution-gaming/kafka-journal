@@ -13,22 +13,27 @@ import com.evolutiongaming.smetrics.MetricsHelper.*
 import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.FiniteDuration
 
-/** Write-only implementation of a journal stored to eventual storage, i.e.
-  * Cassandra.
-  *
-  * This class is used to replicate events read from Kafka, hence the name.
-  *
-  * It follows a hierarchical structure, i.e., roughly speaking, it is
-  * a factory of topic-specific [[ReplicatedTopicJournal]] instances.
-  * 
-  * @see [[EventualJournal]] for a read-only counterpart of this class.
-  */
+/**
+ * Write-only implementation of a journal stored to eventual storage, i.e. Cassandra.
+ *
+ * This class is used to replicate events read from Kafka, hence the name.
+ *
+ * It follows a hierarchical structure, i.e., roughly speaking, it is a factory of topic-specific
+ * [[ReplicatedTopicJournal]] instances.
+ *
+ * @see
+ *   [[EventualJournal]] for a read-only counterpart of this class.
+ */
 trait ReplicatedJournal[F[_]] {
 
-  /** Select list of kafka topics previously saved into eventual storage */
+  /**
+   * Select list of kafka topics previously saved into eventual storage
+   */
   def topics: F[SortedSet[Topic]]
 
-  /** Create a topic-specific write-only journal */
+  /**
+   * Create a topic-specific write-only journal
+   */
   def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]]
 }
 
@@ -58,7 +63,12 @@ object ReplicatedJournal {
 
   implicit class ReplicatedJournalOps[F[_]](val self: ReplicatedJournal[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G)(implicit B: BracketThrowable[F], GT: BracketThrowable[G]): ReplicatedJournal[G] = new MapK
+    def mapK[G[_]](
+      f: F ~> G,
+    )(implicit
+      B: BracketThrowable[F],
+      GT: BracketThrowable[G],
+    ): ReplicatedJournal[G] = new MapK
       with ReplicatedJournal[G] {
 
       def topics: G[SortedSet[Topic]] = f(self.topics)
@@ -71,7 +81,12 @@ object ReplicatedJournal {
       }
     }
 
-    def withLog(log: Log[F])(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedJournal[F] = new WithLog
+    def withLog(
+      log: Log[F],
+    )(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F],
+    ): ReplicatedJournal[F] = new WithLog
       with ReplicatedJournal[F] {
 
       def topics: F[SortedSet[Topic]] = {
@@ -79,7 +94,7 @@ object ReplicatedJournal {
           d <- MeasureDuration[F].start
           r <- self.topics
           d <- d
-          _ <- log.debug(s"topics in ${d.toMillis}ms, r: ${r.mkString(",")}")
+          _ <- log.debug(s"topics in ${ d.toMillis }ms, r: ${ r.mkString(",") }")
         } yield r
       }
 
@@ -90,7 +105,12 @@ object ReplicatedJournal {
       }
     }
 
-    def withMetrics(metrics: Metrics[F])(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedJournal[F] =
+    def withMetrics(
+      metrics: Metrics[F],
+    )(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F],
+    ): ReplicatedJournal[F] =
       new WithMetrics with ReplicatedJournal[F] {
 
         def topics: F[SortedSet[Topic]] = {
@@ -109,7 +129,10 @@ object ReplicatedJournal {
         }
       }
 
-    def enhanceError(implicit F: MonadThrowable[F]): ReplicatedJournal[F] = {
+    def enhanceError(
+      implicit
+      F: MonadThrowable[F],
+    ): ReplicatedJournal[F] = {
 
       def journalError[A](msg: String, cause: Throwable) = {
         JournalError(s"ReplicatedJournal.$msg failed with $cause", cause)
@@ -132,7 +155,10 @@ object ReplicatedJournal {
       }
     }
 
-    def toFlat(implicit F: BracketThrowable[F]): ReplicatedJournalFlat[F] = ReplicatedJournalFlat(self)
+    def toFlat(
+      implicit
+      F: BracketThrowable[F],
+    ): ReplicatedJournalFlat[F] = ReplicatedJournalFlat(self)
   }
 
   trait Metrics[F[_]] {
@@ -182,38 +208,38 @@ object ReplicatedJournal {
     ): Resource[F, Metrics[F]] = {
 
       val versionGauge = registry.gauge(
-        name   = s"${prefix}_info",
-        help   = "Journal version information",
+        name = s"${ prefix }_info",
+        help = "Journal version information",
         labels = LabelNames("version"),
       )
 
       val latencySummary = registry.summary(
-        name      = s"${prefix}_latency",
-        help      = "Journal call latency in seconds",
+        name = s"${ prefix }_latency",
+        help = "Journal call latency in seconds",
         quantiles = Quantiles.Default,
-        labels    = LabelNames("type"),
+        labels = LabelNames("type"),
       )
 
       val topicLatencySummary = registry.summary(
-        name      = s"${prefix}_topic_latency",
-        help      = "Journal topic call latency in seconds",
+        name = s"${ prefix }_topic_latency",
+        help = "Journal topic call latency in seconds",
         quantiles = Quantiles.Default,
-        labels    = LabelNames("topic", "type"),
+        labels = LabelNames("topic", "type"),
       )
 
       val eventsSummary = registry.summary(
-        name      = s"${prefix}_events",
-        help      = "Number of events saved",
+        name = s"${ prefix }_events",
+        help = "Number of events saved",
         quantiles = Quantiles.Empty,
-        labels    = LabelNames("topic"),
+        labels = LabelNames("topic"),
       )
 
       for {
-        versionGauge        <- versionGauge
-        _                   <- versionGauge.labels(Version.current.value).set(1).toResource
-        latencySummary      <- latencySummary
+        versionGauge <- versionGauge
+        _ <- versionGauge.labels(Version.current.value).set(1).toResource
+        latencySummary <- latencySummary
         topicLatencySummary <- topicLatencySummary
-        eventsSummary       <- eventsSummary
+        eventsSummary <- eventsSummary
       } yield {
 
         def observeTopicLatency(name: String, topic: Topic, latency: FiniteDuration): F[Unit] = {

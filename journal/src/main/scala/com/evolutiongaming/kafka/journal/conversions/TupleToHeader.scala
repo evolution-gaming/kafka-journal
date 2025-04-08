@@ -12,7 +12,10 @@ trait TupleToHeader[F[_]] {
 
 object TupleToHeader {
 
-  implicit def apply[F[_]: ApplicativeThrowable](implicit stringToBytes: ToBytes[F, String]): TupleToHeader[F] = { (key, value) =>
+  implicit def apply[F[_]: ApplicativeThrowable](
+    implicit
+    stringToBytes: ToBytes[F, String],
+  ): TupleToHeader[F] = { (key, value) =>
     val result = for {
       value <- stringToBytes(value)
     } yield {

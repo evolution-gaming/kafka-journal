@@ -17,12 +17,14 @@ import java.nio.charset.StandardCharsets
 object Instances {
 
   implicit def kafkaWrite[F[_]: MonadThrowable](
-    implicit payloadJsonToBytes: ToBytes[F, PayloadJson[Json]],
+    implicit
+    payloadJsonToBytes: ToBytes[F, PayloadJson[Json]],
   ): KafkaWrite[F, Json] =
     KafkaWrite.writeJson(EventJsonPayloadAndType(_, PayloadType.Json), payloadJsonToBytes)
 
   implicit def kafkaRead[F[_]: MonadThrowable](
-    implicit payloadJsonFromBytes: FromBytes[F, PayloadJson[Json]],
+    implicit
+    payloadJsonFromBytes: FromBytes[F, PayloadJson[Json]],
   ): KafkaRead[F, Json] =
     KafkaRead.readJson(payloadJsonFromBytes, (json: EventJsonPayloadAndType[Json]) => json.payload.pure[F])
 
@@ -36,7 +38,7 @@ object Instances {
   private def fromEncoder[F[_]: FromTry, A: Encoder]: ToBytes[F, A] =
     a =>
       FromTry[F].unsafe {
-        val json       = a.asJson
+        val json = a.asJson
         val byteBuffer = Printer.noSpaces.printToByteBuffer(json, StandardCharsets.UTF_8)
         ByteVector.view(byteBuffer)
       }

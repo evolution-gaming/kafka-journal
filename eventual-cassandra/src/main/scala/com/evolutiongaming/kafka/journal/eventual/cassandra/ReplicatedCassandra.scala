@@ -37,14 +37,14 @@ private[journal] object ReplicatedCassandra {
   ): F[ReplicatedJournal[F]] = {
 
     for {
-      schema        <- SetupSchema[F](config.schema, origin, config.consistencyConfig)
-      statements    <- Statements.of[F](schema, config.consistencyConfig)
-      log           <- LogOf[F].apply(ReplicatedCassandra.getClass)
+      schema <- SetupSchema[F](config.schema, origin, config.consistencyConfig)
+      statements <- Statements.of[F](schema, config.consistencyConfig)
+      log <- LogOf[F].apply(ReplicatedCassandra.getClass)
       expiryService <- ExpiryService.of[F]
-      _             <- log.info(s"kafka-journal version: ${Version.current.value}")
+      _ <- log.info(s"kafka-journal version: ${ Version.current.value }")
     } yield {
       val segmentOf = SegmentNrs.Of[F](first = Segments.default, second = Segments.old)
-      val journal   = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
+      val journal = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -118,7 +118,7 @@ private[journal] object ReplicatedCassandra {
                     }.value
                     (head, segmentNr) = result match {
                       case Some((head, segmentNr)) => (head.some, segmentNr)
-                      case None                    => (none[JournalHead], segmentNrs.first)
+                      case None => (none[JournalHead], segmentNrs.first)
                     }
                     ref <- Ref[F].of(head)
                   } yield {
@@ -153,7 +153,7 @@ private[journal] object ReplicatedCassandra {
 
                             def insert(segment: Segment, events: Nel[EventRecord[EventualPayloadAndType]]) = {
                               val records = events.map { event => JournalRecord(event, journalHead.recordId) }
-                              val next    = statements.insertRecords(key, segment.nr, records)
+                              val next = statements.insertRecords(key, segment.nr, records)
                               result *> next
                             }
 
@@ -163,11 +163,15 @@ private[journal] object ReplicatedCassandra {
                                 s match {
                                   case Some((segment, batch)) =>
                                     segment.next(seqNr) match {
-                                      case None       => loop(tail, (segment, head :: batch).some, result)
+                                      case None => loop(tail, (segment, head :: batch).some, result)
                                       case Some(next) => loop(tail, (next, Nel.of(head)).some, insert(segment, batch))
                                     }
                                   case None =>
-                                    loop(tail, (Segment.journal(seqNr, journalHead.segmentSize), Nel.of(head)).some, result)
+                                    loop(
+                                      tail,
+                                      (Segment.journal(seqNr, journalHead.segmentSize), Nel.of(head)).some,
+                                      result,
+                                    )
                                 }
 
                               case Nil => s.fold(result) { case (segment, batch) => insert(segment, batch) }
@@ -205,11 +209,11 @@ private[journal] object ReplicatedCassandra {
                                   case (expiry, recordId) =>
                                     val journalHead = JournalHead(
                                       partitionOffset = partitionOffset,
-                                      segmentSize     = segmentSizeDefault,
-                                      seqNr           = seqNrLast,
-                                      deleteTo        = deleteTo,
-                                      expiry          = expiry,
-                                      recordId        = recordId.some,
+                                      segmentSize = segmentSizeDefault,
+                                      seqNr = seqNrLast,
+                                      deleteTo = deleteTo,
+                                      expiry = expiry,
+                                      recordId = recordId.some,
                                     )
                                     val origin = events.head.origin
                                     val insert = metaJournal.insert(timestamp, journalHead, origin)
@@ -236,7 +240,11 @@ private[journal] object ReplicatedCassandra {
                                       (none[Expiry], update)
                                   }
                                   val journalHead1 =
-                                    journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNrLast, expiry = expiry)
+                                    journalHead.copy(
+                                      partitionOffset = partitionOffset,
+                                      seqNr = seqNrLast,
+                                      expiry = expiry,
+                                    )
                                   (update, journalHead1)
                                 }
                             }
@@ -246,8 +254,8 @@ private[journal] object ReplicatedCassandra {
                             val result = for {
                               saveAndJournalHead <- saveAndJournalHead
                               (save, journalHead) = saveAndJournalHead
-                              _                  <- append(journalHead, offset)
-                              _                  <- save
+                              _ <- append(journalHead, offset)
+                              _ <- save
                             } yield {
                               journalHead.some
                             }
@@ -293,9 +301,9 @@ private[journal] object ReplicatedCassandra {
                           journalHead <- journalHead.fold {
                             val journalHead = JournalHead(
                               partitionOffset = partitionOffset,
-                              segmentSize     = segmentSizeDefault,
-                              seqNr           = deleteTo.value,
-                              deleteTo        = deleteTo.some,
+                              segmentSize = segmentSizeDefault,
+                              seqNr = deleteTo.value,
+                              deleteTo = deleteTo.some,
                             )
                             metaJournal
                               .insert(timestamp, journalHead, origin)
@@ -303,8 +311,8 @@ private[journal] object ReplicatedCassandra {
                           } { journalHead =>
                             if (offset > journalHead.partitionOffset.offset) {
                               val deleteTo0 = journalHead.deleteTo
-                              val seqNr     = journalHead.seqNr
-                              val seqNr1    = deleteTo0.fold { seqNr } { _.value.max(seqNr) }
+                              val seqNr = journalHead.seqNr
+                              val seqNr1 = deleteTo0.fold { seqNr } { _.value.max(seqNr) }
                               val deleteTo1 = deleteTo
                                 .value
                                 .min(seqNr1)
@@ -344,11 +352,12 @@ private[journal] object ReplicatedCassandra {
                                                 .uncancelable
                                             }
                                           } else {
-                                            @tailrec def loop(as: List[SegmentNr], result: List[F[Unit]]): List[F[Unit]] = {
+                                            @tailrec def loop(as: List[SegmentNr], result: List[F[Unit]])
+                                              : List[F[Unit]] = {
                                               as match {
-                                                case Nil      => result
+                                                case Nil => result
                                                 case a :: Nil => statements.deleteRecordsTo(key, a, to) :: result
-                                                case a :: as  => loop(as, statements.deleteRecords(key, a) :: result)
+                                                case a :: as => loop(as, statements.deleteRecords(key, a) :: result)
                                               }
                                             }
 
@@ -391,8 +400,8 @@ private[journal] object ReplicatedCassandra {
                           } { journalHead =>
                             if (offset >= journalHead.partitionOffset.offset) {
                               val segmentSize = journalHead.segmentSize
-                              val seqNr       = journalHead.seqNr
-                              val update      = metaJournal.update(journalHead.partitionOffset, timestamp)
+                              val seqNr = journalHead.seqNr
+                              val update = metaJournal.update(journalHead.partitionOffset, timestamp)
                               val result = for {
                                 result <- journalHead
                                   .deleteTo
@@ -440,9 +449,10 @@ private[journal] object ReplicatedCassandra {
                                   }
                                 (from, to) = result
                                 // we undershoot and overshoot segments, possibly was created to deal with #676
-                                fromSegmentNr = from.toJournalSegmentNr(segmentSize).prev[Option].getOrElse(SegmentNr.min)
-                                toSegmentNr   = to.toJournalSegmentNr(segmentSize).next[Option].getOrElse(SegmentNr.max)
-                                segmentNrs   <- fromSegmentNr.to(toSegmentNr)
+                                fromSegmentNr =
+                                  from.toJournalSegmentNr(segmentSize).prev[Option].getOrElse(SegmentNr.min)
+                                toSegmentNr = to.toJournalSegmentNr(segmentSize).next[Option].getOrElse(SegmentNr.max)
+                                segmentNrs <- fromSegmentNr.to(toSegmentNr)
                                 _ <- segmentNrs.parFoldMapA { segmentNr =>
                                   statements
                                     .deleteRecords(key, segmentNr)
@@ -490,15 +500,17 @@ private[journal] object ReplicatedCassandra {
     ): F[MetaJournalStatements[F]] = {
 
       for {
-        selectJournalHead     <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal, consistencyConfig.read)
-        insert                <- cassandra.MetaJournalStatements.Insert.of[F](metaJournal, consistencyConfig.write)
-        update                <- cassandra.MetaJournalStatements.Update.of[F](metaJournal, consistencyConfig.write)
-        updateSeqNr           <- cassandra.MetaJournalStatements.UpdateSeqNr.of[F](metaJournal, consistencyConfig.write)
-        updateExpiry          <- cassandra.MetaJournalStatements.UpdateExpiry.of[F](metaJournal, consistencyConfig.write)
-        updateDeleteTo        <- cassandra.MetaJournalStatements.UpdateDeleteTo.of[F](metaJournal, consistencyConfig.write)
-        updatePartitionOffset <- cassandra.MetaJournalStatements.UpdatePartitionOffset.of[F](metaJournal, consistencyConfig.write)
-        delete                <- cassandra.MetaJournalStatements.Delete.of[F](metaJournal, consistencyConfig.write)
-        deleteExpiry          <- cassandra.MetaJournalStatements.DeleteExpiry.of[F](metaJournal, consistencyConfig.write)
+        selectJournalHead <-
+          cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal, consistencyConfig.read)
+        insert <- cassandra.MetaJournalStatements.Insert.of[F](metaJournal, consistencyConfig.write)
+        update <- cassandra.MetaJournalStatements.Update.of[F](metaJournal, consistencyConfig.write)
+        updateSeqNr <- cassandra.MetaJournalStatements.UpdateSeqNr.of[F](metaJournal, consistencyConfig.write)
+        updateExpiry <- cassandra.MetaJournalStatements.UpdateExpiry.of[F](metaJournal, consistencyConfig.write)
+        updateDeleteTo <- cassandra.MetaJournalStatements.UpdateDeleteTo.of[F](metaJournal, consistencyConfig.write)
+        updatePartitionOffset <-
+          cassandra.MetaJournalStatements.UpdatePartitionOffset.of[F](metaJournal, consistencyConfig.write)
+        delete <- cassandra.MetaJournalStatements.Delete.of[F](metaJournal, consistencyConfig.write)
+        deleteExpiry <- cassandra.MetaJournalStatements.DeleteExpiry.of[F](metaJournal, consistencyConfig.write)
       } yield {
         apply(
           selectJournalHead,
@@ -528,9 +540,9 @@ private[journal] object ReplicatedCassandra {
       deleteExpiry: cassandra.MetaJournalStatements.DeleteExpiry[F],
     ): MetaJournalStatements[F] = {
 
-      val inset1        = insert
-      val update1       = update
-      val delete1       = delete
+      val inset1 = insert
+      val update1 = update
+      val delete1 = delete
       val deleteExpiry1 = deleteExpiry
 
       new MetaJournal with MetaJournalStatements[F] {
@@ -623,24 +635,27 @@ private[journal] object ReplicatedCassandra {
 
   private[journal] object Statements {
 
-    def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
+    def apply[F[_]](
+      implicit
+      F: Statements[F],
+    ): Statements[F] = F
 
     def of[F[_]: Monad: CassandraSession: ToTry: JsonCodec.Encode](
       schema: Schema,
       consistencyConfig: CassandraConsistencyConfig,
     ): F[Statements[F]] = {
       for {
-        insertRecords   <- JournalStatements.InsertRecords.of[F](schema.journal, consistencyConfig.write)
+        insertRecords <- JournalStatements.InsertRecords.of[F](schema.journal, consistencyConfig.write)
         deleteRecordsTo <- JournalStatements.DeleteTo.of[F](schema.journal, consistencyConfig.write)
-        deleteRecords   <- JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write)
-        metaJournal     <- MetaJournalStatements.of[F](schema, consistencyConfig)
-        selectOffset2   <- Pointer2Statements.SelectOffset.of[F](schema.pointer2, consistencyConfig.read)
-        selectPointer2  <- Pointer2Statements.Select.of[F](schema.pointer2, consistencyConfig.read)
-        insertPointer   <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
-        insertPointer2  <- Pointer2Statements.Insert.of[F](schema.pointer2, consistencyConfig.write)
-        updatePointer   <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
-        updatePointer2  <- Pointer2Statements.Update.of[F](schema.pointer2, consistencyConfig.write)
-        selectTopics2   <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
+        deleteRecords <- JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write)
+        metaJournal <- MetaJournalStatements.of[F](schema, consistencyConfig)
+        selectOffset2 <- Pointer2Statements.SelectOffset.of[F](schema.pointer2, consistencyConfig.read)
+        selectPointer2 <- Pointer2Statements.Select.of[F](schema.pointer2, consistencyConfig.read)
+        insertPointer <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
+        insertPointer2 <- Pointer2Statements.Insert.of[F](schema.pointer2, consistencyConfig.write)
+        updatePointer <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
+        updatePointer2 <- Pointer2Statements.Update.of[F](schema.pointer2, consistencyConfig.write)
+        selectTopics2 <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
       } yield {
         Statements(
           insertRecords,

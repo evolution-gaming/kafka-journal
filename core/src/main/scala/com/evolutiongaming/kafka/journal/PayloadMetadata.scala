@@ -16,7 +16,10 @@ object PayloadMetadata {
 
   implicit val formatPayloadMetadata: OFormat[PayloadMetadata] = Json.format
 
-  implicit def metadataCodec(implicit jsonCodec: JsonCodec[Try]): Codec[PayloadMetadata] =
+  implicit def metadataCodec(
+    implicit
+    jsonCodec: JsonCodec[Try],
+  ): Codec[PayloadMetadata] =
     formatCodec[PayloadMetadata]
 
   implicit def toBytesPayloadMetadata[F[_]: JsonCodec.Encode]: ToBytes[F, PayloadMetadata] =

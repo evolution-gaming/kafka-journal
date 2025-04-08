@@ -16,7 +16,8 @@ trait ConsRecordToActionRecord[F[_]] {
 object ConsRecordToActionRecord {
 
   implicit def apply[F[_]: MonadThrowable](
-    implicit consRecordToActionHeader: ConsRecordToActionHeader[F],
+    implicit
+    consRecordToActionHeader: ConsRecordToActionHeader[F],
     headerToTuple: HeaderToTuple[F],
   ): ConsRecordToActionRecord[F] = { (consRecord: ConsRecord) =>
     {
@@ -43,19 +44,19 @@ object ConsRecordToActionRecord {
 
         header match {
           case header: ActionHeader.Append => append(header).toOptionT
-          case header: ActionHeader.Mark   => Action.mark(key, timestamp, header).pure[OptionT[F, *]]
+          case header: ActionHeader.Mark => Action.mark(key, timestamp, header).pure[OptionT[F, *]]
           case header: ActionHeader.Delete => Action.delete(key, timestamp, header).pure[OptionT[F, *]]
-          case header: ActionHeader.Purge  => Action.purge(key, timestamp, header).pure[OptionT[F, *]]
+          case header: ActionHeader.Purge => Action.purge(key, timestamp, header).pure[OptionT[F, *]]
         }
       }
 
       val result = for {
-        id               <- consRecord.key.toOptionT[F]
+        id <- consRecord.key.toOptionT[F]
         timestampAndType <- consRecord.timestampAndType.toOptionT[F]
-        header           <- consRecordToActionHeader(consRecord)
-        key               = Key(id = id.value, topic = consRecord.topic)
-        timestamp         = timestampAndType.timestamp
-        action           <- action(key, timestamp, header)
+        header <- consRecordToActionHeader(consRecord)
+        key = Key(id = id.value, topic = consRecord.topic)
+        timestamp = timestampAndType.timestamp
+        action <- action(key, timestamp, header)
       } yield {
         val partitionOffset = PartitionOffset(consRecord)
         ActionRecord(action, partitionOffset)

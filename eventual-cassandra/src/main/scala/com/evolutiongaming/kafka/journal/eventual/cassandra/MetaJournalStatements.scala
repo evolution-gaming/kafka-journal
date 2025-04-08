@@ -19,7 +19,7 @@ private[journal] object MetaJournalStatements {
   def createTable(name: TableName): Nel[String] = {
 
     val table = s"""
-      |CREATE TABLE IF NOT EXISTS ${name.toCql} (
+      |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
       |id TEXT,
       |topic TEXT,
       |segment BIGINT,
@@ -41,18 +41,18 @@ private[journal] object MetaJournalStatements {
       |""".stripMargin
 
     val createdDateIdx = s"""
-      |CREATE INDEX IF NOT EXISTS ${name.table}_created_date_idx ON ${name.toCql} (created_date)
+      |CREATE INDEX IF NOT EXISTS ${ name.table }_created_date_idx ON ${ name.toCql } (created_date)
       |""".stripMargin
 
     val expireOnIdx = s"""
-      |CREATE INDEX IF NOT EXISTS ${name.table}_expire_on_idx ON ${name.toCql} (expire_on)
+      |CREATE INDEX IF NOT EXISTS ${ name.table }_expire_on_idx ON ${ name.toCql } (expire_on)
       |""".stripMargin
 
     Nel.of(table, createdDateIdx, expireOnIdx)
   }
 
   def addRecordId(table: TableName): String = {
-    s"ALTER TABLE ${table.toCql} ADD record_id UUID"
+    s"ALTER TABLE ${ table.toCql } ADD record_id UUID"
   }
 
   trait Insert[F[_]] {
@@ -76,7 +76,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |INSERT INTO ${name.toCql} (
+           |INSERT INTO ${ name.toCql } (
            |topic,
            |segment,
            |id,
@@ -137,7 +137,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on, record_id FROM ${name.toCql}
+           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on, record_id FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -177,7 +177,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |SELECT partition, offset, seq_nr FROM ${name.toCql}
+           |SELECT partition, offset, seq_nr FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -216,7 +216,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |SELECT id FROM ${name.toCql}
+           |SELECT id FROM ${ name.toCql }
            |WHERE topic = ?
            |AND segment = ?
            |AND expire_on = ?
@@ -251,7 +251,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |SELECT id FROM ${name.toCql}
+           |SELECT id FROM ${ name.toCql }
            |WHERE topic = ?
            |AND segment = ?
            |AND created_date = ?
@@ -286,7 +286,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |SELECT id FROM ${name.toCql}
+           |SELECT id FROM ${ name.toCql }
            |WHERE topic = ?
            |AND segment = ?
            |""".stripMargin
@@ -326,7 +326,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |UPDATE ${name.toCql}
+           |UPDATE ${ name.toCql }
            |SET partition = ?, offset = ?, seq_nr = ?, delete_to = ?, updated = ?
            |WHERE id = ?
            |AND topic = ?
@@ -378,7 +378,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |UPDATE ${name.toCql}
+           |UPDATE ${ name.toCql }
            |SET partition = ?, offset = ?, seq_nr = ?, updated = ?
            |WHERE id = ?
            |AND topic = ?
@@ -387,17 +387,24 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared => (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) =>
-          prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .encode(partitionOffset)
-            .encode(seqNr)
-            .encode("updated", timestamp)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .void
+        .map {
+          prepared => (
+            key: Key,
+            segment: SegmentNr,
+            partitionOffset: PartitionOffset,
+            timestamp: Instant,
+            seqNr: SeqNr,
+          ) =>
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .encode(partitionOffset)
+              .encode(seqNr)
+              .encode("updated", timestamp)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
         }
     }
   }
@@ -423,7 +430,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |UPDATE ${name.toCql}
+           |UPDATE ${ name.toCql }
            |SET partition = ?, offset = ?, seq_nr = ?, updated = ?, expire_after = ?, expire_on = ?
            |WHERE id = ?
            |AND topic = ?
@@ -433,26 +440,38 @@ private[journal] object MetaJournalStatements {
       query
         .prepare
         .map {
-          prepared =>
-            (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, expiry: Expiry) =>
-              prepared
-                .bind()
-                .encode(key)
-                .encode(segment)
-                .encode(partitionOffset)
-                .encode(seqNr)
-                .encode("updated", timestamp)
-                .encode(expiry)
-                .setConsistencyLevel(consistencyConfig.value)
-                .first
-                .void
+          prepared => (
+            key: Key,
+            segment: SegmentNr,
+            partitionOffset: PartitionOffset,
+            timestamp: Instant,
+            seqNr: SeqNr,
+            expiry: Expiry,
+          ) =>
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .encode(partitionOffset)
+              .encode(seqNr)
+              .encode("updated", timestamp)
+              .encode(expiry)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
         }
     }
   }
 
   trait UpdateDeleteTo[F[_]] {
 
-    def apply(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo): F[Unit]
+    def apply(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      deleteTo: DeleteTo,
+    ): F[Unit]
   }
 
   object UpdateDeleteTo {
@@ -464,7 +483,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |UPDATE ${name.toCql}
+           |UPDATE ${ name.toCql }
            |SET partition = ?, offset = ?, delete_to = ?, updated = ?
            |WHERE id = ?
            |AND topic = ?
@@ -474,7 +493,13 @@ private[journal] object MetaJournalStatements {
       query
         .prepare
         .map {
-          prepared => (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) =>
+          prepared => (
+            key: Key,
+            segment: SegmentNr,
+            partitionOffset: PartitionOffset,
+            timestamp: Instant,
+            deleteTo: DeleteTo,
+          ) =>
             prepared
               .bind()
               .encode(key)
@@ -491,7 +516,12 @@ private[journal] object MetaJournalStatements {
 
   trait UpdatePartitionOffset[F[_]] {
 
-    def apply(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant): F[Unit]
+    def apply(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+    ): F[Unit]
   }
 
   object UpdatePartitionOffset {
@@ -501,7 +531,7 @@ private[journal] object MetaJournalStatements {
       consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[UpdatePartitionOffset[F]] = {
       s"""
-         |UPDATE ${name.toCql}
+         |UPDATE ${ name.toCql }
          |SET partition = ?, offset = ?, updated = ?
          |WHERE id = ?
          |AND topic = ?
@@ -509,16 +539,22 @@ private[journal] object MetaJournalStatements {
          |"""
         .stripMargin
         .prepare
-        .map { statement => (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant) =>
-          statement
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .encode(partitionOffset)
-            .encode("updated", timestamp)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .void
+        .map {
+          statement => (
+            key: Key,
+            segment: SegmentNr,
+            partitionOffset: PartitionOffset,
+            timestamp: Instant,
+          ) =>
+            statement
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .encode(partitionOffset)
+              .encode("updated", timestamp)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
         }
     }
   }
@@ -537,7 +573,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |DELETE FROM ${name.toCql}
+           |DELETE FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -570,7 +606,7 @@ private[journal] object MetaJournalStatements {
 
       val query =
         s"""
-           |DELETE expire_after, expire_on FROM ${name.toCql}
+           |DELETE expire_after, expire_on FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -602,7 +638,7 @@ private[journal] object MetaJournalStatements {
       consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[SelectIds[F]] = {
       for {
-        prepared <- s"SELECT id FROM ${name.toCql} WHERE topic = ? AND segment = ?".prepare
+        prepared <- s"SELECT id FROM ${ name.toCql } WHERE topic = ? AND segment = ?".prepare
       } yield { (topic: Topic, segmentNr: SegmentNr) =>
         prepared
           .bind()

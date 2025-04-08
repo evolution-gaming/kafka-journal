@@ -21,7 +21,7 @@ class AsyncPeriodicTopicCommitTest extends AnyFreeSpec with Matchers {
   "AsyncPeriodicTopicCommit" - {
     "should perform periodic async commit for assigned partitions" in {
       val consumer = new TestConsumer
-      val impl     = makeImpl(consumer)
+      val impl = makeImpl(consumer)
       consumer.runCbUnsafe(impl.onPartitionsAssigned(NonEmptySet.of(p(0), p(1))))
 
       impl(
@@ -63,7 +63,7 @@ class AsyncPeriodicTopicCommitTest extends AnyFreeSpec with Matchers {
 
     "should perform sync commit for revoked partitions" in {
       val consumer = new TestConsumer
-      val impl     = makeImpl(consumer)
+      val impl = makeImpl(consumer)
       consumer.runCbUnsafe(impl.onPartitionsAssigned(NonEmptySet.of(p(0), p(1), p(2))))
 
       impl(
@@ -90,7 +90,7 @@ class AsyncPeriodicTopicCommitTest extends AnyFreeSpec with Matchers {
 
     "should ignore lost partitions" in {
       val consumer = new TestConsumer
-      val impl     = makeImpl(consumer)
+      val impl = makeImpl(consumer)
       consumer.runCbUnsafe(impl.onPartitionsAssigned(NonEmptySet.of(p(0), p(1), p(2))))
 
       impl(
@@ -121,17 +121,17 @@ class AsyncPeriodicTopicCommitTest extends AnyFreeSpec with Matchers {
 
   private def makeImpl(consumer: TestConsumer): AsyncPeriodicTopicCommit[SyncIO] = {
     new AsyncPeriodicTopicCommit[SyncIO](
-      topic          = topic,
+      topic = topic,
       commitMetadata = commitMetadata,
-      consumer       = consumer,
-      log            = Log.empty,
-      stateRef       = Ref.unsafe[SyncIO, AsyncPeriodicTopicCommit.State](AsyncPeriodicTopicCommit.State()),
+      consumer = consumer,
+      log = Log.empty,
+      stateRef = Ref.unsafe[SyncIO, AsyncPeriodicTopicCommit.State](AsyncPeriodicTopicCommit.State()),
     )
   }
 }
 
 private object AsyncPeriodicTopicCommitTest {
-  val topic          = "my-topic"
+  val topic = "my-topic"
   val commitMetadata = "my-commit-meta"
 
   val doNotCallF: SyncIO[Nothing] = SyncIO.raiseError(new RuntimeException("method not supposed to be called"))

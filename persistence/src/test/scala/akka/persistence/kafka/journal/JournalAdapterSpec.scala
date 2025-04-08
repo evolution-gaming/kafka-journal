@@ -22,13 +22,12 @@ import java.time.temporal.ChronoUnit
 import scala.concurrent.duration.*
 import scala.util.Try
 
-import TestJsonCodec.instance
-
 class JournalAdapterSpec extends AnyFunSuite with Matchers {
-  import JournalAdapterSpec.StateT.*
   import JournalAdapterSpec.*
+  import JournalAdapterSpec.StateT.*
+  import TestJsonCodec.instance
 
-  private val eventSerializer  = EventSerializer.const[StateT, Payload](event, persistentRepr)
+  private val eventSerializer = EventSerializer.const[StateT, Payload](event, persistentRepr)
   private val journalReadWrite = JournalReadWrite.of[StateT, Payload]
 
   private val aws = List(AtomicWrite(List(persistentRepr)), AtomicWrite(List(persistentRepr)))
@@ -64,7 +63,7 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
   }
 
   test("replay") {
-    val range   = SeqRange(from = SeqNr.min, to = SeqNr.max)
+    val range = SeqRange(from = SeqNr.min, to = SeqNr.max)
     val initial = State(events = List(eventRecord.map(EventualWrite.summon[Try, Payload].apply(_).get)))
     val f = (a: PersistentRepr) =>
       StateT { s =>
@@ -91,19 +90,21 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
 
 object JournalAdapterSpec {
 
-  private val timestamp       = Instant.now().truncatedTo(ChronoUnit.MILLIS)
-  private val expireAfter     = 1.day.toExpireAfter
-  private val toKey           = ToKey.default[StateT]
-  private val key1            = Key(id = "id", topic = "journal")
-  private val event           = Event(SeqNr.min, payload = Payload.text("payload").some)
+  private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+  private val expireAfter = 1.day.toExpireAfter
+  private val toKey = ToKey.default[StateT]
+  private val key1 = Key(id = "id", topic = "journal")
+  private val event = Event(SeqNr.min, payload = Payload.text("payload").some)
   private val partitionOffset = PartitionOffset.empty
-  private val persistenceId   = "id"
-  private val persistentRepr  = PersistentRepr(None, persistenceId = persistenceId)
-  private val recordMetadata  = RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata(expireAfter.some))
-  private val headers         = Headers(("key", "value"))
-  private val origin          = Origin("origin")
-  private val version         = Version.current
-  private val eventRecord     = EventRecord(event, timestamp, partitionOffset, origin.some, version.some, recordMetadata, headers)
+  private val persistenceId = "id"
+  private val persistentRepr = PersistentRepr(None, persistenceId = persistenceId)
+  private val recordMetadata =
+    RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata(expireAfter.some))
+  private val headers = Headers(("key", "value"))
+  private val origin = Origin("origin")
+  private val version = Version.current
+  private val eventRecord =
+    EventRecord(event, timestamp, partitionOffset, origin.some, version.some, recordMetadata, headers)
 
   sealed abstract class Action
 
@@ -111,7 +112,12 @@ object JournalAdapterSpec {
     final case class Purge(key: Key) extends Action
   }
 
-  final case class Append(key: Key, payloadAndType: PayloadAndType, metadata: RecordMetadata, headers: Headers)
+  final case class Append(
+    key: Key,
+    payloadAndType: PayloadAndType,
+    metadata: RecordMetadata,
+    headers: Headers,
+  )
 
   final case class Read(key: Key, from: SeqNr)
 
@@ -121,12 +127,12 @@ object JournalAdapterSpec {
 
   final case class State(
     events: List[EventRecord[EventualPayloadAndType]] = List.empty,
-    appends: List[Append]                             = List.empty,
-    pointers: List[Pointer]                           = List.empty,
-    deletes: List[Delete]                             = List.empty,
-    reads: List[Read]                                 = List.empty,
-    replayed: List[PersistentRepr]                    = List.empty,
-    actions: List[Action]                             = List.empty,
+    appends: List[Append] = List.empty,
+    pointers: List[Pointer] = List.empty,
+    deletes: List[Delete] = List.empty,
+    reads: List[Read] = List.empty,
+    replayed: List[PersistentRepr] = List.empty,
+    actions: List[Action] = List.empty,
   )
 
   object State {
@@ -160,23 +166,32 @@ object JournalAdapterSpec {
 
       def apply(key: Key) = new Journal[StateT] {
 
-        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[StateT, A],
+        def append[A](
+          events: Nel[Event[A]],
+          metadata: RecordMetadata,
+          headers: Headers,
+        )(implicit
+          kafkaWrite: KafkaWrite[StateT, A],
         ) =
           for {
             payloadAndType <- kafkaWrite(Events(events, metadata.payload))
-            append          = Append(key, payloadAndType, metadata, headers)
+            append = Append(key, payloadAndType, metadata, headers)
             offset <- StateT { state =>
               val s1 = state.copy(appends = append :: state.appends)
               (s1, partitionOffset)
             }
           } yield offset
 
-        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[StateT, A], eventualRead: EventualRead[StateT, A]) = {
+        def read[A](
+          from: SeqNr,
+        )(implicit
+          kafkaRead: KafkaRead[StateT, A],
+          eventualRead: EventualRead[StateT, A],
+        ) = {
           val stream = StateT { state =>
             val events = state.events.traverse(_.traverse(eventualRead.apply))
 
-            val read   = Read(key, from)
+            val read = Read(key, from)
             val state1 = state.copy(reads = read :: state.reads, events = Nil)
 
             (state1, events)

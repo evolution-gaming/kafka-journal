@@ -56,7 +56,12 @@ object ReplicatedTopicJournal {
 
   implicit class ReplicatedTopicJournalOps[F[_]](val self: ReplicatedTopicJournal[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G)(implicit B: BracketThrowable[F], GT: BracketThrowable[G]): ReplicatedTopicJournal[G] = {
+    def mapK[G[_]](
+      f: F ~> G,
+    )(implicit
+      B: BracketThrowable[F],
+      GT: BracketThrowable[G],
+    ): ReplicatedTopicJournal[G] = {
       new MapK with ReplicatedTopicJournal[G] {
 
         def apply(partition: Partition) = {
@@ -71,7 +76,10 @@ object ReplicatedTopicJournal {
     def withLog(
       topic: Topic,
       log: Log[F],
-    )(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedTopicJournal[F] = {
+    )(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F],
+    ): ReplicatedTopicJournal[F] = {
       new WithLog with ReplicatedTopicJournal[F] {
 
         def apply(partition: Partition) = {
@@ -85,7 +93,10 @@ object ReplicatedTopicJournal {
     def withMetrics(
       topic: Topic,
       metrics: ReplicatedJournal.Metrics[F],
-    )(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedTopicJournal[F] = {
+    )(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F],
+    ): ReplicatedTopicJournal[F] = {
       new WithMetrics with ReplicatedTopicJournal[F] {
 
         def apply(partition: Partition) = {
@@ -96,7 +107,11 @@ object ReplicatedTopicJournal {
       }
     }
 
-    def enhanceError(topic: Topic)(implicit F: MonadThrowable[F]): ReplicatedTopicJournal[F] = {
+    def enhanceError(
+      topic: Topic,
+    )(implicit
+      F: MonadThrowable[F],
+    ): ReplicatedTopicJournal[F] = {
 
       def journalError(msg: String, cause: Throwable) = {
         JournalError(s"ReplicatedTopicJournal.$msg failed with $cause", cause)

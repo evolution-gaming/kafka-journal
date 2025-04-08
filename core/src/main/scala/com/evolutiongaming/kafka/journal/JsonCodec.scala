@@ -16,7 +16,10 @@ final case class JsonCodec[F[_]](encode: JsonCodec.Encode[F], decode: JsonCodec.
 
 object JsonCodec {
 
-  def summon[F[_]](implicit F: JsonCodec[F]): JsonCodec[F] = F
+  def summon[F[_]](
+    implicit
+    F: JsonCodec[F],
+  ): JsonCodec[F] = F
 
   def playJson[F[_]: FromTry]: JsonCodec[F] = {
     JsonCodec(encode = Encode.playJson, decode = Decode.playJson)
@@ -27,7 +30,10 @@ object JsonCodec {
   }
 
   def default[F[_]: ApplicativeThrowable: FromTry]: JsonCodec[F] = {
-    JsonCodec(encode = Encode.jsoniter[F] fallbackTo Encode.playJson, decode = Decode.jsoniter[F] fallbackTo Decode.playJson)
+    JsonCodec(
+      encode = Encode.jsoniter[F] fallbackTo Encode.playJson,
+      decode = Decode.jsoniter[F] fallbackTo Decode.playJson,
+    )
   }
 
   implicit class JsonCodecOps[F[_]](val self: JsonCodec[F]) extends AnyVal {
@@ -39,9 +45,15 @@ object JsonCodec {
 
   object Encode {
 
-    def summon[F[_]](implicit F: Encode[F]): Encode[F] = F
+    def summon[F[_]](
+      implicit
+      F: Encode[F],
+    ): Encode[F] = F
 
-    implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Encode[F] = codec.encode
+    implicit def fromCodec[F[_]](
+      implicit
+      codec: JsonCodec[F],
+    ): Encode[F] = codec.encode
 
     def playJson[F[_]: FromTry]: Encode[F] = {
       Encode { value =>
@@ -65,7 +77,11 @@ object JsonCodec {
 
       def mapK[G[_]](f: F ~> G): Encode[G] = Encode(self.toBytes.mapK(f))
 
-      def fallbackTo(encode: Encode[F])(implicit F: ApplicativeThrowable[F]): Encode[F] = {
+      def fallbackTo(
+        encode: Encode[F],
+      )(implicit
+        F: ApplicativeThrowable[F],
+      ): Encode[F] = {
         Encode { jsValue =>
           self
             .toBytes(jsValue)
@@ -77,10 +93,14 @@ object JsonCodec {
         }
       }
 
-      def toStr(value: JsValue)(implicit F: MonadThrowable[F]): F[String] =
+      def toStr(
+        value: JsValue,
+      )(implicit
+        F: MonadThrowable[F],
+      ): F[String] =
         for {
           bytes <- self.toBytes(value)
-          str   <- bytes.decodeStr.liftTo[F]
+          str <- bytes.decodeStr.liftTo[F]
         } yield str
     }
   }
@@ -89,9 +109,15 @@ object JsonCodec {
 
   object Decode {
 
-    def summon[F[_]](implicit F: Decode[F]): Decode[F] = F
+    def summon[F[_]](
+      implicit
+      F: Decode[F],
+    ): Decode[F] = F
 
-    implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Decode[F] = codec.decode
+    implicit def fromCodec[F[_]](
+      implicit
+      codec: JsonCodec[F],
+    ): Decode[F] = codec.decode
 
     def playJson[F[_]: FromTry]: Decode[F] = {
       Decode { byteVector =>
@@ -112,7 +138,11 @@ object JsonCodec {
 
       def mapK[G[_]](f: F ~> G): Decode[G] = Decode(self.fromBytes.mapK(f))
 
-      def fallbackTo(decode: Decode[F])(implicit F: ApplicativeThrowable[F]): Decode[F] = {
+      def fallbackTo(
+        decode: Decode[F],
+      )(implicit
+        F: ApplicativeThrowable[F],
+      ): Decode[F] = {
         Decode { bytes =>
           self
             .fromBytes(bytes)
@@ -124,7 +154,11 @@ object JsonCodec {
         }
       }
 
-      def fromStr(str: String)(implicit F: MonadThrowable[F]): F[JsValue] =
+      def fromStr(
+        str: String,
+      )(implicit
+        F: MonadThrowable[F],
+      ): F[JsValue] =
         for {
           bytes <- ByteVector.encodeString(str)(StandardCharsets.UTF_8).liftTo[F]
           value <- self.fromBytes(bytes)

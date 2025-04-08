@@ -16,19 +16,25 @@ private[journal] final case class MetaJournalEntry(
 
 private[journal] object MetaJournalEntry {
 
-  implicit def decodeRowMetaJournalEntry(implicit decode: DecodeRow[JournalHead]): DecodeRow[MetaJournalEntry] = {
+  implicit def decodeRowMetaJournalEntry(
+    implicit
+    decode: DecodeRow[JournalHead],
+  ): DecodeRow[MetaJournalEntry] = {
     (row: GettableByNameData) =>
       {
         MetaJournalEntry(
           journalHead = row.decode[JournalHead],
-          created     = row.decode[Instant]("created"),
-          updated     = row.decode[Instant]("updated"),
-          origin      = row.decode[Option[Origin]],
+          created = row.decode[Instant]("created"),
+          updated = row.decode[Instant]("updated"),
+          origin = row.decode[Option[Origin]],
         )
       }
   }
 
-  implicit def encodeRowMetaJournalEntry(implicit encode: EncodeRow[JournalHead]): EncodeRow[MetaJournalEntry] = {
+  implicit def encodeRowMetaJournalEntry(
+    implicit
+    encode: EncodeRow[JournalHead],
+  ): EncodeRow[MetaJournalEntry] = {
     new EncodeRow[MetaJournalEntry] {
       def apply[B <: SettableData[B]](data: B, value: MetaJournalEntry) = {
         data

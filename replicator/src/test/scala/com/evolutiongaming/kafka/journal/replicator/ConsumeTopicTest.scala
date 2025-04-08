@@ -134,7 +134,7 @@ object ConsumeTopicTest {
 
   final case class State(
     commands: List[Command] = List.empty,
-    actions: List[Action]   = List.empty,
+    actions: List[Action] = List.empty,
   ) {
 
     def +(action: Action): State = copy(actions = action :: actions)
@@ -287,7 +287,7 @@ object ConsumeTopicTest {
 
         val stateT = StateT.of { state =>
           state.commands match {
-            case Nil                 => (state, none[Map[Partition, Nel[ConsRecord]]].pure[Try]).pure[IO]
+            case Nil => (state, none[Map[Partition, Nel[ConsRecord]]].pure[Try]).pure[IO]
             case command :: commands => apply(state.copy(commands = commands), command)
           }
         }
@@ -352,12 +352,12 @@ object ConsumeTopicTest {
     offset: Long,
   ): ConsRecord = {
     ConsRecord(
-      topicPartition   = TopicPartition(topic = topic, partition = Partition.unsafe(partition)),
-      offset           = Offset.unsafe(offset),
+      topicPartition = TopicPartition(topic = topic, partition = Partition.unsafe(partition)),
+      offset = Offset.unsafe(offset),
       timestampAndType = none,
-      key              = WithSize(key).some,
-      value            = none,
-      headers          = List.empty,
+      key = WithSize(key).some,
+      value = none,
+      headers = List.empty,
     )
   }
 

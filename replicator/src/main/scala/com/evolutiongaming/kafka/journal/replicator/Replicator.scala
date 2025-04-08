@@ -26,11 +26,12 @@ import scodec.bits.ByteVector
 import scala.concurrent.duration.*
 
 /**
- * Subscribes to Kafka and establishes session with Cassandra.
- * For each topic creates instance of [[TopicReplicator]] and binds it with Cassandra client [[ReplicatedCassandra]]
- * (which implements [[ReplicatedJournal]]).
+ * Subscribes to Kafka and establishes session with Cassandra. For each topic creates instance of
+ * [[TopicReplicator]] and binds it with Cassandra client [[ReplicatedCassandra]] (which implements
+ * [[ReplicatedJournal]]).
  *
- * [[TopicReplicator]] groups messages per key and delegates them to [[ReplicateRecords]] for storage in Cassandra.
+ * [[TopicReplicator]] groups messages per key and delegates them to [[ReplicateRecords]] for
+ * storage in Cassandra.
  */
 // TODO TEST
 trait Replicator[F[_]] {
@@ -40,47 +41,48 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def make[F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
+  def make[
+    F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec,
+  ](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
     metrics: Option[Metrics[F]] = none,
   ): Resource[F, F[Unit]] = {
 
-    def replicatedJournal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
+    def replicatedJournal(implicit
+      cassandraCluster: CassandraCluster[F],
+      cassandraSession: CassandraSession[F],
+    ) = {
       val origin = hostName.map(Origin.fromHostName)
       ReplicatedCassandra.of[F](config.cassandra, origin, metrics.flatMap(_.journal))
     }
 
     for {
-      cassandraCluster  <- CassandraCluster.make(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
-      cassandraSession  <- cassandraCluster.session
+      cassandraCluster <- CassandraCluster.make(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
+      cassandraSession <- cassandraCluster.session
       replicatedJournal <- replicatedJournal(cassandraCluster, cassandraSession).toResource
-      result            <- make(config, metrics, replicatedJournal, hostName, ReplicatedOffsetNotifier.empty)
+      result <- make(config, metrics, replicatedJournal, hostName, ReplicatedOffsetNotifier.empty)
     } yield result
   }
 
   @deprecated(since = "4.1.7", message = "use 'make' version with added arguments")
-  def make[
-    F[_]: Temporal: Parallel: Runtime: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec,
-  ](
+  def make[F[_]: Temporal: Parallel: Runtime: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]],
     journal: ReplicatedJournal[F],
     hostName: Option[HostName],
   ): Resource[F, F[Unit]] = {
     make(
-      config                   = config,
-      metrics                  = metrics,
-      journal                  = journal,
-      hostName                 = hostName,
+      config = config,
+      metrics = metrics,
+      journal = journal,
+      hostName = hostName,
       replicatedOffsetNotifier = ReplicatedOffsetNotifier.empty,
     )
   }
 
-  def make[
-    F[_]: Temporal: Parallel: Runtime: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec,
-  ](
+  def make[F[_]: Temporal: Parallel: Runtime: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]],
     journal: ReplicatedJournal[F],
@@ -121,7 +123,7 @@ object Replicator {
       new Named[F] {
         def apply[A](fa: F[A], name: String) = {
           val onError = OnError.fromLog(log.prefixed(s"consumer.$name"))
-          val retry   = Retry(strategy, onError)
+          val retry = Retry(strategy, onError)
           retry(fa)
         }
       }
@@ -132,7 +134,7 @@ object Replicator {
       registry <- ResourceRegistry.make[F]
     } yield {
       for {
-        log   <- LogOf[F].apply(Replicator.getClass)
+        log <- LogOf[F].apply(Replicator.getClass)
         retry <- retry(log)
         error <- Ref.of[F, F[Unit]](().pure[F])
         result <- {
@@ -144,7 +146,7 @@ object Replicator {
                   outcomeF
                     .flatTap {
                       case Outcome.Errored(e) => error.set(e.raiseError[F, Unit])
-                      case _                  => Concurrent[F].unit
+                      case _ => Concurrent[F].unit
                     }
                     .onError { case e => error.set(e.raiseError[F, Unit]) }
                 }
@@ -176,7 +178,7 @@ object Replicator {
     def newTopics(state: State) = {
       for {
         latency <- MeasureDuration[F].start
-        topics  <- consumer.topics
+        topics <- consumer.topics
         latency <- latency
         topicsNew = for {
           topic <- (topics -- state).toList
@@ -187,7 +189,7 @@ object Replicator {
           else
             log.info {
               val topics = topicsNew.mkString(",")
-              s"discovered new topics in ${latency.toMillis}ms: $topics"
+              s"discovered new topics in ${ latency.toMillis }ms: $topics"
             }
         }
       } yield topicsNew
@@ -200,11 +202,11 @@ object Replicator {
       .tailRecM { state =>
         for {
           topics <- newTopics(state)
-          _      <- continue
-          _      <- topics.parFoldMap1(start)
-          _      <- continue
-          _      <- sleep
-          _      <- continue
+          _ <- continue
+          _ <- topics.parFoldMap1(start)
+          _ <- continue
+          _ <- sleep
+          _ <- continue
         } yield {
           (state ++ topics).asLeft[Unit]
         }
@@ -212,7 +214,10 @@ object Replicator {
       .onError { case e => log.error(s"failed with $e", e) }
   }
 
-  final case class Config(topicPrefixes: Nel[String] = Nel.of("journal"), topicDiscoveryInterval: FiniteDuration = 3.seconds)
+  final case class Config(
+    topicPrefixes: Nel[String] = Nel.of("journal"),
+    topicDiscoveryInterval: FiniteDuration = 3.seconds,
+  )
 
   object Config {
     val default: Config = Config()
@@ -228,7 +233,10 @@ object Replicator {
 
   object Consumer {
 
-    def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
+    def apply[F[_]](
+      implicit
+      F: Consumer[F],
+    ): Consumer[F] = F
 
     def apply[F[_]](consumer: KafkaConsumer[F, String, ByteVector]): Consumer[F] = new Consumer[F] {
       def topics = consumer.topics
@@ -281,9 +289,9 @@ object Replicator {
     def make[F[_]: Monad](registry: CollectorRegistry[F], clientId: ClientId): Resource[F, Replicator.Metrics[F]] = {
       for {
         replicator1 <- TopicReplicatorMetrics.make[F](registry)
-        journal1    <- ReplicatedJournal.Metrics.make[F](registry)
-        consumer1   <- ConsumerMetrics.of[F](registry)
-        cache1      <- CacheMetrics.of[F](registry)
+        journal1 <- ReplicatedJournal.Metrics.make[F](registry)
+        consumer1 <- ConsumerMetrics.of[F](registry)
+        cache1 <- CacheMetrics.of[F](registry)
       } yield {
         new Metrics[F] {
 

@@ -23,11 +23,19 @@ trait Settings[F[_]] {
 
 object Settings {
 
-  def apply[F[_]](implicit F: Settings[F]): Settings[F] = F
+  def apply[F[_]](
+    implicit
+    F: Settings[F],
+  ): Settings[F] = F
 
   implicit class SettingsOps[F[_]](val self: Settings[F]) extends AnyVal {
 
-    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): Settings[F] = {
+    def withLog(
+      log: Log[F],
+    )(implicit
+      F: FlatMap[F],
+      measureDuration: MeasureDuration[F],
+    ): Settings[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -38,7 +46,7 @@ object Settings {
             d <- MeasureDuration[F].start
             r <- self.get(key)
             d <- d
-            _ <- log.debug(s"$key get in ${d.toMillis}ms, result: $r")
+            _ <- log.debug(s"$key get in ${ d.toMillis }ms, result: $r")
           } yield r
         }
 
@@ -47,7 +55,7 @@ object Settings {
             d <- MeasureDuration[F].start
             r <- self.set(key, value)
             d <- d
-            _ <- log.debug(s"$key set in ${d.toMillis}ms, value: $value, result: $r")
+            _ <- log.debug(s"$key set in ${ d.toMillis }ms, value: $value, result: $r")
           } yield r
         }
 
@@ -56,7 +64,7 @@ object Settings {
             d <- MeasureDuration[F].start
             r <- self.remove(key)
             d <- d
-            _ <- log.debug(s"$key set in ${d.toMillis}ms, result: $r")
+            _ <- log.debug(s"$key set in ${ d.toMillis }ms, result: $r")
           } yield r
         }
 
@@ -67,7 +75,7 @@ object Settings {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- log.debug(s"all in ${d.toMillis}ms, result: $r")
+                _ <- log.debug(s"all in ${ d.toMillis }ms, result: $r")
               } yield r
             }
           }

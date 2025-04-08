@@ -29,7 +29,7 @@ private[journal] object ConsumeTopic {
         .limit(1.minute)
         .resetAfter(5.minutes)
       onError = OnError.fromLog(log)
-      retry   = Retry(strategy, onError)
+      retry = Retry(strategy, onError)
       result <- apply(topic, consumer, topicFlowOf, log, retry)
     } yield result
   }

@@ -13,7 +13,7 @@ class DurationToTest extends AnyFunSuite with Matchers {
   private val now = LocalDateTime.now()
 
   for {
-    now   <- List(now, now.plusHours(1), now.minusHours(1), now.plusDays(1), now.minusDays(1))
+    now <- List(now, now.plusHours(1), now.minusHours(1), now.plusDays(1), now.minusDays(1))
     until <- List(LocalTime.of(3, 0), LocalTime.of(9, 0), LocalTime.of(15, 0), LocalTime.of(21, 0))
   } {
     test(s"valid duration from $now until $until") {

@@ -10,19 +10,27 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 
 import scala.util.Try
 
-/** Migrates the existing schema to the latest version */
+/**
+ * Migrates the existing schema to the latest version
+ */
 private[journal] trait MigrateSchema[F[_]] {
 
-  /** Run all built-in migrations
-    *
-    * @param fresh
-    *   Indicates if the schema was just created from scratch, or some tables were already present. The parameter is
-    *   taken into consideration if there is no schema version information available in the settings. In this case, if
-    *   `true`, then it will be assumed that no migrations are required, and the latest version will be saved into
-    *   settings. If `false` then all migration steps will be attempted (because the schema, likely, was created before
-    *   migration steps were added).
-    */
-  def run(fresh: MigrateSchema.Fresh)(implicit session: CassandraSession[F]): F[Unit]
+  /**
+   * Run all built-in migrations
+   *
+   * @param fresh
+   *   Indicates if the schema was just created from scratch, or some tables were already present.
+   *   The parameter is taken into consideration if there is no schema version information available
+   *   in the settings. In this case, if `true`, then it will be assumed that no migrations are
+   *   required, and the latest version will be saved into settings. If `false` then all migration
+   *   steps will be attempted (because the schema, likely, was created before migration steps were
+   *   added).
+   */
+  def run(
+    fresh: MigrateSchema.Fresh,
+  )(implicit
+    session: CassandraSession[F],
+  ): F[Unit]
 
 }
 
@@ -30,20 +38,22 @@ private[journal] object MigrateSchema {
 
   type Fresh = Boolean
 
-  /** Save version of a schema to the settings storage under specific key.
-    *
-    * @param cassandraSync
-    *   Locking mechanism to ensure two migrations are not happening in paralell.
-    * @param settings
-    *   Storage to get / save the schema version from / to.
-    * @param settingKey
-    *   A key to use in a setting store. It is important to use a different key for different schemas, to ensure there
-    *   is no accidental overwrite if both schemas are located in one keyspace.
-    * @param migrations
-    *   List of CQL statements to execute. The schema version is equal to the size of this list.
-    * @return
-    *   The instance of schema migrator.
-    */
+  /**
+   * Save version of a schema to the settings storage under specific key.
+   *
+   * @param cassandraSync
+   *   Locking mechanism to ensure two migrations are not happening in paralell.
+   * @param settings
+   *   Storage to get / save the schema version from / to.
+   * @param settingKey
+   *   A key to use in a setting store. It is important to use a different key for different
+   *   schemas, to ensure there is no accidental overwrite if both schemas are located in one
+   *   keyspace.
+   * @param migrations
+   *   List of CQL statements to execute. The schema version is equal to the size of this list.
+   * @return
+   *   The instance of schema migrator.
+   */
   def forSettingKey[F[_]: MonadThrow](
     cassandraSync: CassandraSync[F],
     settings: Settings[F],
@@ -56,7 +66,11 @@ private[journal] object MigrateSchema {
         .set(settingKey, version.toString)
         .void
 
-    def run(fresh: MigrateSchema.Fresh)(implicit session: CassandraSession[F]): F[Unit] = {
+    def run(
+      fresh: MigrateSchema.Fresh,
+    )(implicit
+      session: CassandraSession[F],
+    ): F[Unit] = {
 
       def migrate: F[Option[F[Unit]]] = {
 

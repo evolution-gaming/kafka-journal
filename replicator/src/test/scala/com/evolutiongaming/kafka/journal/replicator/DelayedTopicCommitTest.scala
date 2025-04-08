@@ -16,7 +16,12 @@ class DelayedTopicCommitTest extends AsyncFunSuite with Matchers {
 
   test("delayed") {
 
-    def commitOf(deferred: Deferred[IO, Unit], commitsRef: Ref[IO, List[Nem[Partition, Offset]]])(implicit clock: Clock[IO]) = {
+    def commitOf(
+      deferred: Deferred[IO, Unit],
+      commitsRef: Ref[IO, List[Nem[Partition, Offset]]],
+    )(implicit
+      clock: Clock[IO],
+    ) = {
       val commit = new TopicCommit[IO] {
         def apply(offsets: Nem[Partition, Offset]): IO[Unit] = {
           commitsRef.update { offsets :: _ } *> deferred.complete(()).void
@@ -38,18 +43,18 @@ class DelayedTopicCommitTest extends AsyncFunSuite with Matchers {
 
     val result = for {
       commitsRef <- Ref[IO].of(List.empty[Nem[Partition, Offset]])
-      deferred   <- Deferred[IO, Unit]
-      clockRef   <- Ref[IO].of(0.millis)
-      clock       = clockOf(clockRef)
-      commit     <- commitOf(deferred, commitsRef)(clock)
-      _          <- commit(Nem.of((Partition.min, Offset.min)))
-      offsets    <- commitsRef.get
-      _           = offsets shouldEqual List.empty
-      _          <- clockRef.set(20.millis)
-      _          <- commit(Nem.of((Partition.unsafe(1), Offset.unsafe(1))))
-      _          <- deferred.get
-      offsets    <- commitsRef.get
-      _           = offsets shouldEqual List(Nem.of((Partition.min, Offset.min), (Partition.unsafe(1), Offset.unsafe(1))))
+      deferred <- Deferred[IO, Unit]
+      clockRef <- Ref[IO].of(0.millis)
+      clock = clockOf(clockRef)
+      commit <- commitOf(deferred, commitsRef)(clock)
+      _ <- commit(Nem.of((Partition.min, Offset.min)))
+      offsets <- commitsRef.get
+      _ = offsets shouldEqual List.empty
+      _ <- clockRef.set(20.millis)
+      _ <- commit(Nem.of((Partition.unsafe(1), Offset.unsafe(1))))
+      _ <- deferred.get
+      offsets <- commitsRef.get
+      _ = offsets shouldEqual List(Nem.of((Partition.min, Offset.min), (Partition.unsafe(1), Offset.unsafe(1))))
     } yield {}
     result.run()
   }

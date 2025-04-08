@@ -40,7 +40,9 @@ object Journals {
   }
 
   def make[
-    F[_]: Async: FromTry: Fail: LogOf: KafkaConsumerOf: KafkaProducerOf: HeadCacheOf: RandomIdOf: MeasureDuration: JsonCodec,
+    F[
+      _,
+    ]: Async: FromTry: Fail: LogOf: KafkaConsumerOf: KafkaProducerOf: HeadCacheOf: RandomIdOf: MeasureDuration: JsonCodec,
   ](
     config: JournalConfig,
     origin: Option[Origin],
@@ -63,10 +65,10 @@ object Journals {
     }
 
     for {
-      producer  <- Producer.make[F](config.kafka.producer)
-      log       <- LogOf[F].apply(Journals.getClass).toResource
+      producer <- Producer.make[F](config.kafka.producer)
+      log <- LogOf[F].apply(Journals.getClass).toResource
       headCache <- headCache
-      consumer  <- ConsumerPool.make[F](consumerPoolConfig, consumerPoolMetrics, consumer)
+      consumer <- ConsumerPool.make[F](consumerPoolConfig, consumerPoolMetrics, consumer)
     } yield {
       val withLog = apply(
         origin,
@@ -90,17 +92,19 @@ object Journals {
     headCache: HeadCache[F],
     log: Log[F],
     conversionMetrics: Option[ConversionMetrics[F]],
-  )(implicit F: MonadCancel[F, Throwable]): Journals[F] = {
-    implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
+  )(implicit
+    F: MonadCancel[F, Throwable],
+  ): Journals[F] = {
+    implicit val fromAttempt: FromAttempt[F] = FromAttempt.lift[F]
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
 
     apply[F](
-      eventual             = eventualJournal,
+      eventual = eventualJournal,
       consumeActionRecords = ConsumeActionRecords[F](consumer),
-      produce              = Produce[F](producer, origin),
-      headCache            = headCache,
-      log                  = log,
-      conversionMetrics    = conversionMetrics,
+      produce = Produce[F](producer, origin),
+      headCache = headCache,
+      log = log,
+      conversionMetrics = conversionMetrics,
     )
   }
 
@@ -111,17 +115,25 @@ object Journals {
     headCache: HeadCache[F],
     log: Log[F],
     conversionMetrics: Option[ConversionMetrics[F]],
-  )(implicit F: MonadCancel[F, Throwable]): Journals[F] = {
+  )(implicit
+    F: MonadCancel[F, Throwable],
+  ): Journals[F] = {
 
     val appendMarker = AppendMarker(produce)
     val appendEvents = AppendEvents(produce)
 
-    def kafkaWriteWithMetrics[A](implicit kafkaWrite: KafkaWrite[F, A]) =
+    def kafkaWriteWithMetrics[A](
+      implicit
+      kafkaWrite: KafkaWrite[F, A],
+    ) =
       conversionMetrics.fold(kafkaWrite) { metrics =>
         kafkaWrite.withMetrics(metrics.kafkaWrite)
       }
 
-    def kafkaReadWithMetrics[A](implicit kafkaRead: KafkaRead[F, A]) =
+    def kafkaReadWithMetrics[A](
+      implicit
+      kafkaRead: KafkaRead[F, A],
+    ) =
       conversionMetrics.fold(kafkaRead) { metrics =>
         kafkaRead.withMetrics(metrics.kafkaRead)
       }
@@ -169,13 +181,22 @@ object Journals {
       def apply(key: Key): Journal[F] = {
         new Main with Journal[F] {
 
-          def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-            implicit kafkaWrite: KafkaWrite[F, A],
+          def append[A](
+            events: Nel[Event[A]],
+            metadata: RecordMetadata,
+            headers: Headers,
+          )(implicit
+            kafkaWrite: KafkaWrite[F, A],
           ) = {
             appendEvents(key, events, metadata, headers)(kafkaWriteWithMetrics)
           }
 
-          def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = {
+          def read[A](
+            from: SeqNr,
+          )(implicit
+            kafkaRead: KafkaRead[F, A],
+            eventualRead: EventualRead[F, A],
+          ) = {
 
             def readEventual(from: SeqNr) = {
               eventual
@@ -207,7 +228,7 @@ object Journals {
                           action <- record.action match {
                             case a: Action.Append => Stream[F].single(a)
                             case _: Action.Delete => Stream[F].empty
-                            case _: Action.Purge  => Stream[F].empty
+                            case _: Action.Purge => Stream[F].empty
                           }
                           if action.range.to >= seqNr
                           events <- kafkaReadWithMetrics
@@ -274,8 +295,8 @@ object Journals {
             for {
               headAndStream <- headAndStream(key, from).toStream
               (head, stream) = headAndStream
-              _             <- log.debug(s"$key read info: $head").toStream
-              eventRecord   <- read(head, stream)
+              _ <- log.debug(s"$key read info: $head").toStream
+              eventRecord <- read(head, stream)
             } yield eventRecord
           }
 
@@ -291,12 +312,12 @@ object Journals {
             }
             for {
               headAndStream <- headAndStream(key, SeqNr.min)
-              (headInfo, _)  = headAndStream
+              (headInfo, _) = headAndStream
               pointer <- headInfo match {
-                case HeadInfo.Empty     => pointerEventual
+                case HeadInfo.Empty => pointerEventual
                 case a: HeadInfo.Append => a.seqNr.some.pure[F]
                 case _: HeadInfo.Delete => pointerEventual
-                case HeadInfo.Purge     => none[SeqNr].pure[F]
+                case HeadInfo.Purge => none[SeqNr].pure[F]
               }
             } yield pointer
           }
@@ -331,17 +352,17 @@ object Journals {
 
       val acks = config.acks match {
         case Acks.None => Acks.One
-        case acks      => acks
+        case acks => acks
       }
 
       val config1 = config.copy(
-        acks        = acks,
+        acks = acks,
         idempotence = true,
-        retries     = config.retries max 10,
+        retries = config.retries max 10,
         common = config
           .common
           .copy(
-            clientId        = config.common.clientId.getOrElse("journal").some,
+            clientId = config.common.clientId.getOrElse("journal").some,
             sendBufferBytes = config.common.sendBufferBytes max 1000000,
           ),
       )
@@ -356,7 +377,10 @@ object Journals {
 
     def apply[F[_]: Monad: Fail](
       producer: KafkaProducer[F],
-    )(implicit toBytesKey: skafka.ToBytes[F, String], toBytesValue: skafka.ToBytes[F, ByteVector]): Producer[F] = {
+    )(implicit
+      toBytesKey: skafka.ToBytes[F, String],
+      toBytesValue: skafka.ToBytes[F, ByteVector],
+    ): Producer[F] = {
       (record: ProducerRecord[String, ByteVector]) =>
         {
           for {
@@ -429,17 +453,28 @@ object Journals {
     def withLog(
       log: Log[F],
       config: Journal.CallTimeThresholds = Journal.CallTimeThresholds.default,
-    )(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): Journals[F] = { (key: Key) =>
+    )(implicit
+      F: FlatMap[F],
+      measureDuration: MeasureDuration[F],
+    ): Journals[F] = { (key: Key) =>
       self(key).withLog(key, log, config)
     }
 
-    def withLogError(log: Log[F])(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journals[F] = {
+    def withLogError(
+      log: Log[F],
+    )(implicit
+      F: MonadThrowable[F],
+      measureDuration: MeasureDuration[F],
+    ): Journals[F] = {
       (key: Key) => self(key).withLogError(key, log)
     }
 
     def withMetrics(
       metrics: JournalMetrics[F],
-    )(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journals[F] = { (key: Key) =>
+    )(implicit
+      F: MonadThrowable[F],
+      measureDuration: MeasureDuration[F],
+    ): Journals[F] = { (key: Key) =>
       self(key).withMetrics(key.topic, metrics)
     }
 

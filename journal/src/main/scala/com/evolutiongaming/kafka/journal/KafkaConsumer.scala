@@ -34,7 +34,10 @@ trait KafkaConsumer[F[_], K, V] {
 
 object KafkaConsumer {
 
-  def apply[F[_], K, V](implicit F: KafkaConsumer[F, K, V]): KafkaConsumer[F, K, V] = F
+  def apply[F[_], K, V](
+    implicit
+    F: KafkaConsumer[F, K, V],
+  ): KafkaConsumer[F, K, V] = F
 
   def make[F[_]: Sync, K, V](
     consumer: Resource[F, Consumer[F, K, V]],
@@ -163,7 +166,10 @@ object KafkaConsumer {
       def assignment = f(self.assignment, "assignment")
     }
 
-    def shiftPoll(implicit F: Temporal[F]): KafkaConsumer[F, K, V] = {
+    def shiftPoll(
+      implicit
+      F: Temporal[F],
+    ): KafkaConsumer[F, K, V] = {
 
       new ShiftPoll with KafkaConsumer[F, K, V] {
 
@@ -196,4 +202,5 @@ object KafkaConsumer {
   }
 }
 
-final case class KafkaConsumerError(message: String, cause: Throwable) extends RuntimeException(message, cause) with NoStackTrace
+final case class KafkaConsumerError(message: String, cause: Throwable) extends RuntimeException(message, cause)
+with NoStackTrace

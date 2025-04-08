@@ -28,12 +28,13 @@ class ReplicatorSpec extends AsyncWordSpec with Matchers {
       }
 
       val start =
-        (_: Topic) => Resource.pure[IO, IO[Outcome[IO, Throwable, Unit]]](Outcome.errored[IO, Throwable, Unit](error).pure[IO])
+        (_: Topic) =>
+          Resource.pure[IO, IO[Outcome[IO, Throwable, Unit]]](Outcome.errored[IO, Throwable, Unit](error).pure[IO])
       val result = for {
         result <- Replicator
           .make[IO](
-            config            = Replicator.Config(topicDiscoveryInterval = 0.millis),
-            consumer          = Resource.pure[IO, Consumer[IO]](consumer),
+            config = Replicator.Config(topicDiscoveryInterval = 0.millis),
+            consumer = Resource.pure[IO, Consumer[IO]](consumer),
             topicReplicatorOf = start,
           )
           .use(identity)

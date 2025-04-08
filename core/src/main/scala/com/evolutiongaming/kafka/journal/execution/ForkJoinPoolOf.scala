@@ -34,7 +34,7 @@ private[journal] object ForkJoinPoolOf {
     def withPrefix(prefix: String): ForkJoinWorkerThreadFactory = new ForkJoinWorkerThreadFactory {
 
       def newThread(pool: ForkJoinPool) = {
-        val thread   = self.newThread(pool)
+        val thread = self.newThread(pool)
         val threadId = thread.getId
         thread.setName(s"$prefix-$threadId")
         thread

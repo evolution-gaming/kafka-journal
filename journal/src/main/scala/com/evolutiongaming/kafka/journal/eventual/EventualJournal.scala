@@ -15,75 +15,78 @@ import com.evolutiongaming.sstream.Stream
 
 import scala.concurrent.duration.FiniteDuration
 
-/** Reader of the replicated journal (Cassandra by default).
-  *
-  * This allows to access the data replicated from Kafka to Cassandra. Note,
-  * that all the methods of this class have eventual nature, i.e. there could be
-  * newer events already in Kafka, but not yet replicated to Cassandra.
-  *
-  * There could be other non-Cassandra implementations of this interface.
-  */
+/**
+ * Reader of the replicated journal (Cassandra by default).
+ *
+ * This allows to access the data replicated from Kafka to Cassandra. Note, that all the methods of
+ * this class have eventual nature, i.e. there could be newer events already in Kafka, but not yet
+ * replicated to Cassandra.
+ *
+ * There could be other non-Cassandra implementations of this interface.
+ */
 trait EventualJournal[F[_]] {
 
-  /** Gets a last replicated [[PartitionOffset]] and [[SeqNr]] for specific journal [[Key]].
-    *
-    * @param key
-    *   Unique identifier of a journal including a topic where it is stored
-    *   in Kafka.
-    * @return
-    *   [[JournalPointer]] containing a partition, an offset and sequence
-    *   number of a last replicated event.
-    */
+  /**
+   * Gets a last replicated [[PartitionOffset]] and [[SeqNr]] for specific journal [[Key]].
+   *
+   * @param key
+   *   Unique identifier of a journal including a topic where it is stored in Kafka.
+   * @return
+   *   [[JournalPointer]] containing a partition, an offset and sequence number of a last replicated
+   *   event.
+   */
   def pointer(key: Key): F[Option[JournalPointer]]
 
-  /** Gets the last replicated offset for a partition topic.
-    *
-    * @param topic
-    *   Kafka topic.
-    * @param partition
-    *   Topic partition to get offset for.
-    * @return
-    *   Partition offset, or `None` if such topic/partition pair never
-    *   replicated.
-    */
+  /**
+   * Gets the last replicated offset for a partition topic.
+   *
+   * @param topic
+   *   Kafka topic.
+   * @param partition
+   *   Topic partition to get offset for.
+   * @return
+   *   Partition offset, or `None` if such topic/partition pair never replicated.
+   */
   def offset(topic: Topic, partition: Partition): F[Option[Offset]]
 
-  /** Reads the replicated event journal.
-    *
-    * Streams all events already replicated to a storage (Cassandra by default).
-    * It does not keep streaming forever and ends the stream when the last
-    * replicated event is read.
-    *
-    * While it is possible to keep streaming forever by polling this method from
-    * time to time, the recommended way is to read Kafka instead.
-    *
-    * @param key
-    *   Unique identifier of a journal including a topic where it is stored in
-    *   Kafka.
-    * @param from
-    *   First [[SeqNr]] to read.
-    * @return
-    *   Stream of events found replicated to Cassandra ordered by [[SeqNr]].
-    */
+  /**
+   * Reads the replicated event journal.
+   *
+   * Streams all events already replicated to a storage (Cassandra by default). It does not keep
+   * streaming forever and ends the stream when the last replicated event is read.
+   *
+   * While it is possible to keep streaming forever by polling this method from time to time, the
+   * recommended way is to read Kafka instead.
+   *
+   * @param key
+   *   Unique identifier of a journal including a topic where it is stored in Kafka.
+   * @param from
+   *   First [[SeqNr]] to read.
+   * @return
+   *   Stream of events found replicated to Cassandra ordered by [[SeqNr]].
+   */
   def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]]
 
-  /** Streams ids of journals replicated from a given topic.
-    *
-    * Streams all ids already replicated to a storage (Cassandra by default). It
-    * does not keep streaming forever and ends the stream when the last
-    * replicated journal is found.
-    *
-    * @param topic
-    *   Kafka topic name where the journals are being stored in.
-    * @return
-    *   Stream of ids found replicated to Cassandra.
-    */
+  /**
+   * Streams ids of journals replicated from a given topic.
+   *
+   * Streams all ids already replicated to a storage (Cassandra by default). It does not keep
+   * streaming forever and ends the stream when the last replicated journal is found.
+   *
+   * @param topic
+   *   Kafka topic name where the journals are being stored in.
+   * @return
+   *   Stream of ids found replicated to Cassandra.
+   */
   def ids(topic: Topic): Stream[F, String]
 }
 
 object EventualJournal {
 
-  def apply[F[_]](implicit F: EventualJournal[F]): EventualJournal[F] = F
+  def apply[F[_]](
+    implicit
+    F: EventualJournal[F],
+  ): EventualJournal[F] = F
 
   private sealed abstract class Empty
 
@@ -138,30 +141,30 @@ object EventualJournal {
     ): Resource[F, Metrics[F]] = {
 
       val versionGauge = registry.gauge(
-        name   = s"${prefix}_info",
-        help   = "Journal version information",
+        name = s"${ prefix }_info",
+        help = "Journal version information",
         labels = LabelNames("version"),
       )
 
       val latencySummary = registry.summary(
-        name      = s"${prefix}_topic_latency",
-        help      = "Journal call latency in seconds",
+        name = s"${ prefix }_topic_latency",
+        help = "Journal call latency in seconds",
         quantiles = Quantiles.Default,
-        labels    = LabelNames("topic", "type"),
+        labels = LabelNames("topic", "type"),
       )
 
       val eventsSummary = registry.summary(
-        name      = s"${prefix}_events",
-        help      = "Number of events",
+        name = s"${ prefix }_events",
+        help = "Number of events",
         quantiles = Quantiles.Empty,
-        labels    = LabelNames("topic"),
+        labels = LabelNames("topic"),
       )
 
       for {
-        versionGauge   <- versionGauge
-        _              <- versionGauge.labels(Version.current.value).set(1).toResource
+        versionGauge <- versionGauge
+        _ <- versionGauge.labels(Version.current.value).set(1).toResource
         latencySummary <- latencySummary
-        eventsSummary  <- eventsSummary
+        eventsSummary <- eventsSummary
       } yield {
 
         def observeLatency(name: String, topic: Topic, latency: FiniteDuration) = {
@@ -217,7 +220,12 @@ object EventualJournal {
       def offset(topic: Topic, partition: Partition): G[Option[Offset]] = fg(self.offset(topic, partition))
     }
 
-    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
+    def withLog(
+      log: Log[F],
+    )(implicit
+      F: FlatMap[F],
+      measureDuration: MeasureDuration[F],
+    ): EventualJournal[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -230,7 +238,7 @@ object EventualJournal {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- log.debug(s"$key read in ${d.toMillis}ms, from: $from, result: $r")
+                _ <- log.debug(s"$key read in ${ d.toMillis }ms, from: $from, result: $r")
               } yield r
             }
           }
@@ -242,7 +250,7 @@ object EventualJournal {
             d <- MeasureDuration[F].start
             r <- self.pointer(key)
             d <- d
-            _ <- log.debug(s"$key pointer in ${d.toMillis}ms, result: $r")
+            _ <- log.debug(s"$key pointer in ${ d.toMillis }ms, result: $r")
           } yield r
         }
 
@@ -253,7 +261,7 @@ object EventualJournal {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- log.debug(s"$topic ids in ${d.toMillis}ms, result: $r")
+                _ <- log.debug(s"$topic ids in ${ d.toMillis }ms, result: $r")
               } yield r
             }
           }
@@ -265,14 +273,19 @@ object EventualJournal {
             d <- MeasureDuration[F].start
             r <- self.offset(topic, partition)
             d <- d
-            _ <- log.debug(s"$topic $partition offset in ${d.toMillis}ms, result: $r")
+            _ <- log.debug(s"$topic $partition offset in ${ d.toMillis }ms, result: $r")
           } yield r
         }
 
       }
     }
 
-    def withMetrics(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
+    def withMetrics(
+      metrics: Metrics[F],
+    )(implicit
+      F: FlatMap[F],
+      measureDuration: MeasureDuration[F],
+    ): EventualJournal[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -331,7 +344,10 @@ object EventualJournal {
       }
     }
 
-    def enhanceError(implicit F: MonadThrowable[F]): EventualJournal[F] = {
+    def enhanceError(
+      implicit
+      F: MonadThrowable[F],
+    ): EventualJournal[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
         JournalError(s"EventualJournal.$msg failed with $cause", cause).raiseError[F, A]

@@ -44,9 +44,9 @@ object ResultSet {
         def fetchAndApply(rows: List[A]) = {
           for {
             fetching <- fetch.start
-            result   <- rows.foldWhileM(l)(f)
+            result <- rows.foldWhileM(l)(f)
             result <- result match {
-              case l: Left[L, R]  => fetching.joinWithNever as l.rightCast[Either[L, R]]
+              case l: Left[L, R] => fetching.joinWithNever as l.rightCast[Either[L, R]]
               case r: Right[L, R] => r.leftCast[L].asRight[L].pure[F]
             }
           } yield result
@@ -54,8 +54,8 @@ object ResultSet {
 
         for {
           fetched <- fetched
-          rows    <- next
-          result  <- if (fetched) apply(rows) else fetchAndApply(rows)
+          rows <- next
+          result <- if (fetched) apply(rows) else fetchAndApply(rows)
         } yield result
       }
     }

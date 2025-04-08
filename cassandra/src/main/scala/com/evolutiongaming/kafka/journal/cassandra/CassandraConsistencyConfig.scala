@@ -5,7 +5,7 @@ import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
 private[journal] final case class CassandraConsistencyConfig(
-  read: CassandraConsistencyConfig.Read   = CassandraConsistencyConfig.Read.default,
+  read: CassandraConsistencyConfig.Read = CassandraConsistencyConfig.Read.default,
   write: CassandraConsistencyConfig.Write = CassandraConsistencyConfig.Write.default,
 )
 

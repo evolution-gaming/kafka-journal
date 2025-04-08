@@ -29,7 +29,10 @@ trait CassandraSession[F[_]] {
 
 object CassandraSession {
 
-  def apply[F[_]](implicit F: CassandraSession[F]): CassandraSession[F] = F
+  def apply[F[_]](
+    implicit
+    F: CassandraSession[F],
+  ): CassandraSession[F] = F
 
   def apply[F[_]](
     session: CassandraSession[F],
@@ -51,7 +54,7 @@ object CassandraSession {
         val execute = session.execute(statement)
         for {
           resultSet <- execute.toStream
-          row       <- ResultSet[F](resultSet)
+          row <- ResultSet[F](resultSet)
         } yield row
       }
 
@@ -89,7 +92,11 @@ object CassandraSession {
       def unsafe = self.unsafe
     }
 
-    def cachePrepared(implicit F: Concurrent[F], parallel: Parallel[F], runtime: Runtime[F]): Resource[F, CassandraSession[F]] = {
+    def cachePrepared(implicit
+      F: Concurrent[F],
+      parallel: Parallel[F],
+      runtime: Runtime[F],
+    ): Resource[F, CassandraSession[F]] = {
       for {
         cache <- Cache.loading[F, String, PreparedStatement]
       } yield {
@@ -106,7 +113,10 @@ object CassandraSession {
       }
     }
 
-    def enhanceError(implicit F: MonadThrowable[F]): CassandraSession[F] = {
+    def enhanceError(
+      implicit
+      F: MonadThrowable[F],
+    ): CassandraSession[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
         JournalError(s"CassandraSession.$msg failed with $cause", cause).raiseError[F, A]

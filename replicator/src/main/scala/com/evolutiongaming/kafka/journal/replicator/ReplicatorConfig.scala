@@ -13,13 +13,13 @@ import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 import scala.concurrent.duration.*
 
 final case class ReplicatorConfig(
-  topicPrefixes: Nel[String]             = Nel.of("journal"),
+  topicPrefixes: Nel[String] = Nel.of("journal"),
   topicDiscoveryInterval: FiniteDuration = 3.seconds,
-  cacheExpireAfter: FiniteDuration       = 1.minute,
-  kafka: KafkaConfig                     = ReplicatorConfig.defaultKafkaConfig,
+  cacheExpireAfter: FiniteDuration = 1.minute,
+  kafka: KafkaConfig = ReplicatorConfig.defaultKafkaConfig,
   cassandra: EventualCassandraConfig = EventualCassandraConfig(
     client = CassandraConfig(
-      name  = "replicator",
+      name = "replicator",
       query = QueryConfig(consistency = ConsistencyLevel.LOCAL_QUORUM, defaultIdempotence = true),
     ),
   ),
@@ -29,7 +29,7 @@ final case class ReplicatorConfig(
 object ReplicatorConfig {
 
   private val defaultKafkaConfig: KafkaConfig = {
-    val config         = KafkaConfig("replicator")
+    val config = KafkaConfig("replicator")
     val consumerConfig = config.consumer
     config.copy(
       consumer = consumerConfig.copy(
@@ -73,11 +73,11 @@ object ReplicatorConfig {
     }
 
     ReplicatorConfig(
-      topicPrefixes          = topicPrefixes,
+      topicPrefixes = topicPrefixes,
       topicDiscoveryInterval = get[FiniteDuration]("topic-discovery-interval") getOrElse default.topicDiscoveryInterval,
-      kafka                  = get[KafkaConfig]("kafka") getOrElse default.kafka,
-      cassandra              = get[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
-      pollTimeout            = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout,
+      kafka = get[KafkaConfig]("kafka") getOrElse default.kafka,
+      cassandra = get[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
+      pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout,
     )
   }
 }

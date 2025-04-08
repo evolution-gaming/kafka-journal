@@ -10,14 +10,14 @@ import com.evolutiongaming.sstream.Stream
 
 trait StreamActionRecords[F[_]] {
 
-  /** Creates a stream of events from Kafka starting with specified offset.
-    *
-    * @param offset
-    *   The offset to start the reading from. If `None` then reading will start
-    *   from the beginning, which could either be the begining of Kafka topic
-    *   partion, or another offset, if the stream implementation limits it to
-    *   some newer offset.
-    */
+  /**
+   * Creates a stream of events from Kafka starting with specified offset.
+   *
+   * @param offset
+   *   The offset to start the reading from. If `None` then reading will start from the beginning,
+   *   which could either be the begining of Kafka topic partion, or another offset, if the stream
+   *   implementation limits it to some newer offset.
+   */
   def apply(offset: Option[Offset]): Stream[F, ActionRecord[Action.User]]
 }
 
@@ -27,38 +27,36 @@ object StreamActionRecords {
     Stream.empty[F, ActionRecord[Action.User]]
   }
 
-  /** Creates a reader for events not yet replicated to Cassandra.
-    *
-    * When [[StreamActionRecords!#apply]] is called, the reader will stream
-    * messages starting with passed `offset` parameter, but not older than
-    * `offsetReplicated` and `seqNr`, and not later than passed `marker`.
-    *
-    * I.e. the following order is expected:
-    * {{{
-    * marker.partition: ...offsetReplicated...from...offset...marker...
-    * }}}
-    *
-    * If `offset` parameter passed to [[StreamActionRecords!#apply]] is outside
-    * of these bounds, then empty stream will be returned indicating that there
-    * is no unreplicated message with such offset.
-    *
-    * This is a main optimization comparing to what [[ConsumeActionRecords]]
-    * does, in addition to filtering out [[Action.System]] records, so
-    * previously sent markers etc. are not included.
-    *
-    * @param key
-    *   Journal identifier.
-    * @param from
-    *   [[SeqNr]] of journal event to start reading from.
-    * @param marker
-    *   Marker to read the events until. No events will be read after marker is
-    *   encountered.
-    * @param offsetReplicated
-    *   Last known offset replicated to Cassandra, if any. No events will be
-    *   read before this offset.
-    * @param consumeActionRecords
-    *   Underlying reader of Kafka records.
-    */
+  /**
+   * Creates a reader for events not yet replicated to Cassandra.
+   *
+   * When [[StreamActionRecords!#apply]] is called, the reader will stream messages starting with
+   * passed `offset` parameter, but not older than `offsetReplicated` and `seqNr`, and not later
+   * than passed `marker`.
+   *
+   * I.e. the following order is expected:
+   * {{{
+   * marker.partition: ...offsetReplicated...from...offset...marker...
+   * }}}
+   *
+   * If `offset` parameter passed to [[StreamActionRecords!#apply]] is outside of these bounds, then
+   * empty stream will be returned indicating that there is no unreplicated message with such
+   * offset.
+   *
+   * This is a main optimization comparing to what [[ConsumeActionRecords]] does, in addition to
+   * filtering out [[Action.System]] records, so previously sent markers etc. are not included.
+   *
+   * @param key
+   *   Journal identifier.
+   * @param from
+   *   [[SeqNr]] of journal event to start reading from.
+   * @param marker
+   *   Marker to read the events until. No events will be read after marker is encountered.
+   * @param offsetReplicated
+   *   Last known offset replicated to Cassandra, if any. No events will be read before this offset.
+   * @param consumeActionRecords
+   *   Underlying reader of Kafka records.
+   */
   def apply[F[_]: BracketThrowable](
     // TODO add range argument
     key: Key,
@@ -107,9 +105,9 @@ object StreamActionRecords {
                     } else {
                       record.action match {
                         case a: Action.Append => if (a.range.to < from) skip else take(a)
-                        case a: Action.Mark   => if (a.id === marker.id) stop else skip
+                        case a: Action.Mark => if (a.id === marker.id) stop else skip
                         case a: Action.Delete => take(a)
-                        case a: Action.Purge  => take(a)
+                        case a: Action.Purge => take(a)
                       }
                     }
                   }

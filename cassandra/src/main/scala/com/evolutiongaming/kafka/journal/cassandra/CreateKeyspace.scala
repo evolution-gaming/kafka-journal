@@ -25,15 +25,15 @@ private[journal] object CreateKeyspace {
           val query = CreateKeyspaceIfNotExists(keyspace, config.replicationStrategy)
           for {
             log <- LogOf[F].apply(CreateKeyspace.getClass)
-            _   <- log.info(keyspace)
-            _   <- query.execute.first
+            _ <- log.info(keyspace)
+            _ <- query.execute.first
           } yield {}
         }
 
         for {
           metadata <- CassandraCluster[F].metadata
           metadata <- metadata.keyspace(keyspace)
-          result   <- metadata.fold(create)(_ => ().pure[F])
+          result <- metadata.fold(create)(_ => ().pure[F])
         } yield result
       } else {
         ().pure[F]

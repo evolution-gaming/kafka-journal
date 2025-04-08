@@ -35,10 +35,15 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     cassandraClusterOf: CassandraClusterOf[F],
   ) = {
 
-    def settings(config: SchemaConfig)(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
+    def settings(
+      config: SchemaConfig,
+    )(implicit
+      cassandraCluster: CassandraCluster[F],
+      cassandraSession: CassandraSession[F],
+    ) = {
 
       for {
-        schema   <- SetupSchema[F](config, origin, CassandraConsistencyConfig.default)
+        schema <- SetupSchema[F](config, origin, CassandraConsistencyConfig.default)
         settings <- SettingsCassandra2.of[F](schema.setting, origin, CassandraConsistencyConfig.default)
       } yield settings
     }
@@ -60,11 +65,11 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     }
 
     for {
-      system           <- system
-      config           <- config(system).toResource
+      system <- system
+      config <- config(system).toResource
       cassandraCluster <- CassandraCluster.make[F](config.client, cassandraClusterOf, config.retries)
       cassandraSession <- cassandraCluster.session
-      settings         <- settings(config.schema)(cassandraCluster, cassandraSession).toResource
+      settings <- settings(config.schema)(cassandraCluster, cassandraSession).toResource
     } yield settings
   }
 
@@ -73,7 +78,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     implicit val logOf = LogOf.empty[F]
 
     for {
-      origin    <- Origin.hostName[F]
+      origin <- Origin.hostName[F]
       timestamp <- Clock[F].realTimeInstant
       result <- resources[F](origin, cassandraClusterOf).use { settings =>
         val setting = Setting(key = "key", value = "value", timestamp = timestamp, origin = origin)

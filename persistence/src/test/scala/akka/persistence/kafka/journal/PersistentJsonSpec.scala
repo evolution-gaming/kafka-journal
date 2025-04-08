@@ -10,7 +10,7 @@ class PersistentJsonSpec extends AnyFunSuite with Matchers {
 
   for {
     payloadType <- List(PayloadType.Json.some, PayloadType.Text.some, none)
-    manifest    <- List(none, "manifest".some, "".some)
+    manifest <- List(none, "manifest".some, "".some)
   } {
     test(s"toJson & fromJson, payloadType: $payloadType, manifest: $manifest") {
       val persistent =

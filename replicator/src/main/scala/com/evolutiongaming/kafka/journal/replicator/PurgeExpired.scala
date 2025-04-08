@@ -9,7 +9,12 @@ import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{
+  CassandraSession,
+  ExpireOn,
+  MetaJournalStatements,
+  SegmentNr,
+}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.scassandra.TableName
@@ -27,7 +32,9 @@ trait PurgeExpired[F[_]] {
 
 object PurgeExpired {
 
-  def make[F[_]: MonadThrowable: KafkaProducerOf: CassandraSession: FromTry: Fail: Clock: MeasureDuration: JsonCodec.Encode](
+  def make[
+    F[_]: MonadThrowable: KafkaProducerOf: CassandraSession: FromTry: Fail: Clock: MeasureDuration: JsonCodec.Encode,
+  ](
     origin: Option[Origin],
     producerConfig: ProducerConfig,
     tableName: TableName,
@@ -38,11 +45,11 @@ object PurgeExpired {
     implicit val fromAttempt = FromAttempt.lift[F]
 
     for {
-      producer      <- Journals.Producer.make[F](producerConfig)
-      selectExpired  = MetaJournalStatements.IdByTopicAndExpireOn.of[F](tableName, consistencyConfig)
+      producer <- Journals.Producer.make[F](producerConfig)
+      selectExpired = MetaJournalStatements.IdByTopicAndExpireOn.of[F](tableName, consistencyConfig)
       selectExpired <- selectExpired.toResource
     } yield {
-      val produce      = Produce(producer, origin)
+      val produce = Produce(producer, origin)
       val purgeExpired = apply(selectExpired, produce)
       metrics.fold { purgeExpired } { metrics => purgeExpired.withMetrics(metrics) }.enhanceError
     }
@@ -58,9 +65,9 @@ object PurgeExpired {
       def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
         val result = for {
           segment <- segments.toNel.toStream1[F]
-          id      <- selectExpired(topic, segment, expireOn)
-          key      = Key(id = id, topic = topic)
-          result  <- produce.purge(key).toStream
+          id <- selectExpired(topic, segment, expireOn)
+          key = Key(id = id, topic = topic)
+          result <- produce.purge(key).toStream
         } yield result
         result.length
       }
@@ -76,7 +83,12 @@ object PurgeExpired {
       }
     }
 
-    def withLog(log: Log[F])(implicit F: Monad[F], measureDuration: MeasureDuration[F]): PurgeExpired[F] = new PurgeExpired[F] {
+    def withLog(
+      log: Log[F],
+    )(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F],
+    ): PurgeExpired[F] = new PurgeExpired[F] {
 
       def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
         for {
@@ -84,13 +96,18 @@ object PurgeExpired {
           r <- self(topic, expireOn, segments)
           d <- d
           _ <- log.debug(
-            s"apply in ${d.toMillis}ms, topic: $topic, expireOn: $expireOn, segments: ${segments.mkString_(",")}, result: $r",
+            s"apply in ${ d.toMillis }ms, topic: $topic, expireOn: $expireOn, segments: ${ segments.mkString_(",") }, result: $r",
           )
         } yield r
       }
     }
 
-    def withMetrics(metrics: Metrics[F])(implicit F: Monad[F], measureDuration: MeasureDuration[F]): PurgeExpired[F] =
+    def withMetrics(
+      metrics: Metrics[F],
+    )(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F],
+    ): PurgeExpired[F] =
       new PurgeExpired[F] {
 
         def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
@@ -103,7 +120,10 @@ object PurgeExpired {
         }
       }
 
-    def enhanceError(implicit F: ApplicativeThrowable[F]): PurgeExpired[F] = {
+    def enhanceError(
+      implicit
+      F: ApplicativeThrowable[F],
+    ): PurgeExpired[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
         JournalError(s"PurgeExpired.$msg failed with $cause", cause).raiseError[F, A]
@@ -111,7 +131,7 @@ object PurgeExpired {
 
       (topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) => {
         self(topic, expireOn, segments).handleErrorWith { a =>
-          error(s"apply topic: $topic, expireOn: $expireOn, segments: ${segments.mkString_(",")}", a)
+          error(s"apply topic: $topic, expireOn: $expireOn, segments: ${ segments.mkString_(",") }", a)
         }
       }
     }
@@ -134,21 +154,21 @@ object PurgeExpired {
     ): Resource[F, Metrics[F]] = {
 
       val latencySummary = registry.summary(
-        name      = s"${prefix}_latency",
-        help      = "Purge expired latency in seconds",
+        name = s"${ prefix }_latency",
+        help = "Purge expired latency in seconds",
         quantiles = Quantiles.Default,
-        labels    = LabelNames("topic"),
+        labels = LabelNames("topic"),
       )
 
       val journalsCounter = registry.summary(
-        name      = s"${prefix}_journals",
-        help      = "Number of expired journals",
+        name = s"${ prefix }_journals",
+        help = "Number of expired journals",
         quantiles = Quantiles.Empty,
-        labels    = LabelNames("topic"),
+        labels = LabelNames("topic"),
       )
 
       for {
-        latencySummary  <- latencySummary
+        latencySummary <- latencySummary
         journalsCounter <- journalsCounter
       } yield {
 

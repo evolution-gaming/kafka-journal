@@ -56,29 +56,29 @@ object JournalMetrics {
   ): Resource[F, JournalMetrics[F]] = {
 
     val latencySummary = registry.summary(
-      name      = s"${prefix}_topic_latency",
-      help      = "Journal call latency in seconds",
+      name = s"${ prefix }_topic_latency",
+      help = "Journal call latency in seconds",
       quantiles = Quantiles.Default,
-      labels    = LabelNames("topic", "type"),
+      labels = LabelNames("topic", "type"),
     )
 
     val eventsSummary = registry.summary(
-      name      = s"${prefix}_events",
-      help      = "Number of events",
+      name = s"${ prefix }_events",
+      help = "Number of events",
       quantiles = Quantiles.Empty,
-      labels    = LabelNames("topic", "type"),
+      labels = LabelNames("topic", "type"),
     )
 
     val resultCounter = registry.counter(
-      name   = s"${prefix}_results",
-      help   = "Call result: success or failure",
+      name = s"${ prefix }_results",
+      help = "Call result: success or failure",
       labels = LabelNames("topic", "type", "result"),
     )
 
     for {
       latencySummary <- latencySummary
-      eventsSummary  <- eventsSummary
-      resultCounter  <- resultCounter
+      eventsSummary <- eventsSummary
+      resultCounter <- resultCounter
     } yield {
 
       def observeLatency(name: String, topic: Topic, latency: FiniteDuration) = {

@@ -13,7 +13,10 @@ private[journal] trait HeaderToTuple[F[_]] {
 
 private[journal] object HeaderToTuple {
 
-  implicit def apply[F[_]: ApplicativeThrowable](implicit stringFromBytes: FromBytes[F, String]): HeaderToTuple[F] = {
+  implicit def apply[F[_]: ApplicativeThrowable](
+    implicit
+    stringFromBytes: FromBytes[F, String],
+  ): HeaderToTuple[F] = {
     (header: Header) =>
       {
         val bytes = ByteVector.view(header.value)

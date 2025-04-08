@@ -26,7 +26,7 @@ object ToKey {
         case -1 => fallback(persistenceId)
         case idx =>
           val topic = persistenceId.take(idx)
-          val id    = persistenceId.drop(idx + separator.length)
+          val id = persistenceId.drop(idx + separator.length)
           Key(topic = topic, id = id).pure[F]
       }
     }
@@ -61,7 +61,7 @@ object ToKey {
               .load[String]
               .flatMap {
                 case "constant-topic" => onConstantTopic
-                case "split"          => onSplit.pure[ConfigReader.Result]
+                case "split" => onSplit.pure[ConfigReader.Result]
               }
           }
 

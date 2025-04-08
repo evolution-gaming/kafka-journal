@@ -13,7 +13,10 @@ trait FromBytes[F[_], A] {
 
 object FromBytes {
 
-  def apply[F[_], A](implicit F: FromBytes[F, A]): FromBytes[F, A] = F
+  def apply[F[_], A](
+    implicit
+    F: FromBytes[F, A],
+  ): FromBytes[F, A] = F
 
   def const[F[_]: Applicative, A](a: A): FromBytes[F, A] = (_: ByteVector) => a.pure[F]
 
@@ -33,7 +36,10 @@ object FromBytes {
     FromAttempt[F].apply(as)
   }
 
-  def fromDecoder[F[_]: FromAttempt, A](implicit decoder: Decoder[A]): FromBytes[F, A] = (a: ByteVector) => {
+  def fromDecoder[F[_]: FromAttempt, A](
+    implicit
+    decoder: Decoder[A],
+  ): FromBytes[F, A] = (a: ByteVector) => {
     FromAttempt[F].apply {
       for {
         a <- decoder.decode(a.toBitVector)
@@ -44,7 +50,8 @@ object FromBytes {
   }
 
   def fromReads[F[_]: Monad: FromJsResult, A](
-    implicit reads: Reads[A],
+    implicit
+    reads: Reads[A],
     decode: JsonCodec.Decode[F],
   ): FromBytes[F, A] = { bytes =>
     for {
@@ -62,7 +69,10 @@ object FromBytes {
 
     implicit class ByteVectorFromBytesOps(val self: ByteVector) extends AnyVal {
 
-      def fromBytes[F[_], A](implicit fromBytes: FromBytes[F, A]): F[A] = fromBytes(self)
+      def fromBytes[F[_], A](
+        implicit
+        fromBytes: FromBytes[F, A],
+      ): F[A] = fromBytes(self)
     }
   }
 }

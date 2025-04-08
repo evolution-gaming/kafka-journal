@@ -26,16 +26,16 @@ object ActionHeader {
           def metadata = {
             (json \ "metadata").validate[JsObject] match {
               case JsSuccess(a, _) => a.validate[HeaderMetadata]
-              case _: JsError      => HeaderMetadata.empty.pure[JsResult]
+              case _: JsError => HeaderMetadata.empty.pure[JsResult]
             }
           }
 
           for {
-            range       <- (json \ "range").validate[SeqRange]
-            origin      <- (json \ "origin").validateOpt[Origin]
-            version     <- (json \ "version").validateOpt[Version]
+            range <- (json \ "range").validate[SeqRange]
+            origin <- (json \ "origin").validateOpt[Origin]
+            version <- (json \ "version").validateOpt[Version]
             payloadType <- (json \ "payloadType").validate[PayloadType.BinaryOrJson]
-            metadata    <- metadata
+            metadata <- metadata
           } yield {
             Append(range, origin, version, payloadType, metadata)
           }
@@ -44,8 +44,8 @@ object ActionHeader {
       OFormat(reads, format)
     }
     val deleteFormat = Json.format[Delete]
-    val purgeFormat  = Json.format[Purge]
-    val readFormat   = Json.format[Mark]
+    val purgeFormat = Json.format[Purge]
+    val readFormat = Json.format[Mark]
 
     new OFormat[Option[ActionHeader]] {
 
@@ -76,19 +76,22 @@ object ActionHeader {
           Json.obj()
         } {
           case header: Append => write("append", header, appendFormat)
-          case header: Mark   => write("mark", header, readFormat)
+          case header: Mark => write("mark", header, readFormat)
           case header: Delete => write("delete", header, deleteFormat)
-          case header: Purge  => write("purge", header, purgeFormat)
+          case header: Purge => write("purge", header, purgeFormat)
         }
       }
     }
   }
 
-  implicit val writesActionHeader: Writes[ActionHeader] = formatOptActionHeader.contramap { (a: ActionHeader) => a.some }
+  implicit val writesActionHeader: Writes[ActionHeader] = formatOptActionHeader.contramap { (a: ActionHeader) =>
+    a.some
+  }
 
   implicit def toBytesActionHeader[F[_]: JsonCodec.Encode]: ToBytes[F, ActionHeader] = ToBytes.fromWrites
 
-  implicit def fromBytesOptActionHeader[F[_]: Monad: FromJsResult: JsonCodec.Decode]: FromBytes[F, Option[ActionHeader]] =
+  implicit def fromBytesOptActionHeader[F[_]: Monad: FromJsResult: JsonCodec.Decode]
+    : FromBytes[F, Option[ActionHeader]] =
     FromBytes.fromReads
 
   sealed abstract class AppendOrDelete extends ActionHeader

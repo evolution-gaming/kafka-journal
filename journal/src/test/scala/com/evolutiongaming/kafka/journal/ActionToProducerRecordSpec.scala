@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import TestJsonCodec.instance
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
@@ -14,8 +15,6 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import scala.concurrent.duration.*
 import scala.util.Try
-
-import TestJsonCodec.instance
 
 class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
 
@@ -36,22 +35,22 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
   private val actionToProducerRecord = ActionToProducerRecord[Try]
 
   private val deletes = for {
-    origin  <- origins
+    origin <- origins
     version <- versions
-    seqNr   <- seqNrs
+    seqNr <- seqNrs
   } yield {
     Action.Delete(key1, timestamp, seqNr.toDeleteTo, origin, version)
   }
 
   private val purges = for {
-    origin  <- origins
+    origin <- origins
     version <- versions
   } yield {
     Action.Purge(key1, timestamp, origin, version)
   }
 
   private val marks = for {
-    origin  <- origins
+    origin <- origins
     version <- versions
   } yield {
     Action.Mark(key1, timestamp, "id", origin, version)
@@ -65,9 +64,9 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
   }
 
   private val events = for {
-    tags    <- List(Tags.empty, Tags("tag"))
+    tags <- List(Tags.empty, Tags("tag"))
     payload <- payloads
-    seqNrs  <- List(Nel.of(SeqNr.min), Nel.of(SeqNr.max), Nel.of(SeqNr.unsafe(1), SeqNr.unsafe(2), SeqNr.unsafe(3)))
+    seqNrs <- List(Nel.of(SeqNr.min), Nel.of(SeqNr.max), Nel.of(SeqNr.unsafe(1), SeqNr.unsafe(2), SeqNr.unsafe(3)))
   } yield {
     for {
       seqNr <- seqNrs
@@ -82,7 +81,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
 
   private val payloadMetadatas = for {
     expireAfter <- List(1.day.some, none)
-    metadata    <- List(Json.obj(("key1", "value1")).some, none)
+    metadata <- List(Json.obj(("key1", "value1")).some, none)
   } yield {
     PayloadMetadata(expireAfter.map { _.toExpireAfter }, metadata)
   }
@@ -90,23 +89,23 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
   private val appends = {
     implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
     for {
-      origin          <- origins
-      version         <- versions
-      metadata        <- metadata
-      events          <- events
-      headers         <- headers
+      origin <- origins
+      version <- versions
+      metadata <- metadata
+      events <- events
+      headers <- headers
       payloadMetadata <- payloadMetadatas
     } yield {
       Action
         .Append
         .of[Try, Payload](
-          key       = key1,
+          key = key1,
           timestamp = timestamp,
-          origin    = origin,
-          version   = version,
-          events    = Events(events, payloadMetadata),
-          metadata  = metadata,
-          headers   = headers,
+          origin = origin,
+          version = version,
+          events = Events(events, payloadMetadata),
+          metadata = metadata,
+          headers = headers,
         )
         .get
     }
@@ -114,7 +113,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
 
   for {
     actions <- List(appends, deletes, purges, marks)
-    action  <- actions
+    action <- actions
   } {
 
     test(s"toProducerRecord & toActionRecord $action") {
@@ -122,12 +121,12 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
         producerRecord <- actionToProducerRecord(action)
       } yield {
         val consRecord = ConsRecord(
-          topicPartition   = topicPartition,
-          offset           = partitionOffset.offset,
+          topicPartition = topicPartition,
+          offset = partitionOffset.offset,
           timestampAndType = TimestampAndType(timestamp, TimestampType.Create).some,
-          key              = producerRecord.key.map(bytes => WithSize(bytes, bytes.length)),
-          value            = producerRecord.value.map(bytes => WithSize(bytes, bytes.length.toInt)),
-          headers          = producerRecord.headers,
+          key = producerRecord.key.map(bytes => WithSize(bytes, bytes.length)),
+          value = producerRecord.value.map(bytes => WithSize(bytes, bytes.length.toInt)),
+          headers = producerRecord.headers,
         )
 
         val record = ActionRecord(action, partitionOffset)

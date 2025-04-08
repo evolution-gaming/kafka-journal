@@ -25,7 +25,7 @@ object ScodecHelper {
       def handleErrorWith[A](fa: Attempt[A])(f: Failure => Attempt[A]): Attempt[A] = {
         fa match {
           case fa: Successful[A] => fa
-          case fa: Failure       => f(fa)
+          case fa: Failure => f(fa)
         }
       }
 
@@ -55,7 +55,11 @@ object ScodecHelper {
     codec.exmap(to, from)
   }
 
-  def formatCodec[A](implicit format: Format[A], jsonCodec: JsonCodec[Try]): Codec[A] = {
+  def formatCodec[A](
+    implicit
+    format: Format[A],
+    jsonCodec: JsonCodec[Try],
+  ): Codec[A] = {
     val fromBytes = (bytes: ByteVector) => {
       val jsValue = jsonCodec.decode.fromBytes(bytes)
       for {
@@ -65,7 +69,7 @@ object ScodecHelper {
     }
     val toBytes = (a: A) => {
       val jsValue = format.writes(a)
-      val bytes   = jsonCodec.encode.toBytes(jsValue)
+      val bytes = jsonCodec.encode.toBytes(jsValue)
       Attempt.fromTry(bytes)
     }
     codecs.bytes.exmap(fromBytes, toBytes)

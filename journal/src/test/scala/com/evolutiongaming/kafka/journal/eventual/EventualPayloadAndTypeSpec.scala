@@ -15,7 +15,7 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
   implicit val jsonCodec: JsonCodec[Try] = JsonCodec.default[Try]
 
   private val eventualWrite = EventualWrite.summon[Try, Payload]
-  private val eventualRead  = EventualRead.summon[Try, Payload]
+  private val eventualRead = EventualRead.summon[Try, Payload]
 
   for {
     (name, payload) <- List(
@@ -27,7 +27,7 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
     test(s"toEventual & fromEventual, payload: $name") {
       val actual = for {
         payloadAndType <- eventualWrite(payload)
-        actual         <- eventualRead(payloadAndType)
+        actual <- eventualRead(payloadAndType)
       } yield actual
 
       actual shouldBe payload.pure[Try]

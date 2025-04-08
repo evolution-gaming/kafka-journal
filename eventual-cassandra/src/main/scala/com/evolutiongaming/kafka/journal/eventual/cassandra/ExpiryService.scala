@@ -24,7 +24,7 @@ private[journal] object ExpiryService {
   def const[F[_]](expireOn: F[ExpireOn], action: F[Action]): ExpiryService[F] = {
 
     val expireOn1 = expireOn
-    val action1   = action
+    val action1 = action
 
     new ExpiryService[F] {
 
@@ -37,8 +37,8 @@ private[journal] object ExpiryService {
   def of[F[_]: Sync: LogOf: MeasureDuration]: F[ExpiryService[F]] = {
     for {
       zoneId <- Sync[F].delay { TimeZone.getDefault.toZoneId }
-      log    <- LogOf[F].apply(ExpiryService.getClass)
-      _      <- log.debug(s"zoneId: $zoneId")
+      log <- LogOf[F].apply(ExpiryService.getClass)
+      _ <- log.debug(s"zoneId: $zoneId")
     } yield {
       apply[F](zoneId).withLog(log)
     }
@@ -68,9 +68,9 @@ private[journal] object ExpiryService {
         }
 
         (expiry, expireAfter) match {
-          case (None, None)                => Action.ignore.pure[F]
+          case (None, None) => Action.ignore.pure[F]
           case (expiry, Some(expireAfter)) => apply(expiry, expireAfter)
-          case (Some(_), None)             => Action.remove.pure[F]
+          case (Some(_), None) => Action.remove.pure[F]
         }
       }
     }
@@ -106,14 +106,19 @@ private[journal] object ExpiryService {
       }
     }
 
-    def withLog(log: Log[F])(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ExpiryService[F] = new ExpiryService[F] {
+    def withLog(
+      log: Log[F],
+    )(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F],
+    ): ExpiryService[F] = new ExpiryService[F] {
 
       def expireOn(expireAfter: ExpireAfter, timestamp: Instant) = {
         for {
           d <- MeasureDuration[F].start
           r <- self.expireOn(expireAfter, timestamp)
           d <- d
-          _ <- log.debug(s"expireOn in ${d.toMillis}ms, expireAfter: $expireAfter, timestamp: $timestamp, result: $r")
+          _ <- log.debug(s"expireOn in ${ d.toMillis }ms, expireAfter: $expireAfter, timestamp: $timestamp, result: $r")
         } yield r
       }
 
@@ -124,9 +129,9 @@ private[journal] object ExpiryService {
             case (None, None) => ().pure[F]
             case _ =>
               log.debug {
-                val expiryStr      = expiry.foldMap { expiry => s", expiry: $expiry" }
+                val expiryStr = expiry.foldMap { expiry => s", expiry: $expiry" }
                 val expireAfterStr = expireAfter.foldMap { expiry => s", expireAfter: $expiry" }
-                s"action in ${duration.toMillis}ms$expiryStr$expireAfterStr, timestamp: $timestamp, result: $action"
+                s"action in ${ duration.toMillis }ms$expiryStr$expireAfterStr, timestamp: $timestamp, result: $action"
               }
           }
         }

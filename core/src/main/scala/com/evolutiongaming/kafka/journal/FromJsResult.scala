@@ -14,7 +14,10 @@ trait FromJsResult[F[_]] {
 
 object FromJsResult {
 
-  def apply[F[_]](implicit F: FromJsResult[F]): FromJsResult[F] = F
+  def apply[F[_]](
+    implicit
+    F: FromJsResult[F],
+  ): FromJsResult[F] = F
 
   def lift[F[_]: ApplicativeThrowable]: FromJsResult[F] = new FromJsResult[F] {
 

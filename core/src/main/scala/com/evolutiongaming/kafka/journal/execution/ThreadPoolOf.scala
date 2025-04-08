@@ -17,7 +17,14 @@ private[journal] object ThreadPoolOf {
 
     val result = for {
       result <- Sync[F].delay {
-        new ThreadPoolExecutor(minSize, maxSize, keepAlive.length, keepAlive.unit, new SynchronousQueue[Runnable], threadFactory)
+        new ThreadPoolExecutor(
+          minSize,
+          maxSize,
+          keepAlive.length,
+          keepAlive.unit,
+          new SynchronousQueue[Runnable],
+          threadFactory,
+        )
       }
     } yield {
       val release = Sync[F].delay { result.shutdown() }

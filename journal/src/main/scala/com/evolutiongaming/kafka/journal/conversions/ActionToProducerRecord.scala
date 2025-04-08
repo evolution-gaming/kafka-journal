@@ -15,7 +15,8 @@ trait ActionToProducerRecord[F[_]] {
 object ActionToProducerRecord {
 
   implicit def apply[F[_]: MonadThrowable](
-    implicit actionHeaderToHeader: ActionHeaderToHeader[F],
+    implicit
+    actionHeaderToHeader: ActionHeaderToHeader[F],
     tupleToHeader: TupleToHeader[F],
   ): ActionToProducerRecord[F] = { (action: Action) =>
     {
@@ -24,24 +25,24 @@ object ActionToProducerRecord {
         header <- actionHeaderToHeader(action.header)
         headers <- action match {
           case a: Action.Append => a.headers.toList.traverse { case (k, v) => tupleToHeader(k, v) }
-          case _: Action.Mark   => List.empty[Header].pure[F]
+          case _: Action.Mark => List.empty[Header].pure[F]
           case _: Action.Delete => List.empty[Header].pure[F]
-          case _: Action.Purge  => List.empty[Header].pure[F]
+          case _: Action.Purge => List.empty[Header].pure[F]
         }
       } yield {
         val payload = action match {
           case a: Action.Append => a.payload.some
-          case _: Action.Mark   => none
+          case _: Action.Mark => none
           case _: Action.Delete => none
-          case _: Action.Purge  => none
+          case _: Action.Purge => none
         }
 
         ProducerRecord(
-          topic     = key.topic,
-          value     = payload,
-          key       = key.id.some,
+          topic = key.topic,
+          value = payload,
+          key = key.id.some,
           timestamp = action.timestamp.some,
-          headers   = header :: headers,
+          headers = header :: headers,
         )
       }
       result.handleErrorWith { cause =>

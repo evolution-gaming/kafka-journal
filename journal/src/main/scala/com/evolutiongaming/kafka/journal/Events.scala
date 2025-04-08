@@ -11,7 +11,11 @@ final case class Events[A](events: Nel[Event[A]], metadata: PayloadMetadata)
 
 object Events {
 
-  implicit def codecEvents[A](implicit eventCodec: Codec[Event[A]], metadataCodec: Codec[PayloadMetadata]): Codec[Events[A]] = {
+  implicit def codecEvents[A](
+    implicit
+    eventCodec: Codec[Event[A]],
+    metadataCodec: Codec[PayloadMetadata],
+  ): Codec[Events[A]] = {
     val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, eventCodec)))
 
     val default = (codecs.ignore(ByteJ.SIZE) ~> eventsCodec)
@@ -27,12 +31,14 @@ object Events {
   }
 
   implicit def eventsToBytes[F[_]: FromAttempt, A](
-    implicit eventCodec: Codec[Event[A]],
+    implicit
+    eventCodec: Codec[Event[A]],
     metadataCodec: Codec[PayloadMetadata],
   ): ToBytes[F, Events[A]] = ToBytes.fromEncoder
 
   implicit def eventsFromBytes[F[_]: FromAttempt, A](
-    implicit eventCodec: Codec[Event[A]],
+    implicit
+    eventCodec: Codec[Event[A]],
     metadataCodec: Codec[PayloadMetadata],
   ): FromBytes[F, Events[A]] = FromBytes.fromDecoder
 }

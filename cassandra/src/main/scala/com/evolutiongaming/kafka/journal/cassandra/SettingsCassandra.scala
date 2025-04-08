@@ -27,16 +27,16 @@ private[journal] object SettingsCassandra {
     def set(key: K, value: V): F[Option[Setting]] = {
       for {
         timestamp <- Clock[F].instant
-        prev      <- statements.select(key)
-        setting    = Setting(key = key, value = value, timestamp = timestamp, origin = origin)
-        _         <- statements.insert(setting)
+        prev <- statements.select(key)
+        setting = Setting(key = key, value = value, timestamp = timestamp, origin = origin)
+        _ <- statements.insert(setting)
       } yield prev
     }
 
     def remove(key: K): F[Option[Setting]] = {
       for {
         prev <- statements.select(key)
-        _    <- statements.delete(key)
+        _ <- statements.delete(key)
       } yield prev
     }
 

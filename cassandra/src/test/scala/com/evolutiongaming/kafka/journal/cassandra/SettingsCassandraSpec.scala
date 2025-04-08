@@ -20,7 +20,7 @@ class SettingsCassandraSpec extends AnyFunSuite {
   type F[A] = State[Database, A]
 
   test("set") {
-    val program                   = settings.set(setting.key, setting.value)
+    val program = settings.set(setting.key, setting.value)
     val (database, previousValue) = program.run(Database.empty).value
 
     assert(database.settings == Map(setting.key -> setting))
@@ -28,21 +28,21 @@ class SettingsCassandraSpec extends AnyFunSuite {
   }
 
   test("get") {
-    val program           = settings.get(setting.key)
+    val program = settings.get(setting.key)
     val (database, value) = program.run(Database.empty).value
     assert(database.settings.isEmpty)
     assert(value.isEmpty)
   }
 
   test("all") {
-    val program            = settings.all.toList
+    val program = settings.all.toList
     val (database, values) = program.run(Database.fromSetting(setting)).value
     assert(database.settings == Map(setting.key -> setting))
     assert(values == List(setting))
   }
 
   test("remove") {
-    val program                  = settings.remove(setting.key)
+    val program = settings.remove(setting.key)
     val (database, deletedValue) = program.run(Database.fromSetting(setting)).value
     assert(database.settings.isEmpty)
     assert(deletedValue.contains(setting))
@@ -51,27 +51,27 @@ class SettingsCassandraSpec extends AnyFunSuite {
   test("set, get, all, remove") {
     val program = for {
       a <- settings.get(setting.key)
-      _  = assert(a.isEmpty)
+      _ = assert(a.isEmpty)
       a <- settings.all.toList
-      _  = assert(a.isEmpty)
+      _ = assert(a.isEmpty)
       a <- settings.remove(setting.key)
-      _  = assert(a.isEmpty)
+      _ = assert(a.isEmpty)
 
       a <- settings.set(setting.key, setting.value)
-      _  = assert(a.isEmpty)
+      _ = assert(a.isEmpty)
       a <- settings.get(setting.key)
-      _  = assert(a.contains(setting))
+      _ = assert(a.contains(setting))
       a <- settings.all.toList
-      _  = assert(a == List(setting))
+      _ = assert(a == List(setting))
 
       a <- settings.remove(setting.key)
-      _  = assert(a.contains(setting))
+      _ = assert(a.contains(setting))
       a <- settings.get(setting.key)
-      _  = assert(a.isEmpty)
+      _ = assert(a.isEmpty)
       a <- settings.all.toList
-      _  = assert(a.isEmpty)
+      _ = assert(a.isEmpty)
       a <- settings.remove(setting.key)
-      _  = assert(a.isEmpty)
+      _ = assert(a.isEmpty)
     } yield ()
 
     val database = program.runS(Database.empty).value
@@ -89,7 +89,7 @@ class SettingsCassandraSpec extends AnyFunSuite {
     val statements = SettingsCassandra.Statements(
       select = Database.select(_),
       insert = Database.insert(_),
-      all    = Database.all,
+      all = Database.all,
       delete = Database.delete(_),
     )
 

@@ -19,13 +19,13 @@ import scala.util.Try
 
 class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
 
-  private implicit val fromAttempt: FromAttempt[Try]   = FromAttempt.lift[Try]
+  private implicit val fromAttempt: FromAttempt[Try] = FromAttempt.lift[Try]
   private implicit val fromJsResult: FromJsResult[Try] = FromJsResult.lift[Try]
 
   private val playKafkaWrite = KafkaWrite.summon[Try, Payload]
-  private val playKafkaRead  = KafkaRead.summon[Try, Payload]
+  private val playKafkaRead = KafkaRead.summon[Try, Payload]
 
-  private val circeKafkaRead  = KafkaRead.summon[Try, CirceJson]
+  private val circeKafkaRead = KafkaRead.summon[Try, CirceJson]
   private val circeKafkaWrite = KafkaWrite.summon[Try, CirceJson]
 
   private val payloadMetadata = PayloadMetadata(
@@ -51,8 +51,8 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
     test(s"toBytes & fromBytes, events: $eventsName, metadata: $metadataName") {
       val actual = for {
         payloadAndType <- circeKafkaWrite(events)
-        _               = payloadAndType.payloadType shouldBe PayloadType.Json
-        actual         <- circeKafkaRead(payloadAndType)
+        _ = payloadAndType.payloadType shouldBe PayloadType.Json
+        actual <- circeKafkaRead(payloadAndType)
       } yield actual
 
       actual shouldBe events.pure[Try]
@@ -79,7 +79,10 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
       (
         "json-many",
         Events(
-          Nel.of(event(1, Payload.json(PlayJson.obj("key" -> "1"))), event(2, Payload.json(PlayJson.obj("key" -> "2")))),
+          Nel.of(
+            event(1, Payload.json(PlayJson.obj("key" -> "1"))),
+            event(2, Payload.json(PlayJson.obj("key" -> "2"))),
+          ),
           metadata,
         ),
         Events(
@@ -95,7 +98,7 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
     test(s"toBytes with Play, fromBytes with Circe: $eventsName, metadata: $metadataName") {
       val actual = for {
         payloadAndType <- playKafkaWrite(eventsPlayJson)
-        actual         <- circeKafkaRead(payloadAndType)
+        actual <- circeKafkaRead(payloadAndType)
       } yield actual
 
       actual shouldBe eventsCirceJson.pure[Try]
@@ -104,7 +107,7 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
     test(s"toBytes with Circe, fromBytes with Play: $eventsName, metadata: $metadataName") {
       val actual = for {
         payloadAndType <- circeKafkaWrite(eventsCirceJson)
-        actual         <- playKafkaRead(payloadAndType)
+        actual <- playKafkaRead(payloadAndType)
       } yield actual
 
       actual shouldBe eventsPlayJson.pure[Try]
@@ -130,9 +133,9 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
     test(s"fromBytes, events: $name") {
       val ext = PayloadType.Json.ext
       val actual = for {
-        payload       <- ByteVectorOf[Try](PayloadAndType.getClass, s"Payload-v0-$name.$ext")
+        payload <- ByteVectorOf[Try](PayloadAndType.getClass, s"Payload-v0-$name.$ext")
         payloadAndType = PayloadAndType(payload, PayloadType.Json)
-        events        <- circeKafkaRead(payloadAndType)
+        events <- circeKafkaRead(payloadAndType)
       } yield events
       actual shouldEqual events.pure[Try]
     }
@@ -148,7 +151,7 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
   }
 
   test("fromBytes: returns an error for malformed json") {
-    val malformed      = ByteVector.view("{\"key\": {sss}}".getBytes(StandardCharsets.UTF_8))
+    val malformed = ByteVector.view("{\"key\": {sss}}".getBytes(StandardCharsets.UTF_8))
     val payloadAndType = PayloadAndType(malformed, PayloadType.Json)
 
     val result = circeKafkaRead(payloadAndType).toEither

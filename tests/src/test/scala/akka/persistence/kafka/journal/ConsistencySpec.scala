@@ -16,7 +16,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
   "KafkaJournal" should {
 
     "replay events" in {
-      val ref    = PersistenceRef()
+      val ref = PersistenceRef()
       val events = Nel.of("event")
       ref.persist(events)
       ref.stop()
@@ -24,7 +24,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     }
 
     "replay events in the same order" in {
-      val ref    = PersistenceRef()
+      val ref = PersistenceRef()
       val events = (1 to 100).toList map { _.toString }
       for {
         group <- events.grouped(10)
@@ -39,7 +39,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     }
 
     "replay events in the same order when half is deleted" in {
-      val ref    = PersistenceRef()
+      val ref = PersistenceRef()
       val events = (1 to 100).toList map { _.toString }
       for {
         group <- events.grouped(10)
@@ -56,7 +56,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     }
 
     "recover new entity from lengthy topic" in {
-      val ref    = PersistenceRef()
+      val ref = PersistenceRef()
       val events = (1 to 1000).toList map { _.toString }
       for {
         group <- events.grouped(10)
@@ -72,9 +72,9 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     val numberOfEvents = 10000
 
     s"recover $numberOfEvents events" in {
-      val ref       = PersistenceRef()
+      val ref = PersistenceRef()
       val batchSize = 100
-      val events    = (1 to batchSize).toList.map(_.toString)
+      val events = (1 to batchSize).toList.map(_.toString)
       for {
         _ <- 1 to (numberOfEvents / batchSize)
       } {
@@ -104,13 +104,13 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
         def receiveRecover: Receive = PartialFunction.empty
 
         def receiveCommand: Receive = {
-          case Stop                     => context.stop(self)
-          case Delete(seqNr)            => deleteMessages(seqNr)
+          case Stop => context.stop(self)
+          case Delete(seqNr) => deleteMessages(seqNr)
           case x: DeleteMessagesSuccess => testActor.tell(x, self)
           case x: DeleteMessagesFailure => testActor.tell(x, self)
           case Cmd(events) =>
             val sender = this.sender()
-            val last   = events.last
+            val last = events.last
             persistAll(events.toList) { event =>
               if (event === last) sender.tell(event, self)
             }
@@ -118,7 +118,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       }
 
       val props = Props(actor())
-      val ref   = system.actorOf(props)
+      val ref = system.actorOf(props)
 
       new PersistenceRef {
         def persist(events: Nel[String]) = {
@@ -150,7 +150,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       def persistenceId: String = id
 
       def receiveRecover: Receive = {
-        case event: String     => state = f(state, event)
+        case event: String => state = f(state, event)
         case RecoveryCompleted => promise.success(state)
       }
 

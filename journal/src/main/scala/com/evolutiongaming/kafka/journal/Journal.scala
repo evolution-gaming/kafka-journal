@@ -20,27 +20,31 @@ trait Journal[F[_]] {
   def append[A](
     events: Nel[Event[A]],
     metadata: RecordMetadata = RecordMetadata.empty,
-    headers: Headers         = Headers.empty,
-  )(implicit kafkaWrite: KafkaWrite[F, A]): F[PartitionOffset]
+    headers: Headers = Headers.empty,
+  )(implicit
+    kafkaWrite: KafkaWrite[F, A],
+  ): F[PartitionOffset]
 
   def read[A](
     from: SeqNr = SeqNr.min,
-  )(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]): Stream[F, EventRecord[A]]
+  )(implicit
+    kafkaRead: KafkaRead[F, A],
+    eventualRead: EventualRead[F, A],
+  ): Stream[F, EventRecord[A]]
 
   def pointer: F[Option[SeqNr]]
 
   /**
-   * Deletes events up to provided SeqNr
-   * Using default value `DeleteTo.max` is not recommended: `Delete` action is valid for starting new journal and
-   * the `DeleteTo.max` would produce dead-en journal - there will be no way to add new events.
+   * Deletes events up to provided SeqNr Using default value `DeleteTo.max` is not recommended:
+   * `Delete` action is valid for starting new journal and the `DeleteTo.max` would produce dead-en
+   * journal - there will be no way to add new events.
    */
   // TODO next major release - remove default value
   def delete(to: DeleteTo = DeleteTo.max): F[Option[PartitionOffset]]
 
   /**
-   * Deletes all data (resets storage, removes all events and all traces of this journal) for the key,
-   * consecutive pointer call will return `None`.
-   * Mostly used by [[PurgeExpired]].
+   * Deletes all data (resets storage, removes all events and all traces of this journal) for the
+   * key, consecutive pointer call will return `None`. Mostly used by [[PurgeExpired]].
    */
   def purge: F[Option[PartitionOffset]]
 }
@@ -51,10 +55,21 @@ object Journal {
     class Empty
     new Empty with Journal[F] {
 
-      def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit kafkaWrite: KafkaWrite[F, A]) =
+      def append[A](
+        events: Nel[Event[A]],
+        metadata: RecordMetadata,
+        headers: Headers,
+      )(implicit
+        kafkaWrite: KafkaWrite[F, A],
+      ) =
         PartitionOffset.empty.pure[F]
 
-      def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = Stream.empty
+      def read[A](
+        from: SeqNr,
+      )(implicit
+        kafkaRead: KafkaRead[F, A],
+        eventualRead: EventualRead[F, A],
+      ) = Stream.empty
 
       def pointer = none[SeqNr].pure[F]
 
@@ -74,8 +89,12 @@ object Journal {
 
   implicit class JournalOps[F[_]](val self: Journal[F]) extends AnyVal {
 
-    def withLog(key: Key, log: Log[F], config: CallTimeThresholds = CallTimeThresholds.default)(
-      implicit F: FlatMap[F],
+    def withLog(
+      key: Key,
+      log: Log[F],
+      config: CallTimeThresholds = CallTimeThresholds.default,
+    )(implicit
+      F: FlatMap[F],
       measureDuration: MeasureDuration[F],
     ): Journal[F] = {
 
@@ -87,31 +106,42 @@ object Journal {
 
       new WithLog with Journal[F] {
 
-        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[F, A],
+        def append[A](
+          events: Nel[Event[A]],
+          metadata: RecordMetadata,
+          headers: Headers,
+        )(implicit
+          kafkaWrite: KafkaWrite[F, A],
         ) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(events, metadata, headers)
             d <- d
             _ <- logDebugOrWarn(d, config.append) {
-              val first          = events.head.seqNr
-              val last           = events.last.seqNr
-              val expireAfterStr = metadata.payload.expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
-              val seqNr          = if (first === last) s"seqNr: $first" else s"seqNrs: $first..$last"
-              s"$key append in ${d.toMillis}ms, $seqNr$expireAfterStr, result: $r"
+              val first = events.head.seqNr
+              val last = events.last.seqNr
+              val expireAfterStr = metadata.payload.expireAfter.foldMap { expireAfter =>
+                s", expireAfter: $expireAfter"
+              }
+              val seqNr = if (first === last) s"seqNr: $first" else s"seqNrs: $first..$last"
+              s"$key append in ${ d.toMillis }ms, $seqNr$expireAfterStr, result: $r"
             }
           } yield r
         }
 
-        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = {
+        def read[A](
+          from: SeqNr,
+        )(implicit
+          kafkaRead: KafkaRead[F, A],
+          eventualRead: EventualRead[F, A],
+        ) = {
           val logging = new (F ~> F) {
             def apply[B](fa: F[B]) = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- logDebugOrWarn(d, config.read) { s"$key read in ${d.toMillis}ms, from: $from, result: $r" }
+                _ <- logDebugOrWarn(d, config.read) { s"$key read in ${ d.toMillis }ms, from: $from, result: $r" }
               } yield r
             }
           }
@@ -123,7 +153,7 @@ object Journal {
             d <- MeasureDuration[F].start
             r <- self.pointer
             d <- d
-            _ <- logDebugOrWarn(d, config.pointer) { s"$key pointer in ${d.toMillis}ms, result: $r" }
+            _ <- logDebugOrWarn(d, config.pointer) { s"$key pointer in ${ d.toMillis }ms, result: $r" }
           } yield r
         }
 
@@ -132,7 +162,7 @@ object Journal {
             d <- MeasureDuration[F].start
             r <- self.delete(to)
             d <- d
-            _ <- logDebugOrWarn(d, config.delete) { s"$key delete in ${d.toMillis}ms, to: $to, result: $r" }
+            _ <- logDebugOrWarn(d, config.delete) { s"$key delete in ${ d.toMillis }ms, to: $to, result: $r" }
           } yield r
         }
 
@@ -141,13 +171,19 @@ object Journal {
             d <- MeasureDuration[F].start
             r <- self.purge
             d <- d
-            _ <- logDebugOrWarn(d, config.purge) { s"$key purge in ${d.toMillis}ms, result: $r" }
+            _ <- logDebugOrWarn(d, config.purge) { s"$key purge in ${ d.toMillis }ms, result: $r" }
           } yield r
         }
       }
     }
 
-    def withLogError(key: Key, log: Log[F])(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journal[F] = {
+    def withLogError(
+      key: Key,
+      log: Log[F],
+    )(implicit
+      F: MonadThrowable[F],
+      measureDuration: MeasureDuration[F],
+    ): Journal[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -166,21 +202,30 @@ object Journal {
 
       new WithLogError with Journal[F] {
 
-        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[F, A],
+        def append[A](
+          events: Nel[Event[A]],
+          metadata: RecordMetadata,
+          headers: Headers,
+        )(implicit
+          kafkaWrite: KafkaWrite[F, A],
         ) = {
           logError {
             self.append(events, metadata, headers)
           } { (error, latency) =>
-            s"$key append failed in ${latency.toMillis}ms, events: $events, error: $error"
+            s"$key append failed in ${ latency.toMillis }ms, events: $events, error: $error"
           }
         }
 
-        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = {
+        def read[A](
+          from: SeqNr,
+        )(implicit
+          kafkaRead: KafkaRead[F, A],
+          eventualRead: EventualRead[F, A],
+        ) = {
           val logging = new (F ~> F) {
             def apply[B](fa: F[B]) = {
               logError(fa) { (error, latency) =>
-                s"$key read failed in ${latency.toMillis}ms, from: $from, error: $error"
+                s"$key read failed in ${ latency.toMillis }ms, from: $from, error: $error"
               }
             }
           }
@@ -191,7 +236,7 @@ object Journal {
           logError {
             self.pointer
           } { (error, latency) =>
-            s"$key pointer failed in ${latency.toMillis}ms, error: $error"
+            s"$key pointer failed in ${ latency.toMillis }ms, error: $error"
           }
         }
 
@@ -199,7 +244,7 @@ object Journal {
           logError {
             self.delete(to)
           } { (error, latency) =>
-            s"$key delete failed in ${latency.toMillis}ms, to: $to, error: $error"
+            s"$key delete failed in ${ latency.toMillis }ms, to: $to, error: $error"
           }
         }
 
@@ -207,7 +252,7 @@ object Journal {
           logError {
             self.purge
           } { (error, latency) =>
-            s"$key purge failed in ${latency.toMillis}ms, error: $error"
+            s"$key purge failed in ${ latency.toMillis }ms, error: $error"
           }
         }
       }
@@ -216,7 +261,10 @@ object Journal {
     def withMetrics(
       topic: Topic,
       metrics: JournalMetrics[F],
-    )(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journal[F] = {
+    )(implicit
+      F: MonadThrowable[F],
+      measureDuration: MeasureDuration[F],
+    ): Journal[F] = {
       val functionKId = FunctionK.id[F]
 
       def handleError[A](name: String, topic: Topic)(fa: F[A]): F[A] = {
@@ -230,8 +278,12 @@ object Journal {
 
       new WithMetrics with Journal[F] {
 
-        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[F, A],
+        def append[A](
+          events: Nel[Event[A]],
+          metadata: RecordMetadata,
+          headers: Headers,
+        )(implicit
+          kafkaWrite: KafkaWrite[F, A],
         ) = {
           def append = self.append(events, metadata, headers)
           for {
@@ -242,7 +294,12 @@ object Journal {
           } yield r
         }
 
-        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = {
+        def read[A](
+          from: SeqNr,
+        )(implicit
+          kafkaRead: KafkaRead[F, A],
+          eventualRead: EventualRead[F, A],
+        ) = {
           val measure = new (F ~> F) {
             def apply[B](fa: F[B]) = {
               for {
@@ -292,13 +349,22 @@ object Journal {
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journal[G] = {
       new MapK with Journal[G] {
 
-        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[G, A],
+        def append[A](
+          events: Nel[Event[A]],
+          metadata: RecordMetadata,
+          headers: Headers,
+        )(implicit
+          kafkaWrite: KafkaWrite[G, A],
         ) = {
           fg(self.append(events, metadata, headers)(kafkaWrite.mapK(gf)))
         }
 
-        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[G, A], eventualRead: EventualRead[G, A]) =
+        def read[A](
+          from: SeqNr,
+        )(implicit
+          kafkaRead: KafkaRead[G, A],
+          eventualRead: EventualRead[G, A],
+        ) =
           self.read[A](from)(kafkaRead.mapK(gf), eventualRead.mapK(gf)).mapK(fg, gf)
 
         def pointer = fg(self.pointer)
@@ -311,11 +377,11 @@ object Journal {
   }
 
   final case class CallTimeThresholds(
-    append: FiniteDuration  = 500.millis,
-    read: FiniteDuration    = 5.seconds,
+    append: FiniteDuration = 500.millis,
+    read: FiniteDuration = 5.seconds,
     pointer: FiniteDuration = 1.second,
-    delete: FiniteDuration  = 1.second,
-    purge: FiniteDuration   = 1.second,
+    delete: FiniteDuration = 1.second,
+    purge: FiniteDuration = 1.second,
   )
 
   object CallTimeThresholds {
@@ -326,13 +392,14 @@ object Journal {
   }
 
   /**
-   * Configuration for the dynamic pool of Kafka consumers used on recovery in case the data is not yet replicated to
-   * Cassandra
+   * Configuration for the dynamic pool of Kafka consumers used on recovery in case the data is not
+   * yet replicated to Cassandra
    *
-   * @param multiplier defines max pool size = multiplier x number of cores,
-   *                   if a calculated max pool size is below 1, the size of 1 is used to avoid starting with
-   *                   an unusable consumer pool configuration
-   * @param idleTimeout if idle for this time, Kafka consumers are closed
+   * @param multiplier
+   *   defines max pool size = multiplier x number of cores, if a calculated max pool size is below
+   *   1, the size of 1 is used to avoid starting with an unusable consumer pool configuration
+   * @param idleTimeout
+   *   if idle for this time, Kafka consumers are closed
    */
   final case class ConsumerPoolConfig(
     multiplier: Double,
@@ -348,21 +415,22 @@ object Journal {
 
   final case class DataIntegrityConfig(
     /**
-      * On recovery, if true, duplicated [[SeqNr]] in events will cause [[JournalError]] `Data integrity violated`
-      */
+     * On recovery, if true, duplicated [[SeqNr]] in events will cause [[JournalError]]
+     * `Data integrity violated`
+     */
     seqNrUniqueness: Boolean,
 
     /**
-      * On recovery, if true, events with [[RecordId]] different from the one in the current metadata record
-      * will be filtered out and logged as an error.
-      */
+     * On recovery, if true, events with [[RecordId]] different from the one in the current metadata
+     * record will be filtered out and logged as an error.
+     */
     correlateEventsWithMeta: Boolean,
   )
 
   object DataIntegrityConfig {
 
     val Default: DataIntegrityConfig = DataIntegrityConfig(
-      seqNrUniqueness         = true,
+      seqNrUniqueness = true,
       correlateEventsWithMeta = false,
     )
 

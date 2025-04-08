@@ -83,17 +83,19 @@ object Action {
       events: Events[A],
       metadata: HeaderMetadata,
       headers: Headers,
-    )(implicit kafkaWrite: KafkaWrite[F, A]): F[Append] = {
+    )(implicit
+      kafkaWrite: KafkaWrite[F, A],
+    ): F[Append] = {
       for {
         payloadAndType <- kafkaWrite(events)
       } yield {
         val range = SeqRange(from = events.events.head.seqNr, to = events.events.last.seqNr)
         val header = ActionHeader.Append(
-          range       = range,
-          origin      = origin,
+          range = range,
+          origin = origin,
           payloadType = payloadAndType.payloadType,
-          metadata    = metadata,
-          version     = version,
+          metadata = metadata,
+          version = version,
         )
         Append(key = key, timestamp = timestamp, header = header, payload = payloadAndType.payload, headers = headers)
       }
@@ -135,7 +137,12 @@ object Action {
 
   object Purge {
 
-    def apply(key: Key, timestamp: Instant, origin: Option[Origin], version: Option[Version]): Purge = {
+    def apply(
+      key: Key,
+      timestamp: Instant,
+      origin: Option[Origin],
+      version: Option[Version],
+    ): Purge = {
       val header = ActionHeader.Purge(origin, version)
       Purge(key, timestamp, header)
     }

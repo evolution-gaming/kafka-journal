@@ -64,8 +64,8 @@ object TestTemporal {
       (Fiber[StateT[S, *], Throwable, A], Outcome[StateT[S, *], Throwable, B]),
     ]] =
       for {
-        fa     <- start(fa)
-        fb     <- start(fb)
+        fa <- start(fa)
+        fb <- start(fb)
         result <- fa.join.map(outcome => Left((outcome, fb)))
       } yield result
 
@@ -187,7 +187,7 @@ object TestTemporal {
 
     override def flatMap[A, B](fa: ST[A])(f: A => ST[B]): ST[B] =
       fa.flatMap {
-        case Failure(e)     => St.pure(Failure(e))
+        case Failure(e) => St.pure(Failure(e))
         case Success(value) => f(value)
       }
 
@@ -197,7 +197,7 @@ object TestTemporal {
           f(a1).run(s1).map {
             case (s2, Success(Left(a2))) => Left((a2, s2))
             case (s2, Success(Right(b))) => Right((s2, Success(b)))
-            case (s2, Failure(e))        => Right((s2, Failure(e)))
+            case (s2, Failure(e)) => Right((s2, Failure(e)))
           }
       }
     }

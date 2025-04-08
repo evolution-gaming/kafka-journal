@@ -19,7 +19,7 @@ class AsyncPeriodicTopicCommitStateTest extends AnyFreeSpec with Matchers {
       }
       "if marked offset is not higher than committed" in {
         pState(
-          marked    = 1.some,
+          marked = 1.some,
           committed = 1.some,
         ).needToCommit shouldEqual none
       }
@@ -31,7 +31,7 @@ class AsyncPeriodicTopicCommitStateTest extends AnyFreeSpec with Matchers {
       }
       "if marked offset is higher than committed" in {
         pState(
-          marked    = 2.some,
+          marked = 2.some,
           committed = 1.some,
         ).needToCommit shouldEqual offset(2).some
       }
@@ -40,22 +40,22 @@ class AsyncPeriodicTopicCommitStateTest extends AnyFreeSpec with Matchers {
     "when updating marked offset" - {
       "updates if new value is higher" in {
         pState(
-          marked    = 2.some,
+          marked = 2.some,
           committed = 1.some,
         ).updateMarkedIfNeeded(offset(3)) shouldEqual
           pState(
-            marked    = 3.some,
+            marked = 3.some,
             committed = 1.some,
           )
       }
 
       "ignore update if the new value is not higher" in {
         pState(
-          marked    = 2.some,
+          marked = 2.some,
           committed = 1.some,
         ).updateMarkedIfNeeded(offset(1)) shouldEqual
           pState(
-            marked    = 2.some,
+            marked = 2.some,
             committed = 1.some,
           )
       }
@@ -64,22 +64,22 @@ class AsyncPeriodicTopicCommitStateTest extends AnyFreeSpec with Matchers {
     "when updating committed offset" - {
       "updates if new value is higher" in {
         pState(
-          marked    = 1.some,
+          marked = 1.some,
           committed = 1.some,
         ).updateCommittedIfNeeded(offset(2)) shouldEqual
           pState(
-            marked    = 1.some,
+            marked = 1.some,
             committed = 2.some,
           )
       }
 
       "ignore update if the new value is not higher" in {
         pState(
-          marked    = 1.some,
+          marked = 1.some,
           committed = 2.some,
         ).updateCommittedIfNeeded(offset(1)) shouldEqual
           pState(
-            marked    = 1.some,
+            marked = 1.some,
             committed = 2.some,
           )
       }
@@ -181,7 +181,7 @@ class AsyncPeriodicTopicCommitStateTest extends AnyFreeSpec with Matchers {
 
   private def pState(marked: Option[Int] = None, committed: Option[Int] = None): PartitionState =
     PartitionState(
-      markedOffsetOpt    = marked.map(offset),
+      markedOffsetOpt = marked.map(offset),
       committedOffsetOpt = committed.map(offset),
     )
 }

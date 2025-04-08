@@ -11,10 +11,16 @@ final case class Event[A](seqNr: SeqNr, tags: Tags = Tags.empty, payload: Option
 
 object Event {
 
-  implicit def codecEvent[A](implicit payloadCodec: Codec[Option[A]]): Codec[Event[A]] =
+  implicit def codecEvent[A](
+    implicit
+    payloadCodec: Codec[Option[A]],
+  ): Codec[Event[A]] =
     (SeqNr.codecSeqNr :: Tags.codecTags :: payloadCodec).as[Event[A]]
 
-  implicit def codecEventPayload(implicit jsonCodec: JsonCodec[Try]): Codec[Event[Payload]] = {
+  implicit def codecEventPayload(
+    implicit
+    jsonCodec: JsonCodec[Try],
+  ): Codec[Event[Payload]] = {
 
     val codecJson: Codec[Payload.Json] = Payload.Json.codecJson
 
@@ -22,7 +28,10 @@ object Event {
 
       val errEmpty = Err("")
 
-      def codecSome[A](implicit codec: Codec[A]) = {
+      def codecSome[A](
+        implicit
+        codec: Codec[A],
+      ) = {
         codec.exmap[Option[A]](a => Attempt.successful(a.some), a => Attempt.fromOption(a, errEmpty))
       }
 

@@ -15,8 +15,8 @@ import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
 /**
- * Gets a list of per-key records from [[TopicReplicator]], groups them in [[Batch]]es and replicates each batch
- * to Cassandra using [[ReplicatedKeyJournal]].
+ * Gets a list of per-key records from [[TopicReplicator]], groups them in [[Batch]]es and
+ * replicates each batch to Cassandra using [[ReplicatedKeyJournal]].
  */
 private[journal] trait ReplicateRecords[F[_]] {
 
@@ -36,10 +36,10 @@ private[journal] object ReplicateRecords {
     {
 
       def apply(records: Nel[ActionRecord[Action]]): F[Int] = {
-        val record    = records.last
-        val key       = record.action.key
+        val record = records.last
+        val key = record.action.key
         val partition = record.partitionOffset.partition
-        val id        = key.id
+        val id = key.id
 
         def measurements(records: Int): F[TopicReplicatorMetrics.Measurements] = {
           for {
@@ -48,8 +48,8 @@ private[journal] object ReplicateRecords {
             val timestamp1 = record.action.timestamp
             TopicReplicatorMetrics.Measurements(
               replicationLatency = now diff timestamp1,
-              deliveryLatency    = timestamp diff timestamp1,
-              records            = records,
+              deliveryLatency = timestamp diff timestamp1,
+              records = records,
             )
           }
         }
@@ -63,27 +63,27 @@ private[journal] object ReplicateRecords {
             expireAfter: Option[ExpireAfter],
           ): String = {
             val seqNrs =
-              if (events.tail.isEmpty) s"seqNr: ${events.head.seqNr}"
-              else s"seqNrs: ${events.head.seqNr}..${events.last.seqNr}"
-            val origin         = records.head.action.origin
-            val originStr      = origin.foldMap { origin => s", origin: $origin" }
-            val version        = records.last.action.version
-            val versionStr     = version.fold("none") { _.toString }
+              if (events.tail.isEmpty) s"seqNr: ${ events.head.seqNr }"
+              else s"seqNrs: ${ events.head.seqNr }..${ events.last.seqNr }"
+            val origin = records.head.action.origin
+            val originStr = origin.foldMap { origin => s", origin: $origin" }
+            val version = records.last.action.version
+            val versionStr = version.fold("none") { _.toString }
             val expireAfterStr = expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
-            s"append in ${latency.toMillis}ms, id: $id, partition: $partition, offset: $offset, $seqNrs$originStr, version: $versionStr$expireAfterStr"
+            s"append in ${ latency.toMillis }ms, id: $id, partition: $partition, offset: $offset, $seqNrs$originStr, version: $versionStr$expireAfterStr"
           }
 
           def measure(events: Nel[EventRecord[EventualPayloadAndType]], expireAfter: Option[ExpireAfter]): F[Unit] = {
             for {
               measurements <- measurements(records.size)
-              version       = events.last.version.map(_.value).getOrElse("none")
-              expiration    = expireAfter.map(_.value.toString).getOrElse("none")
+              version = events.last.version.map(_.value).getOrElse("none")
+              expiration = expireAfter.map(_.value.toString).getOrElse("none")
               result <- metrics.append(
-                events        = events.length,
-                bytes         = bytes,
+                events = events.length,
+                bytes = bytes,
                 clientVersion = version,
-                expiration    = expiration,
-                measurements  = measurements,
+                expiration = expiration,
+                measurements = measurements,
               )
               _ <- log.trace(msg(events, measurements.replicationLatency, expireAfter))
             } yield result
@@ -91,7 +91,7 @@ private[journal] object ReplicateRecords {
 
           for {
             events <- records.flatTraverse { record =>
-              val action         = record.action
+              val action = record.action
               val payloadAndType = action.toPayloadAndType
               for {
                 events <- kafkaRead(payloadAndType).adaptError {
@@ -106,25 +106,30 @@ private[journal] object ReplicateRecords {
               }
             }
             expireAfter = events.last.metadata.payload.expireAfter
-            result     <- journal.append(offset, timestamp, expireAfter, events)
-            result     <- if (result) measure(events, expireAfter).as(events.size) else 0.pure[F]
+            result <- journal.append(offset, timestamp, expireAfter, events)
+            result <- if (result) measure(events, expireAfter).as(events.size) else 0.pure[F]
           } yield result
         }
 
-        def delete(offset: Offset, deleteTo: DeleteTo, origin: Option[Origin], version: Option[Version]): F[Int] = {
+        def delete(
+          offset: Offset,
+          deleteTo: DeleteTo,
+          origin: Option[Origin],
+          version: Option[Version],
+        ): F[Int] = {
 
           def msg(latency: FiniteDuration): String = {
-            val originStr  = origin.foldMap { origin => s", origin: $origin" }
+            val originStr = origin.foldMap { origin => s", origin: $origin" }
             val versionStr = version.fold("none") { _.toString }
-            s"delete in ${latency.toMillis}ms, id: $id, offset: $partition:$offset, deleteTo: $deleteTo$originStr, version: $versionStr"
+            s"delete in ${ latency.toMillis }ms, id: $id, offset: $partition:$offset, deleteTo: $deleteTo$originStr, version: $versionStr"
           }
 
           def measure(): F[Unit] = {
             for {
               measurements <- measurements(1)
-              latency       = measurements.replicationLatency
-              _            <- metrics.delete(measurements)
-              result       <- log.trace(msg(latency))
+              latency = measurements.replicationLatency
+              _ <- metrics.delete(measurements)
+              result <- log.trace(msg(latency))
             } yield result
           }
 
@@ -137,17 +142,17 @@ private[journal] object ReplicateRecords {
         def purge(offset: Offset, origin: Option[Origin], version: Option[Version]): F[Int] = {
 
           def msg(latency: FiniteDuration): String = {
-            val originStr  = origin.foldMap { origin => s", origin: $origin" }
+            val originStr = origin.foldMap { origin => s", origin: $origin" }
             val versionStr = version.fold("none") { _.toString }
-            s"purge in ${latency.toMillis}ms, id: $id, offset: $partition:$offset$originStr, version: $versionStr"
+            s"purge in ${ latency.toMillis }ms, id: $id, offset: $partition:$offset$originStr, version: $versionStr"
           }
 
           def measure(): F[Unit] = {
             for {
               measurements <- measurements(1)
-              latency       = measurements.replicationLatency
-              _            <- metrics.purge(measurements)
-              result       <- log.trace(msg(latency))
+              latency = measurements.replicationLatency
+              _ <- metrics.purge(measurements)
+              result <- log.trace(msg(latency))
             } yield result
           }
 
@@ -161,8 +166,8 @@ private[journal] object ReplicateRecords {
           .of(records)
           .foldMapM {
             case batch: Batch.Appends => append(batch.offset, batch.records)
-            case batch: Batch.Delete  => delete(batch.offset, batch.to, batch.origin, batch.version)
-            case batch: Batch.Purge   => purge(batch.offset, batch.origin, batch.version)
+            case batch: Batch.Delete => delete(batch.offset, batch.to, batch.origin, batch.version)
+            case batch: Batch.Purge => purge(batch.offset, batch.origin, batch.version)
           }
       }
 

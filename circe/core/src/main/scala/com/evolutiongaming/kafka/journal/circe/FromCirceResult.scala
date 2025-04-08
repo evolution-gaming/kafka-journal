@@ -13,7 +13,10 @@ trait FromCirceResult[F[_]] {
 
 object FromCirceResult {
 
-  def summon[F[_]](implicit fromCirceResult: FromCirceResult[F]): FromCirceResult[F] = fromCirceResult
+  def summon[F[_]](
+    implicit
+    fromCirceResult: FromCirceResult[F],
+  ): FromCirceResult[F] = fromCirceResult
 
   implicit def lift[F[_]: ApplicativeThrowable]: FromCirceResult[F] = new FromCirceResult[F] {
 

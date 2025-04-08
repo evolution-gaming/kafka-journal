@@ -11,7 +11,7 @@ object FiniteDurationHelper {
   }
 
   def finiteDurationToDuration(a: FiniteDuration): DurationC = {
-    val days  = a.toDays
+    val days = a.toDays
     val nanos = (a - days.days).toNanos
     DurationC.newInstance(0, days.toInt, nanos)
   }

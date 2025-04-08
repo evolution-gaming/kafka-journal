@@ -56,7 +56,7 @@ object SeqNr {
   implicit val readsSeqNr: Reads[SeqNr] = Reads.of[Long].mapResult { a => SeqNr.of[JsResult](a) }
 
   implicit val codecSeqNr: Codec[SeqNr] = {
-    val to   = (a: Long)  => SeqNr.of[Attempt](a)
+    val to = (a: Long) => SeqNr.of[Attempt](a)
     val from = (a: SeqNr) => Attempt.successful(a.value)
     codecs.int64.exmap(to, from)
   }
@@ -77,7 +77,11 @@ object SeqNr {
 
   def opt(value: Long): Option[SeqNr] = of[Option](value)
 
-  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SeqNr = of[Id](numeric.toLong(value))
+  def unsafe[A](
+    value: A,
+  )(implicit
+    numeric: Numeric[A],
+  ): SeqNr = of[Id](numeric.toLong(value))
 
   implicit class SeqNrOps(val self: SeqNr) extends AnyVal {
 

@@ -24,9 +24,9 @@ private[journal] object ResourceRef {
     Resource
       .make {
         for {
-          ab          <- resource.allocated
+          ab <- resource.allocated
           (a, release) = ab
-          ref         <- Ref[F].of(State(a, release).some)
+          ref <- Ref[F].of(State(a, release).some)
         } yield ref
       } { ref =>
         ref
@@ -41,7 +41,7 @@ private[journal] object ResourceRef {
               .get
               .flatMap {
                 case Some(state) => state.a.pure[F]
-                case None        => ResourceReleasedError.raiseError[F, A]
+                case None => ResourceReleasedError.raiseError[F, A]
               }
           }
 
@@ -49,7 +49,7 @@ private[journal] object ResourceRef {
             ref
               .modify {
                 case Some(state) => (State(a, release).some, state.release)
-                case None        => (none, ResourceReleasedError.raiseError[F, Unit])
+                case None => (none, ResourceReleasedError.raiseError[F, Unit])
               }
               .flatten
               .uncancelable

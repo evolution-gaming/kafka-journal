@@ -8,11 +8,12 @@ import com.evolutiongaming.kafka.journal.PayloadAndType.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import play.api.libs.json.JsValue
 
-/** Decode a payload loaded from Kafka.
-  *
-  * Converts a structure convenient to store in Kafka, to a structure, which is
-  * convenient to use for a business logic.
-  */
+/**
+ * Decode a payload loaded from Kafka.
+ *
+ * Converts a structure convenient to store in Kafka, to a structure, which is convenient to use for
+ * a business logic.
+ */
 trait KafkaRead[F[_], A] {
 
   def apply(payloadAndType: PayloadAndType): F[Events[A]]
@@ -20,10 +21,14 @@ trait KafkaRead[F[_], A] {
 
 object KafkaRead {
 
-  def summon[F[_], A](implicit kafkaRead: KafkaRead[F, A]): KafkaRead[F, A] = kafkaRead
+  def summon[F[_], A](
+    implicit
+    kafkaRead: KafkaRead[F, A],
+  ): KafkaRead[F, A] = kafkaRead
 
   implicit def payloadKafkaRead[F[_]: MonadThrowable: FromJsResult](
-    implicit eventsFromBytes: FromBytes[F, Events[Payload]],
+    implicit
+    eventsFromBytes: FromBytes[F, Events[Payload]],
     payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]],
   ): KafkaRead[F, Payload] = { (payloadAndType: PayloadAndType) =>
     {
@@ -81,7 +86,7 @@ object KafkaRead {
         case PayloadType.Json =>
           for {
             payloadJson <- payloadJsonFromBytes(payload)
-            events      <- events(payloadJson)
+            events <- events(payloadJson)
           } yield {
             Events(
               events,
@@ -106,8 +111,8 @@ object KafkaRead {
   implicit class KafkaReadOps[F[_], A](val self: KafkaRead[F, A]) extends AnyVal {
     def withMetrics(
       metrics: KafkaReadMetrics[F],
-    )(
-      implicit F: Monad[F],
+    )(implicit
+      F: Monad[F],
       measureDuration: MeasureDuration[F],
     ): KafkaRead[F, A] = { payloadAndType =>
       for {

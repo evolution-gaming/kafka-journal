@@ -11,8 +11,8 @@ import scala.util.control.NoStackTrace
 class ResultSetSpec extends AsyncFunSuite with Matchers {
 
   for {
-    size      <- 0 to 5
-    take      <- 1 to 5
+    size <- 0 to 5
+    take <- 1 to 5
     fetchSize <- 1 to 5
   } {
     test(s"size: $size, take: $take, fetchSize: $fetchSize") {
@@ -28,11 +28,11 @@ class ResultSetSpec extends AsyncFunSuite with Matchers {
 
     for {
       fetches <- Ref[F].of(0)
-      left    <- Ref[F].of(all)
+      left <- Ref[F].of(all)
       fetched <- Ref[F].of(List.empty[Row])
-      next     = fetched.modify { rows => (List.empty, rows) }
+      next = fetched.modify { rows => (List.empty, rows) }
       fetch = for {
-        _        <- fetches.update(_ + 1)
+        _ <- fetches.update(_ + 1)
         toFetch1 <- left.get
         result <- {
           if (toFetch1.isEmpty) ().pure[F]
@@ -40,7 +40,7 @@ class ResultSetSpec extends AsyncFunSuite with Matchers {
             for {
               taken <- left.modify { rows =>
                 val fetched = rows.take(fetchSize)
-                val left    = rows.drop(fetchSize)
+                val left = rows.drop(fetchSize)
                 (left, fetched)
               }
               _ <- fetched.set(taken)
@@ -48,8 +48,8 @@ class ResultSetSpec extends AsyncFunSuite with Matchers {
         }
       } yield result
       resultSet = ResultSet[F, Row](fetch, left.get.map(_.isEmpty), next)
-      rows     <- resultSet.take(take.toLong).toList
-      fetches  <- fetches.get
+      rows <- resultSet.take(take.toLong).toList
+      fetches <- fetches.get
     } yield {
       rows shouldEqual all.take(take)
 

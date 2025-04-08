@@ -16,15 +16,17 @@ class JournalConfigSpec extends AnyFunSuite with Matchers {
   }
 
   test("apply from config") {
-    val config  = ConfigFactory.parseURL(getClass.getResource("journal.conf"))
+    val config = ConfigFactory.parseURL(getClass.getResource("journal.conf"))
     val default = JournalConfig.default
     val expected = JournalConfig(
       pollTimeout = 1.millis,
       kafka = default
         .kafka
         .copy(
-          producer = default.kafka.producer.copy(common = default.kafka.producer.common.copy(clientId = "clientId".some)),
-          consumer = default.kafka.consumer.copy(common = default.kafka.consumer.common.copy(clientId = "clientId".some)),
+          producer =
+            default.kafka.producer.copy(common = default.kafka.producer.common.copy(clientId = "clientId".some)),
+          consumer =
+            default.kafka.consumer.copy(common = default.kafka.consumer.common.copy(clientId = "clientId".some)),
         ),
       headCache = default.headCache.copy(enabled = false),
     )

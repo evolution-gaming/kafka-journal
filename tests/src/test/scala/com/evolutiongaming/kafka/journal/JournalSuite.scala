@@ -40,7 +40,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
   implicit val randomIdOf: RandomIdOf[IO] = RandomIdOf.uuid[IO]
 
   lazy val ((eventualJournal, producer), release) = {
-    implicit val logOf     = LogOf.empty[IO]
+    implicit val logOf = LogOf.empty[IO]
     implicit val jsonCodec = JsonCodec.jsoniter[IO]
     val resource = for {
       config <- config.liftTo[IO].toResource
@@ -62,13 +62,13 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
       .unsafeRunSync()
   }
 
-  private val await            = Promise[Unit]()
+  private val await = Promise[Unit]()
   val awaitResources: IO[Unit] = FromFuture[IO].apply(await.future)
 
   override def beforeAll() = {
     super.beforeAll()
     IntegrationSuite.start()
-    await.success({})
+    await.success {}
     //    eventual
     //    producer
   }
@@ -86,10 +86,16 @@ object JournalSuite {
     def append[A](
       events: Nel[Event[A]],
       metadata: RecordMetadata = RecordMetadata.empty,
-      headers: Headers         = Headers.empty,
-    )(implicit kafkaWrite: KafkaWrite[F, A]): F[PartitionOffset]
+      headers: Headers = Headers.empty,
+    )(implicit
+      kafkaWrite: KafkaWrite[F, A],
+    ): F[PartitionOffset]
 
-    def read[A](implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]): F[List[EventRecord[A]]]
+    def read[A](
+      implicit
+      kafkaRead: KafkaRead[F, A],
+      eventualRead: EventualRead[F, A],
+    ): F[List[EventRecord[A]]]
 
     def pointer: F[Option[SeqNr]]
 
@@ -97,7 +103,11 @@ object JournalSuite {
 
     def purge: F[Option[PartitionOffset]]
 
-    def size[A](implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]): F[Long]
+    def size[A](
+      implicit
+      kafkaRead: KafkaRead[F, A],
+      eventualRead: EventualRead[F, A],
+    ): F[Long]
   }
 
   object JournalTest {
@@ -107,11 +117,21 @@ object JournalSuite {
       timestamp: Instant,
     ): JournalTest[F] = new JournalTest[F] {
 
-      def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit kafkaWrite: KafkaWrite[F, A]) = {
+      def append[A](
+        events: Nel[Event[A]],
+        metadata: RecordMetadata,
+        headers: Headers,
+      )(implicit
+        kafkaWrite: KafkaWrite[F, A],
+      ) = {
         journal.append(events, metadata, headers)
       }
 
-      def read[A](implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = {
+      def read[A](
+        implicit
+        kafkaRead: KafkaRead[F, A],
+        eventualRead: EventualRead[F, A],
+      ) = {
         for {
           records <- journal.read().toList
         } yield for {
@@ -127,7 +147,11 @@ object JournalSuite {
 
       def purge = journal.purge
 
-      def size[A](implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = journal.read().length
+      def size[A](
+        implicit
+        kafkaRead: KafkaRead[F, A],
+        eventualRead: EventualRead[F, A],
+      ) = journal.read().length
     }
   }
 }

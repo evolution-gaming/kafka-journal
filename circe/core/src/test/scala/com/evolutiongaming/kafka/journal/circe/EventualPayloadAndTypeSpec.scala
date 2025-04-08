@@ -27,7 +27,7 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
     test(s"toEventual with Play, fromEventual with Circe") {
       val actual = for {
         payloadAndType <- playEventualWrite(playPayload)
-        actual         <- circeEventualRead(payloadAndType)
+        actual <- circeEventualRead(payloadAndType)
       } yield actual
 
       actual shouldBe circePayload.pure[Try]
@@ -58,7 +58,7 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
   }
 
   test("fromEventual: returns an error for malformed json") {
-    val malformed      = "{\"key\": {sss}}"
+    val malformed = "{\"key\": {sss}}"
     val payloadAndType = EventualPayloadAndType(malformed.asLeft, PayloadType.Json)
 
     val result = circeEventualRead(payloadAndType).toEither

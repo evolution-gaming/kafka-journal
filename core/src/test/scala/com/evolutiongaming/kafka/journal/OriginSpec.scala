@@ -14,7 +14,7 @@ class OriginSpec extends AsyncFunSuite with Matchers {
   test("hostName") {
     val result = for {
       hostName <- Origin.hostName[IO]
-      result    = hostName.isDefined shouldEqual true
+      result = hostName.isDefined shouldEqual true
     } yield result
     result.run()
   }
@@ -23,7 +23,7 @@ class OriginSpec extends AsyncFunSuite with Matchers {
     test("akkaHost") {
       val result = for {
         akkaHost <- Origin.akkaHost[IO](system)
-        result    = akkaHost.isDefined shouldEqual false
+        result = akkaHost.isDefined shouldEqual false
       } yield result
       result.run()
     }

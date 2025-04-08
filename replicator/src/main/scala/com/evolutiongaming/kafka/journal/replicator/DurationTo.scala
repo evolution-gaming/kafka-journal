@@ -25,7 +25,7 @@ object DurationTo {
       now.flatMap { now =>
         ApplicativeThrowable[F].catchNonFatal {
           val localDateTime = {
-            val localDate     = now.toLocalDate
+            val localDate = now.toLocalDate
             val localDateTime = localDate.atTime(localTime)
             if (localDateTime.isAfter(now)) {
               localDateTime

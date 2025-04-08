@@ -24,10 +24,10 @@ object ConsumerPoolMetrics {
 
     registry
       .summary(
-        name      = s"${prefix}_consumer_pool_latency",
-        help      = "Latency of acquiring/using consumers",
+        name = s"${ prefix }_consumer_pool_latency",
+        help = "Latency of acquiring/using consumers",
         quantiles = Quantiles.Default,
-        labels    = LabelNames("type"),
+        labels = LabelNames("type"),
       )
       .map { timeSummary =>
         class Main

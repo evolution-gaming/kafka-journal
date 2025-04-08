@@ -22,56 +22,54 @@ import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Try
 
-/** Main entry point to Kafka Journal implementation.
-  *
-  * The users are not expected to instantiate it directly, but should enable the
-  * plugin in respective `application.conf` instead like this:
-  * {{{
-  * akka.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
-  * }}}
-  *
-  * This is achieved by having a special `reference.conf` file inside of the
-  * library JAR, which contains the required configuration understandable by
-  * Akka Persistence.
-  *
-  * This is also possible to override the setting for specific persistence
-  * actors by overriding [[PersistentActor#journalPluginId]].
-  *
-  * In the cases, when the configuration provided by [[KafkaJournalConfig]] does
-  * not provide enough flexibility, it might be useful to extend
-  * [[KafkaJournal]] itself and then override the necessary methods such as
-  * [[KafkaJournal#adapterIO]] or [[KafkaJournal#metrics]].
-  * {{{
-  * class KafkaJournalCirce(config: Config) extends KafkaJournal(config) {
-  *   override def adapterIO: Resource[IO, JournalAdapter[IO]] =
-  *     adapterIO(customSerializer, customJournalReadWrite)
-  * }
-  * }}}
-  *
-  * In this case the custom implementation could be used to replace the original
-  * class by adding the following to `application.conf`:
-  * {{{
-  * evolutiongaming.kafka-journal.persistence.journal {
-  *   class = "akka.persistence.kafka.journal.circe.KafkaJournalCirce"
-  * }
-  * }}}
-  *
-  * @param config
-  *   Contains configuration coming from `application.conf` file, including
-  *   [[KafkaJournalConfig]] parameters, and also selection of [[ToKey]]
-  *   implementation. See the documentation for appropriate classes for more
-  *   details.
-  */
+/**
+ * Main entry point to Kafka Journal implementation.
+ *
+ * The users are not expected to instantiate it directly, but should enable the plugin in respective
+ * `application.conf` instead like this:
+ * {{{
+ * akka.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
+ * }}}
+ *
+ * This is achieved by having a special `reference.conf` file inside of the library JAR, which
+ * contains the required configuration understandable by Akka Persistence.
+ *
+ * This is also possible to override the setting for specific persistence actors by overriding
+ * [[PersistentActor#journalPluginId]].
+ *
+ * In the cases, when the configuration provided by [[KafkaJournalConfig]] does not provide enough
+ * flexibility, it might be useful to extend [[KafkaJournal]] itself and then override the necessary
+ * methods such as [[KafkaJournal#adapterIO]] or [[KafkaJournal#metrics]].
+ * {{{
+ * class KafkaJournalCirce(config: Config) extends KafkaJournal(config) {
+ *   override def adapterIO: Resource[IO, JournalAdapter[IO]] =
+ *     adapterIO(customSerializer, customJournalReadWrite)
+ * }
+ * }}}
+ *
+ * In this case the custom implementation could be used to replace the original class by adding the
+ * following to `application.conf`:
+ * {{{
+ * evolutiongaming.kafka-journal.persistence.journal {
+ *   class = "akka.persistence.kafka.journal.circe.KafkaJournalCirce"
+ * }
+ * }}}
+ *
+ * @param config
+ *   Contains configuration coming from `application.conf` file, including [[KafkaJournalConfig]]
+ *   parameters, and also selection of [[ToKey]] implementation. See the documentation for
+ *   appropriate classes for more details.
+ */
 class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
-  implicit val system: ActorSystem                = context.system
+  implicit val system: ActorSystem = context.system
   implicit val executor: ExecutionContextExecutor = context.dispatcher
 
-  private val (blocking, blockingShutdown)   = IORuntime.createDefaultBlockingExecutionContext("kafka-journal-blocking")
+  private val (blocking, blockingShutdown) = IORuntime.createDefaultBlockingExecutionContext("kafka-journal-blocking")
   private val (scheduler, schedulerShutdown) = IORuntime.createDefaultScheduler("kafka-journal-scheduler")
   implicit val ioRuntime: IORuntime = IORuntime(
-    compute   = executor,
-    blocking  = blocking,
+    compute = executor,
+    blocking = blocking,
     scheduler = scheduler,
     shutdown = () => {
       blockingShutdown()
@@ -79,9 +77,9 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     },
     config = IORuntimeConfig(),
   )
-  implicit val toFuture: ToFuture[IO]         = ToFuture.ioToFuture
-  implicit val fromFuture: FromFuture[IO]     = FromFuture.lift[IO]
-  implicit val fromAttempt: FromAttempt[IO]   = FromAttempt.lift[IO]
+  implicit val toFuture: ToFuture[IO] = ToFuture.ioToFuture
+  implicit val fromFuture: FromFuture[IO] = FromFuture.lift[IO]
+  implicit val fromAttempt: FromAttempt[IO] = FromAttempt.lift[IO]
   implicit val fromJsResult: FromJsResult[IO] = FromJsResult.lift[IO]
 
   val adapter: Future[(JournalAdapter[Future], IO[Unit])] = {
@@ -135,7 +133,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     for {
       jsonCodec <- jsonCodec(config)
     } yield {
-      implicit val jsonCodec1   = jsonCodec
+      implicit val jsonCodec1 = jsonCodec
       implicit val jsonCodecTry = jsonCodec.mapK(ToTry.functionK)
       JournalReadWrite.of[IO, Payload]
     }
@@ -168,7 +166,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   def jsonCodec(config: KafkaJournalConfig): IO[JsonCodec[IO]] = {
     val codec: JsonCodec[IO] = config.jsonCodec match {
-      case KafkaJournalConfig.JsonCodec.Default  => JsonCodec.default
+      case KafkaJournalConfig.JsonCodec.Default => JsonCodec.default
       case KafkaJournalConfig.JsonCodec.PlayJson => JsonCodec.playJson
       case KafkaJournalConfig.JsonCodec.Jsoniter => JsonCodec.jsoniter
     }
@@ -177,10 +175,10 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   def adapterIO: Resource[IO, JournalAdapter[IO]] = {
     for {
-      serializer       <- serializer
-      config           <- kafkaJournalConfig.toResource
+      serializer <- serializer
+      config <- kafkaJournalConfig.toResource
       journalReadWrite <- journalReadWrite(config).toResource
-      adapter          <- adapterIO(config, serializer, journalReadWrite)
+      adapter <- adapterIO(config, serializer, journalReadWrite)
     } yield adapter
   }
 
@@ -189,7 +187,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     journalReadWrite: JournalReadWrite[IO, A],
   ): Resource[IO, JournalAdapter[IO]] = {
     for {
-      config  <- kafkaJournalConfig.toResource
+      config <- kafkaJournalConfig.toResource
       adapter <- adapterIO(config, serializer, journalReadWrite)
     } yield adapter
   }
@@ -201,29 +199,29 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   ): Resource[IO, JournalAdapter[IO]] = {
     for {
       logOf <- logOf
-      log   <- logOf(classOf[KafkaJournal]).toResource
-      _     <- log.debug(s"config: $config").toResource
+      log <- logOf(classOf[KafkaJournal]).toResource
+      _ <- log.debug(s"config: $config").toResource
       adapter <- Resource {
         val adapter = for {
-          randomId           <- randomIdOf
-          measureDuration    <- measureDuration
-          toKey              <- toKey
-          origin             <- origin.toResource
-          appendMetadataOf   <- appendMetadataOf
-          metrics            <- metrics
-          batching           <- batching(config)
+          randomId <- randomIdOf
+          measureDuration <- measureDuration
+          toKey <- toKey
+          origin <- origin.toResource
+          appendMetadataOf <- appendMetadataOf
+          metrics <- metrics
+          batching <- batching(config)
           cassandraClusterOf <- cassandraClusterOf
-          jsonCodec          <- jsonCodec(config).toResource
+          jsonCodec <- jsonCodec(config).toResource
           adapter <- adapterOf(
-            toKey              = toKey,
-            origin             = origin,
-            serializer         = serializer,
-            journalReadWrite   = journalReadWrite,
-            config             = config,
-            metrics            = metrics,
-            appendMetadataOf   = appendMetadataOf,
-            batching           = batching,
-            log                = log,
+            toKey = toKey,
+            origin = origin,
+            serializer = serializer,
+            journalReadWrite = journalReadWrite,
+            config = config,
+            metrics = metrics,
+            appendMetadataOf = appendMetadataOf,
+            batching = batching,
+            log = log,
             cassandraClusterOf = cassandraClusterOf,
           )(logOf = logOf, randomIdOf = randomId, measureDuration = measureDuration, jsonCodec = jsonCodec)
         } yield adapter
@@ -237,7 +235,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
                 log.warn(s"allocate failed, retrying in $delay, error: $error")
 
               case OnError.Decision.GiveUp =>
-                val retries  = status.retries
+                val retries = status.retries
                 val duration = status.delay
                 log.error(s"allocate failed after $retries retries within $duration: $error", error)
             }
@@ -269,23 +267,23 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     batching: Batching[IO],
     log: Log[IO],
     cassandraClusterOf: CassandraClusterOf[IO],
-  )(
-    implicit logOf: LogOf[IO],
+  )(implicit
+    logOf: LogOf[IO],
     randomIdOf: RandomIdOf[IO],
     measureDuration: MeasureDuration[IO],
     jsonCodec: JsonCodec[IO],
   ): Resource[IO, JournalAdapter[IO]] = {
 
     JournalAdapter.make[IO, A](
-      toKey              = toKey,
-      origin             = origin,
-      serializer         = serializer,
-      journalReadWrite   = journalReadWrite,
-      config             = config,
-      metrics            = metrics,
-      log                = log,
-      batching           = batching,
-      appendMetadataOf   = appendMetadataOf,
+      toKey = toKey,
+      origin = origin,
+      serializer = serializer,
+      journalReadWrite = journalReadWrite,
+      config = config,
+      metrics = metrics,
+      log = log,
+      batching = batching,
+      appendMetadataOf = appendMetadataOf,
       cassandraClusterOf = cassandraClusterOf,
     )
   }
@@ -303,11 +301,16 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: Long): Future[Unit] = {
     SeqNr.opt(to) match {
       case Some(to) => adapter.flatMap { case (adapter, _) => adapter.delete(persistenceId, to.toDeleteTo) }
-      case None     => Future.unit
+      case None => Future.unit
     }
   }
 
-  def asyncReplayMessages(persistenceId: PersistenceId, from: Long, to: Long, max: Long)(
+  def asyncReplayMessages(
+    persistenceId: PersistenceId,
+    from: Long,
+    to: Long,
+    max: Long,
+  )(
     f: PersistentRepr => Unit,
   ): Future[Unit] = {
     val seqNrFrom = SeqNr
@@ -317,7 +320,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       .of[Option](to)
       .getOrElse(SeqNr.max)
     val range = SeqRange(seqNrFrom, seqNrTo)
-    val f1    = (a: PersistentRepr) => Future.fromTry(Try { f(a) })
+    val f1 = (a: PersistentRepr) => Future.fromTry(Try { f(a) })
     adapter.flatMap { case (adapter, _) => adapter.replay(persistenceId, range, max)(f1) }
   }
 
@@ -329,7 +332,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       .flatMap { case (adapter, _) => adapter.lastSeqNr(persistenceId, seqNr) }
       .map {
         case Some(seqNr) => seqNr.value
-        case None        => from
+        case None => from
       }
   }
 }

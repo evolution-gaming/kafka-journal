@@ -71,25 +71,30 @@ object JournalAdapter {
       KafkaProducerOf[F](producerMetrics)
     }
 
-    def headCacheOf(implicit kafkaConsumerOf: KafkaConsumerOf[F]): HeadCacheOf[F] = {
+    def headCacheOf(
+      implicit
+      kafkaConsumerOf: KafkaConsumerOf[F],
+    ): HeadCacheOf[F] = {
       HeadCacheOf[F](metrics.headCache)
     }
 
-    def journal(eventualJournal: EventualJournal[F])(
-      implicit kafkaConsumerOf: KafkaConsumerOf[F],
+    def journal(
+      eventualJournal: EventualJournal[F],
+    )(implicit
+      kafkaConsumerOf: KafkaConsumerOf[F],
       kafkaProducerOf: KafkaProducerOf[F],
       headCacheOf: HeadCacheOf[F],
     ): Resource[F, Journals[F]] = {
       Journals
         .make[F](
-          origin              = origin,
-          config              = config.journal,
-          eventualJournal     = eventualJournal,
-          journalMetrics      = metrics.journal,
-          conversionMetrics   = metrics.conversion,
-          consumerPoolConfig  = config.consumerPool,
+          origin = origin,
+          config = config.journal,
+          eventualJournal = eventualJournal,
+          journalMetrics = metrics.journal,
+          conversionMetrics = metrics.conversion,
+          consumerPoolConfig = config.consumerPool,
           consumerPoolMetrics = metrics.consumerPool,
-          callTimeThresholds  = config.callTimeThresholds,
+          callTimeThresholds = config.callTimeThresholds,
         )
         .map { _.withLogError(log) }
     }
@@ -118,8 +123,8 @@ object JournalAdapter {
     appendMetadataOf: AppendMetadataOf[F],
   ): JournalAdapter[F] = {
 
-    implicit val kafkaRead    = journalReadWrite.kafkaRead
-    implicit val kafkaWrite   = journalReadWrite.kafkaWrite
+    implicit val kafkaRead = journalReadWrite.kafkaRead
+    implicit val kafkaWrite = journalReadWrite.kafkaWrite
     implicit val eventualRead = journalReadWrite.eventualRead
 
     new JournalAdapter[F] {
@@ -129,11 +134,11 @@ object JournalAdapter {
         prs.toList.toNel.foldMapM { prs =>
           val persistenceId = prs.head.persistenceId
           for {
-            key      <- toKey(persistenceId)
-            events   <- prs.traverse(serializer.toEvent)
+            key <- toKey(persistenceId)
+            events <- prs.traverse(serializer.toEvent)
             metadata <- appendMetadataOf(key, prs, events)
-            journal   = journals(key)
-            _        <- journal.append(events, metadata.metadata, metadata.headers)
+            journal = journals(key)
+            _ <- journal.append(events, metadata.metadata, metadata.headers)
           } yield {
             List.empty[Try[Unit]]
           }
@@ -143,7 +148,7 @@ object JournalAdapter {
       def delete(persistenceId: PersistenceId, to: DeleteTo) = {
         for {
           key <- toKey(persistenceId)
-          _   <- journals(key).delete(to)
+          _ <- journals(key).delete(to)
         } yield {}
       }
 
@@ -158,7 +163,7 @@ object JournalAdapter {
               if (max > 0 && seqNr <= range.to) {
                 for {
                   persistentRepr <- serializer.toPersistentRepr(persistenceId, event)
-                  _              <- f(persistentRepr)
+                  _ <- f(persistentRepr)
                 } yield {
                   if (max === 1) ().asRight[Long]
                   else (max - 1).asLeft[Unit]
@@ -171,14 +176,14 @@ object JournalAdapter {
         }
 
         for {
-          key    <- toKey(persistenceId)
+          key <- toKey(persistenceId)
           result <- replay(key)
         } yield result
       }
 
       def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
         for {
-          key     <- toKey(persistenceId)
+          key <- toKey(persistenceId)
           pointer <- journals(key).pointer
         } yield for {
           pointer <- pointer
@@ -203,7 +208,11 @@ object JournalAdapter {
       }
     }
 
-    def withBatching(batching: Batching[F])(implicit F: Monad[F]): JournalAdapter[F] = new JournalAdapter[F] {
+    def withBatching(
+      batching: Batching[F],
+    )(implicit
+      F: Monad[F],
+    ): JournalAdapter[F] = new JournalAdapter[F] {
 
       def write(aws: Seq[AtomicWrite]) = {
         if (aws.size <= 1) self.write(aws)
@@ -233,13 +242,13 @@ object JournalAdapter {
   }
 
   final case class Metrics[F[_]](
-    journal: Option[JournalMetrics[F]]               = none,
-    eventual: Option[EventualJournal.Metrics[F]]     = none,
-    headCache: Option[HeadCacheMetrics[F]]           = none,
+    journal: Option[JournalMetrics[F]] = none,
+    eventual: Option[EventualJournal.Metrics[F]] = none,
+    headCache: Option[HeadCacheMetrics[F]] = none,
     producer: Option[ClientId => ProducerMetrics[F]] = none,
     consumer: Option[ClientId => ConsumerMetrics[F]] = none,
-    conversion: Option[ConversionMetrics[F]]         = none,
-    consumerPool: Option[ConsumerPoolMetrics[F]]     = none,
+    conversion: Option[ConversionMetrics[F]] = none,
+    consumerPool: Option[ConsumerPoolMetrics[F]] = none,
   )
 
   object Metrics {

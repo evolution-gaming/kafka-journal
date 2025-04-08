@@ -36,14 +36,19 @@ object IntegrationSuite {
     def testContainer[C <: GenericContainer[C]](
       log: Log[F],
       exposeStaticPort: Int,
-    )(makeContainer: => C): Resource[F, Unit] = {
+    )(
+      makeContainer: => C,
+    ): Resource[F, Unit] = {
       Resource.make {
         Sync[F].blocking {
           val container = makeContainer
             .withCreateContainerCmdModifier { cmd =>
               cmd.withHostConfig(
                 new HostConfig()
-                  .withPortBindings(new PortBinding(Ports.Binding.bindPort(exposeStaticPort), new ExposedPort(exposeStaticPort))),
+                  .withPortBindings(new PortBinding(
+                    Ports.Binding.bindPort(exposeStaticPort),
+                    new ExposedPort(exposeStaticPort),
+                  )),
               )
               ()
             }
@@ -55,7 +60,7 @@ object IntegrationSuite {
           .blocking { container.stop() }
           .onError {
             case t =>
-              log.error(s"failed to stop $container: ${t.getMessage}", t)
+              log.error(s"failed to stop $container: ${ t.getMessage }", t)
           }
       }.void
     }
@@ -68,18 +73,18 @@ object IntegrationSuite {
       } yield config
 
       for {
-        metrics  <- Replicator.Metrics.make[F](CollectorRegistry.empty[F], "clientId")
-        config   <- config.toResource
+        metrics <- Replicator.Metrics.make[F](CollectorRegistry.empty[F], "clientId")
+        config <- config.toResource
         hostName <- HostName.of[F]().toResource
-        result   <- Replicator.make[F](config, cassandraClusterOf, hostName, metrics.some)
-        _        <- result.onError { case e => log.error(s"failed to release replicator with $e", e) }.background
+        result <- Replicator.make[F](config, cassandraClusterOf, hostName, metrics.some)
+        _ <- result.onError { case e => log.error(s"failed to release replicator with $e", e) }.background
       } yield {}
     }
 
     for {
       log <- LogOf[F].apply(IntegrationSuite.getClass).toResource
-      _   <- cassandraContainer(log) both kafkaContainer(log) // start in parallel
-      _   <- replicator(log)
+      _ <- cassandraContainer(log) both kafkaContainer(log) // start in parallel
+      _ <- replicator(log)
     } yield {}
   }
 

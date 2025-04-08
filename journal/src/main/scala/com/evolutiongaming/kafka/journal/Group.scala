@@ -31,10 +31,10 @@ object Group {
         Ref[F].of[S](S.Idle)
       } { ref =>
         ref.modify {
-          case S.Idle               => (S.Released, ().pure[F])
+          case S.Idle => (S.Released, ().pure[F])
           case S.Busy(as, deferred) => (S.Releasing(as, deferred), deferred.get.void)
-          case s: S.Releasing       => (s, s.deferred.get.void)
-          case s @ S.Released       => (s, ().pure[F])
+          case s: S.Releasing => (s, s.deferred.get.void)
+          case s @ S.Released => (s, ().pure[F])
         }.flatten
       }
       .map { ref =>
@@ -58,24 +58,24 @@ object Group {
                           .complete(b)
                           .void // cats-effect-3
                         a <- ref.modify {
-                          case s @ S.Idle          => (s, stop)
-                          case S.Busy(Nil, _)      => (S.Idle, stop)
-                          case s: S.Busy           => (s, continue)
+                          case s @ S.Idle => (s, stop)
+                          case S.Busy(Nil, _) => (S.Idle, stop)
+                          case s: S.Busy => (s, continue)
                           case S.Releasing(Nil, _) => (S.Released, stop)
-                          case s: S.Releasing      => (s, continue)
-                          case s @ S.Released      => (s, stop)
+                          case s: S.Releasing => (s, continue)
+                          case s @ S.Released => (s, stop)
                         }
                       } yield a
                     }
                   }
 
                   ref.modify {
-                    case state @ S.Idle                 => (state, stop.pure[F])
-                    case S.Busy(a :: as, deferred)      => (S.Busy(Nil, deferred), run(a, as, deferred))
-                    case S.Busy(Nil, _)                 => (S.Idle, stop.pure[F])
+                    case state @ S.Idle => (state, stop.pure[F])
+                    case S.Busy(a :: as, deferred) => (S.Busy(Nil, deferred), run(a, as, deferred))
+                    case S.Busy(Nil, _) => (S.Idle, stop.pure[F])
                     case S.Releasing(a :: as, deferred) => (S.Releasing(Nil, deferred), run(a, as, deferred))
-                    case S.Releasing(Nil, _)            => (S.Released, stop.pure[F])
-                    case state @ S.Released             => (state, stop.pure[F])
+                    case S.Releasing(Nil, _) => (S.Released, stop.pure[F])
+                    case state @ S.Released => (state, stop.pure[F])
                   }.flatten
                 }
             }

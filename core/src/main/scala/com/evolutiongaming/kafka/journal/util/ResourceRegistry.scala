@@ -18,8 +18,8 @@ private[journal] object ResourceRegistry {
       } { releases =>
         for {
           releases <- releases.get
-          ignore    = (_: Throwable) => ()
-          result   <- releases.foldMapM { _.handleError(ignore) }
+          ignore = (_: Throwable) => ()
+          result <- releases.foldMapM { _.handleError(ignore) }
         } yield result
       }
       .map { releases =>
@@ -41,8 +41,8 @@ private[journal] object ResourceRegistry {
             case ((_, release), exitCase) =>
               exitCase match {
                 case Outcome.Succeeded(_) => ().pure[F]
-                case Outcome.Errored(_)   => release
-                case Outcome.Canceled()   => release
+                case Outcome.Errored(_) => release
+                case Outcome.Canceled() => release
               }
           }
       }

@@ -6,7 +6,9 @@ import cats.syntax.all.*
 
 private[journal] object StartResource {
 
-  def apply[F[_]: Concurrent, A, B](res: Resource[F, A])(
+  def apply[F[_]: Concurrent, A, B](
+    res: Resource[F, A],
+  )(
     use: A => F[B],
   ): F[Fiber[F, Throwable, B]] = {
 
@@ -26,15 +28,15 @@ private[journal] object StartResource {
           } yield {
             new Fiber[F, Throwable, B] {
               def cancel = fiber.cancel *> released.get
-              def join   = fiber.join
+              def join = fiber.join
             }
           }
       } {
         case ((_, release), exitCase) =>
           exitCase match {
             case Outcome.Succeeded(_) => ().pure[F]
-            case Outcome.Errored(_)   => release
-            case Outcome.Canceled()   => release
+            case Outcome.Errored(_) => release
+            case Outcome.Canceled() => release
           }
       }
   }

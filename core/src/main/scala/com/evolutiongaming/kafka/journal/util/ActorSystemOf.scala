@@ -24,7 +24,7 @@ private[journal] object ActorSystemOf {
 
   def apply[F[_]: Sync: FromFuture](system: ActorSystem): Resource[F, ActorSystem] = {
     val release = FromFuture[F].apply { system.terminate() }.void
-    val result  = (system, release).pure[F]
+    val result = (system, release).pure[F]
     Resource(result)
   }
 }
