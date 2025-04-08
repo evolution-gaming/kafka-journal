@@ -19,8 +19,8 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
   import PartitionCacheSpec.*
 
   private def partitionCacheOf(
-    maxSize: Int            = 10,
-    dropUponLimit: Double   = 0.1,
+    maxSize: Int = 10,
+    dropUponLimit: Double = 0.1,
     timeout: FiniteDuration = 1.minute,
   ) = {
     PartitionCache.make[IO](maxSize, dropUponLimit, timeout)
@@ -613,14 +613,14 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           .map { result => (cache, result) }
       }
       (cache, a) = value
-      a         <- a.toNow.attempt
-      _         <- IO { a shouldEqual ReleasedError.asLeft }
-      a         <- cache.get(id0, offset0).attempt
-      _         <- IO { a shouldEqual ReleasedError.asLeft }
-      a         <- cache.add(Record(id0, offset0, actionHeader)).attempt
-      _         <- IO { a shouldEqual ReleasedError.asLeft }
-      a         <- cache.remove(offset0).attempt
-      _         <- IO { a shouldEqual ReleasedError.asLeft }
+      a <- a.toNow.attempt
+      _ <- IO { a shouldEqual ReleasedError.asLeft }
+      a <- cache.get(id0, offset0).attempt
+      _ <- IO { a shouldEqual ReleasedError.asLeft }
+      a <- cache.add(Record(id0, offset0, actionHeader)).attempt
+      _ <- IO { a shouldEqual ReleasedError.asLeft }
+      a <- cache.remove(offset0).attempt
+      _ <- IO { a shouldEqual ReleasedError.asLeft }
     } yield {}
     result.run()
   }
@@ -628,25 +628,25 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
 
 object PartitionCacheSpec {
   val timestamp: Instant = Instant.now()
-  val offset0: Offset    = Offset.min
-  val offset1: Offset    = offset0.inc[Try].get
-  val offset2: Offset    = offset1.inc[Try].get
-  val offset3: Offset    = offset2.inc[Try].get
-  val id0: String        = "id0"
-  val id1: String        = "id1"
-  val id2: String        = "id2"
-  val seqNr0: SeqNr      = SeqNr.min
-  val seqNr1: SeqNr      = seqNr0.next[Try].get
+  val offset0: Offset = Offset.min
+  val offset1: Offset = offset0.inc[Try].get
+  val offset2: Offset = offset1.inc[Try].get
+  val offset3: Offset = offset2.inc[Try].get
+  val id0: String = "id0"
+  val id1: String = "id1"
+  val id2: String = "id2"
+  val seqNr0: SeqNr = SeqNr.min
+  val seqNr1: SeqNr = seqNr0.next[Try].get
 
   val actionHeader: ActionHeader = ActionHeader.Mark("mark", none, none)
 
   def actionHeaderOf(seqNr: SeqNr): ActionHeader.Append = {
     ActionHeader.Append(
-      range       = SeqRange(seqNr),
-      origin      = none,
+      range = SeqRange(seqNr),
+      origin = none,
       payloadType = PayloadType.Binary,
-      metadata    = HeaderMetadata.empty,
-      version     = none,
+      metadata = HeaderMetadata.empty,
+      version = none,
     )
   }
 

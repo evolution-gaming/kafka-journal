@@ -11,7 +11,10 @@ object CatsHelper {
 
   implicit class FOpsCatsHelper[F[_], A](val self: F[A]) extends AnyVal {
 
-    def error[E](implicit F: ApplicativeError[F, E]): F[Option[E]] = {
+    def error[E](
+      implicit
+      F: ApplicativeError[F, E],
+    ): F[Option[E]] = {
       self.redeem[Option[E]](_.some, _ => none[E])
     }
   }
@@ -20,17 +23,21 @@ object CatsHelper {
 
     def toOptionT: OptionT[F, A] = OptionT(self)
 
-    def orElsePar[B >: A](fa: F[Option[B]])(implicit F: Concurrent[F]): F[Option[B]] = {
+    def orElsePar[B >: A](
+      fa: F[Option[B]],
+    )(implicit
+      F: Concurrent[F],
+    ): F[Option[B]] = {
       for {
         fiber <- fa.start
         value <- self.guaranteeCase {
           case Outcome.Succeeded(_) => ().pure[F]
-          case Outcome.Canceled()   => fiber.cancel
-          case Outcome.Errored(_)   => fiber.cancel
+          case Outcome.Canceled() => fiber.cancel
+          case Outcome.Errored(_) => fiber.cancel
         }
         value <- value match {
           case Some(value) => fiber.cancel.as(value.some)
-          case None        => fiber.joinWith(none[B].pure[F])
+          case None => fiber.joinWith(none[B].pure[F])
         }
       } yield value
     }

@@ -44,13 +44,13 @@ private[journal] object TemporalHelper {
   implicit class TimeUnitOps(val self: TimeUnit) extends AnyVal {
 
     def chronoUnit: ChronoUnit = self match {
-      case DAYS         => ChronoUnit.DAYS
-      case HOURS        => ChronoUnit.HOURS
-      case MINUTES      => ChronoUnit.MINUTES
-      case SECONDS      => ChronoUnit.SECONDS
+      case DAYS => ChronoUnit.DAYS
+      case HOURS => ChronoUnit.HOURS
+      case MINUTES => ChronoUnit.MINUTES
+      case SECONDS => ChronoUnit.SECONDS
       case MILLISECONDS => ChronoUnit.MILLIS
       case MICROSECONDS => ChronoUnit.MICROS
-      case NANOSECONDS  => ChronoUnit.NANOS
+      case NANOSECONDS => ChronoUnit.NANOS
     }
   }
 }

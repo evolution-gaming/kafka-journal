@@ -13,7 +13,10 @@ trait ToBytes[F[_], -A] {
 
 object ToBytes {
 
-  def apply[F[_], A](implicit F: ToBytes[F, A]): ToBytes[F, A] = F
+  def apply[F[_], A](
+    implicit
+    F: ToBytes[F, A],
+  ): ToBytes[F, A] = F
 
   def const[F[_]: Applicative, A](bytes: ByteVector): ToBytes[F, A] = (_: A) => bytes.pure[F]
 
@@ -30,7 +33,10 @@ object ToBytes {
 
   implicit def byteVectorToBytes[F[_]: Applicative]: ToBytes[F, ByteVector] = _.pure[F]
 
-  def fromEncoder[F[_]: FromAttempt, A](implicit encoder: Encoder[A]): ToBytes[F, A] = (a: A) => {
+  def fromEncoder[F[_]: FromAttempt, A](
+    implicit
+    encoder: Encoder[A],
+  ): ToBytes[F, A] = (a: A) => {
     val bytes = for {
       a <- encoder.encode(a)
     } yield {
@@ -39,7 +45,11 @@ object ToBytes {
     FromAttempt[F].apply(bytes)
   }
 
-  def fromWrites[F[_], A](implicit writes: Writes[A], encode: JsonCodec.Encode[F]): ToBytes[F, A] = { (a: A) =>
+  def fromWrites[F[_], A](
+    implicit
+    writes: Writes[A],
+    encode: JsonCodec.Encode[F],
+  ): ToBytes[F, A] = { (a: A) =>
     {
       val jsValue = writes.writes(a)
       encode.toBytes(jsValue)
@@ -55,7 +65,10 @@ object ToBytes {
 
     implicit class ToBytesIdOps[A](val a: A) extends AnyVal {
 
-      def toBytes[F[_]](implicit toBytes: ToBytes[F, A]): F[ByteVector] = toBytes(a)
+      def toBytes[F[_]](
+        implicit
+        toBytes: ToBytes[F, A],
+      ): F[ByteVector] = toBytes(a)
     }
   }
 }

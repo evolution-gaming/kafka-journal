@@ -31,16 +31,16 @@ class GroupTest extends AsyncFunSuite with Matchers {
         }
       }.allocated
       (group, release) = result
-      _               <- group.apply(()).start
-      _               <- deferred0.get
-      fiber           <- release.start
-      result          <- fiber.join.timeout(10.millis).attempt
-      _               <- IO { result should matchPattern { case Left(_: TimeoutException) => () } }
-      _               <- deferred1.complete(())
-      result          <- deferred2.get
-      _               <- IO { result shouldEqual Nel.of(()) }
-      _               <- deferred3.complete(())
-      _               <- fiber.join
+      _ <- group.apply(()).start
+      _ <- deferred0.get
+      fiber <- release.start
+      result <- fiber.join.timeout(10.millis).attempt
+      _ <- IO { result should matchPattern { case Left(_: TimeoutException) => () } }
+      _ <- deferred1.complete(())
+      result <- deferred2.get
+      _ <- IO { result shouldEqual Nel.of(()) }
+      _ <- deferred3.complete(())
+      _ <- fiber.join
     } yield {}
     result.run()
   }
@@ -67,12 +67,12 @@ class GroupTest extends AsyncFunSuite with Matchers {
           .parReplicateA(x)
           .map { _.toMap }
           .parReplicateA(y)
-        map    = maps.foldLeft(Map.empty[Int, Int]) { _ ++ _ }
-        size  <- ref.get
+        map = maps.foldLeft(Map.empty[Int, Int]) { _ ++ _ }
+        size <- ref.get
         values = x * y
-        _     <- IO { size should be < values }
-        _     <- IO { map.values.sum shouldEqual values }
-        _     <- IO { map.size shouldEqual size }
+        _ <- IO { size should be < values }
+        _ <- IO { map.values.sum shouldEqual values }
+        _ <- IO { map.size shouldEqual size }
       } yield {}
     }
     result

@@ -34,7 +34,7 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
     @tailrec
     def loop(xs: Nel[SeqNr]): Nel[SeqNr] = xs.head.prev[Option] match {
       case Some(seqNr) if seqNr >= from => loop(seqNr :: xs)
-      case _                            => xs
+      case _ => xs
     }
 
     loop(Nel.of(to))
@@ -65,17 +65,26 @@ object SeqRange {
   def of[F[_]: Monad: Fail](from: Long, to: Long): F[SeqRange] = {
     for {
       from <- SeqNr.of[F](from)
-      to   <- SeqNr.of[F](to)
+      to <- SeqNr.of[F](to)
     } yield {
       SeqRange(from, to)
     }
   }
 
-  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SeqRange = {
+  def unsafe[A](
+    value: A,
+  )(implicit
+    numeric: Numeric[A],
+  ): SeqRange = {
     of[Id](numeric.toLong(value))
   }
 
-  def unsafe[A](from: A, to: A)(implicit numeric: Numeric[A]): SeqRange = {
+  def unsafe[A](
+    from: A,
+    to: A,
+  )(implicit
+    numeric: Numeric[A],
+  ): SeqRange = {
     of[Id](from = numeric.toLong(from), to = numeric.toLong(to))
   }
 }

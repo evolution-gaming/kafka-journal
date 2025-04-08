@@ -6,20 +6,29 @@ import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema.Fresh
-import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, CassandraSync, MigrateSchema, SettingsCassandra}
+import com.evolutiongaming.kafka.journal.cassandra.{
+  CassandraConsistencyConfig,
+  CassandraSync,
+  MigrateSchema,
+  SettingsCassandra,
+}
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
 
-/** Creates a new schema, or migrates to the latest schema version, if it already exists.
+/**
+ * Creates a new schema, or migrates to the latest schema version, if it already exists.
  *
  * Migration is done by checking [[SettingKey]] in `setting` table:
- *  - read the `version` (`value` in table), which represents number of applied migration statements:
- *    - `0` means first migration has been done
- *    - `1` states that 2 migrations have been applied
- *    - etc
- *  - depending on value of `version`, applies all, some or none of migrations from [[SetupSchema.migrations]]
+ *   - read the `version` (`value` in table), which represents number of applied migration
+ *     statements:
+ *     - `0` means first migration has been done
+ *     - `1` states that 2 migrations have been applied
+ *     - etc
+ *   - depending on value of `version`, applies all, some or none of migrations from
+ *     [[SetupSchema.migrations]]
  *
- *  Migrations are done by [[MigrateSchema]] by restricting concurrent changes using [[CassandraSync]].
- *  */
+ * Migrations are done by [[MigrateSchema]] by restricting concurrent changes using
+ * [[CassandraSync]].
+ */
 private[journal] object SetupSchema {
 
   val SettingKey = "schema-version"
@@ -56,9 +65,9 @@ private[journal] object SetupSchema {
   ): F[Unit] = {
     val migrateSchema = MigrateSchema.forSettingKey(
       cassandraSync = cassandraSync,
-      settings      = settings,
-      settingKey    = SettingKey,
-      migrations    = migrations(schema),
+      settings = settings,
+      settingKey = SettingKey,
+      migrations = migrations(schema),
     )
     migrateSchema.run(fresh)
   }
@@ -69,14 +78,17 @@ private[journal] object SetupSchema {
     consistencyConfig: CassandraConsistencyConfig,
   ): F[Schema] = {
 
-    def createSchema(implicit cassandraSync: CassandraSync[F]): F[(Schema, Fresh)] = CreateSchema(config)
+    def createSchema(
+      implicit
+      cassandraSync: CassandraSync[F],
+    ): F[(Schema, Fresh)] = CreateSchema(config)
 
     for {
-      cassandraSync  <- CassandraSync.of[F](config.keyspace, config.locksTable, origin)
-      ab             <- createSchema(cassandraSync)
+      cassandraSync <- CassandraSync.of[F](config.keyspace, config.locksTable, origin)
+      ab <- createSchema(cassandraSync)
       (schema, fresh) = ab
-      settings       <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig)
-      _              <- migrate(schema, fresh, settings, cassandraSync)
+      settings <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig)
+      _ <- migrate(schema, fresh, settings, cassandraSync)
     } yield schema
   }
 

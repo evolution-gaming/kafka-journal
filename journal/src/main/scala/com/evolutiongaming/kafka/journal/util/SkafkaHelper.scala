@@ -30,7 +30,9 @@ object SkafkaHelper {
     def dec[F[_]: ApplicativeThrowable]: F[Offset] = Offset.of[F](self.value - 1)
   }
 
-  implicit val encodeByNamePartition: EncodeByName[Partition] = EncodeByName[Int].contramap { (a: Partition) => a.value }
+  implicit val encodeByNamePartition: EncodeByName[Partition] = EncodeByName[Int].contramap { (a: Partition) =>
+    a.value
+  }
 
   implicit val decodeByNamePartition: DecodeByName[Partition] = DecodeByName[Int].map { a => Partition.of[Try](a).get }
 

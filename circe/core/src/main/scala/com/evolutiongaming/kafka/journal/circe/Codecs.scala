@@ -35,7 +35,7 @@ object Codecs {
     PayloadType(str)
       .flatMap {
         case v: TextOrJson => v.some
-        case _             => none
+        case _ => none
       }
       .toRight(s"No PayloadType.TextOrJson found by $str")
   }

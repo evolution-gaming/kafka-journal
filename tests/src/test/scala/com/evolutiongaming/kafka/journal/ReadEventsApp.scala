@@ -30,12 +30,12 @@ object ReadEventsApp extends IOApp {
 
     for {
       logOf <- LogOf.slf4j[F]
-      log   <- logOf(ReadEventsApp.getClass)
+      log <- logOf(ReadEventsApp.getClass)
       result <- {
-        implicit val logOf1          = logOf
+        implicit val logOf1 = logOf
         implicit val measureDuration = MeasureDuration.fromClock(Clock[F])
-        implicit val fromAttempt     = FromAttempt.lift[F]
-        implicit val fromJsResult    = FromJsResult.lift[F]
+        implicit val fromAttempt = FromAttempt.lift[F]
+        implicit val fromJsResult = FromJsResult.lift[F]
         runF[F](log).handleErrorWith { error =>
           log.error(s"failed with $error", error)
         }
@@ -44,9 +44,11 @@ object ReadEventsApp extends IOApp {
 
   }
 
-  private def runF[F[
-    _,
-  ]: Async: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](
+  private def runF[
+    F[
+      _,
+    ]: Async: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail,
+  ](
     log: Log[F],
   ): F[Unit] = {
 
@@ -67,14 +69,14 @@ object ReadEventsApp extends IOApp {
     val eventualCassandraConfig = EventualCassandraConfig(
       schema = SchemaConfig(keyspace = KeyspaceConfig(name = "keyspace", autoCreate = false), autoCreate = false),
       client = CassandraConfig(
-        contactPoints  = com.evolutiongaming.nel.Nel("127.0.0.1"),
+        contactPoints = com.evolutiongaming.nel.Nel("127.0.0.1"),
         authentication = AuthenticationConfig(username = "username", password = "password").some,
       ),
     )
 
     val journal = for {
       cassandraClusterOf <- CassandraClusterOf.of[F].toResource
-      origin             <- Origin.hostName[F].toResource
+      origin <- Origin.hostName[F].toResource
       eventualJournal <- EventualCassandra.make[F](
         eventualCassandraConfig,
         origin,
@@ -83,17 +85,17 @@ object ReadEventsApp extends IOApp {
         DataIntegrityConfig.Default,
       )
       headCache <- HeadCache.make[F](consumerConfig, eventualJournal, none)
-      producer  <- Journals.Producer.make[F](producerConfig)
+      producer <- Journals.Producer.make[F](producerConfig)
     } yield {
-      val origin   = Origin("ReadEventsApp")
+      val origin = Origin("ReadEventsApp")
       val journals = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log, none)
-      val key      = Key(id = "id", topic = "topic")
-      val journal  = journals(key)
+      val key = Key(id = "id", topic = "topic")
+      val journal = journals(key)
       for {
         pointer <- journal.pointer
-        seqNrs  <- journal.read().map(_.seqNr).toList
-        _       <- log.info(s"pointer: $pointer")
-        _       <- log.info(s"seqNrs: $seqNrs")
+        seqNrs <- journal.read().map(_.seqNr).toList
+        _ <- log.info(s"pointer: $pointer")
+        _ <- log.info(s"seqNrs: $seqNrs")
       } yield {}
     }
 

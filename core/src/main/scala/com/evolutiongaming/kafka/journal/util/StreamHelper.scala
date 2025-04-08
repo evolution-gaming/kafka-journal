@@ -8,7 +8,10 @@ import com.evolutiongaming.sstream.{FoldWhile, Stream}
 
 object StreamHelper {
 
-  implicit def monadErrorStream[F[_], E](implicit F: MonadError[F, E]): MonadError[Stream[F, *], E] = {
+  implicit def monadErrorStream[F[_], E](
+    implicit
+    F: MonadError[F, E],
+  ): MonadError[Stream[F, *], E] = {
 
     new MonadError[Stream[F, *], E] with StackSafeMonad[Stream[F, *]] {
 
@@ -25,12 +28,22 @@ object StreamHelper {
   }
 
   implicit class OpsStreamHelper[F[_], A](val self: F[A]) extends AnyVal {
-    def toStream1[M[_]](implicit M: Monad[M], G: FoldWhile[F]): Stream[M, A] = Stream[M].apply(self)
+    def toStream1[M[_]](
+      implicit
+      M: Monad[M],
+      G: FoldWhile[F],
+    ): Stream[M, A] = Stream[M].apply(self)
 
-    def toStream(implicit F: FlatMap[F]): Stream[F, A] = Stream.lift { self }
+    def toStream(
+      implicit
+      F: FlatMap[F],
+    ): Stream[F, A] = Stream.lift { self }
   }
 
   implicit class ResourceOpsStreamHelper[F[_], A](val self: Resource[F, A]) extends AnyVal {
-    def toStream(implicit F: MonadCancel[F, Throwable]): Stream[F, A] = Stream.fromResource(self)
+    def toStream(
+      implicit
+      F: MonadCancel[F, Throwable],
+    ): Stream[F, A] = Stream.fromResource(self)
   }
 }

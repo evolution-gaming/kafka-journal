@@ -23,10 +23,10 @@ object KafkaReadMetrics {
   ): Resource[F, KafkaReadMetrics[F]] = {
 
     val durationSummary = registry.summary(
-      name      = s"${prefix}_payload_to_events_duration",
-      help      = "Journal payload to events conversion duration in seconds",
+      name = s"${ prefix }_payload_to_events_duration",
+      help = "Journal payload to events conversion duration in seconds",
       quantiles = Quantiles.Default,
-      labels    = LabelNames("payload_type"),
+      labels = LabelNames("payload_type"),
     )
 
     for {

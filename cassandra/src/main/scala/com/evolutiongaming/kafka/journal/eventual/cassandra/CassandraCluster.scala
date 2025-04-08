@@ -17,7 +17,10 @@ trait CassandraCluster[F[_]] {
 
 object CassandraCluster {
 
-  def apply[F[_]](implicit F: CassandraCluster[F]): CassandraCluster[F] = F
+  def apply[F[_]](
+    implicit
+    F: CassandraCluster[F],
+  ): CassandraCluster[F] = F
 
   def apply[F[_]: Async: Parallel: FromGFuture](
     cluster: scassandra.CassandraCluster[F],

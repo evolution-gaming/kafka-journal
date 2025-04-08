@@ -17,7 +17,7 @@ object HeadCacheMetrics {
   ): Resource[F, HeadCacheMetrics[F]] = {
     for {
       headCache <- HeadCache.Metrics.make(registry, prefix)
-      cache     <- CacheMetrics.of(registry, s"${prefix}_${CacheMetrics.Prefix.Default}")
+      cache <- CacheMetrics.of(registry, s"${ prefix }_${ CacheMetrics.Prefix.Default }")
     } yield {
       apply(headCache, cache(prefix))
     }

@@ -15,7 +15,7 @@ private[journal] object PointerStatements {
 
   def createTable(name: TableName): String = {
     s"""
-       |CREATE TABLE IF NOT EXISTS ${name.toCql} (
+       |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
        |topic text,
        |partition int,
        |offset bigint,
@@ -27,7 +27,13 @@ private[journal] object PointerStatements {
 
   trait Insert[F[_]] {
 
-    def apply(topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant): F[Unit]
+    def apply(
+      topic: Topic,
+      partition: Partition,
+      offset: Offset,
+      created: Instant,
+      updated: Instant,
+    ): F[Unit]
   }
 
   object Insert {
@@ -39,30 +45,42 @@ private[journal] object PointerStatements {
 
       val query =
         s"""
-           |INSERT INTO ${name.toCql} (topic, partition, offset, created, updated)
+           |INSERT INTO ${ name.toCql } (topic, partition, offset, created, updated)
            |VALUES (?, ?, ?, ?, ?)
            |""".stripMargin
 
       query
         .prepare
-        .map { prepared => (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode(partition)
-            .encode(offset)
-            .encode("created", created)
-            .encode("updated", updated)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .void
+        .map {
+          prepared => (
+            topic: Topic,
+            partition: Partition,
+            offset: Offset,
+            created: Instant,
+            updated: Instant,
+          ) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode(partition)
+              .encode(offset)
+              .encode("created", created)
+              .encode("updated", updated)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
         }
     }
   }
 
   trait Update[F[_]] {
 
-    def apply(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant): F[Unit]
+    def apply(
+      topic: Topic,
+      partition: Partition,
+      offset: Offset,
+      timestamp: Instant,
+    ): F[Unit]
   }
 
   object Update {
@@ -74,7 +92,7 @@ private[journal] object PointerStatements {
 
       val query =
         s"""
-           |UPDATE ${name.toCql}
+           |UPDATE ${ name.toCql }
            |SET offset = ?, updated = ?
            |WHERE topic = ?
            |AND partition = ?
@@ -82,16 +100,22 @@ private[journal] object PointerStatements {
 
       query
         .prepare
-        .map { prepared => (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .encode("offset", offset)
-            .encode("updated", timestamp)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .void
+        .map {
+          prepared => (
+            topic: Topic,
+            partition: Partition,
+            offset: Offset,
+            timestamp: Instant,
+          ) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode("partition", partition)
+              .encode("offset", offset)
+              .encode("updated", timestamp)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
         }
     }
   }

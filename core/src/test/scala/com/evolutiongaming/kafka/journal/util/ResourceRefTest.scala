@@ -20,23 +20,23 @@ class ResourceRefTest extends AsyncFunSuite with Matchers {
       ref <- ResourceRef.make(resourceOf(0, ref0)).use { ref =>
         for {
           a <- ref.get
-          _  = a shouldEqual 0
+          _ = a shouldEqual 0
           a <- ref0.get
-          _  = a shouldEqual true
+          _ = a shouldEqual true
           _ <- ref.set(resourceOf(1, ref1))
           a <- ref.get
-          _  = a shouldEqual 1
+          _ = a shouldEqual 1
           a <- ref0.get
-          _  = a shouldEqual false
+          _ = a shouldEqual false
           a <- ref1.get
-          _  = a shouldEqual true
+          _ = a shouldEqual true
         } yield ref
       }
       a <- ref1.get
-      _  = a shouldEqual false
+      _ = a shouldEqual false
       _ <- ().pure[IO]
       a <- ref.get.attempt
-      _  = a shouldEqual ResourceReleasedError.asLeft
+      _ = a shouldEqual ResourceReleasedError.asLeft
     } yield {}
     result.run()
   }

@@ -17,7 +17,7 @@ private[journal] object ThreadFactoryOf {
     } yield {
       new ThreadFactory {
         def newThread(runnable: Runnable) = {
-          val thread   = factory.newThread(runnable)
+          val thread = factory.newThread(runnable)
           val threadId = thread.getId
           thread.setName(s"$prefix-$threadId")
           thread.setUncaughtExceptionHandler(uncaughtExceptionHandler)

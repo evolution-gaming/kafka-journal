@@ -29,7 +29,7 @@ class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matcher
     test(s"toEvent & toPersistentRepr: $name") {
       val persistentR = persistentRepr(payload)
       val check = for {
-        event  <- serializer.toEvent(persistentR)
+        event <- serializer.toEvent(persistentR)
         actual <- serializer.toPersistentRepr(persistentR.persistenceId, event)
       } yield {
         actual shouldBe persistentR
@@ -49,11 +49,11 @@ class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matcher
       val check = for {
         expectedJson <- readJsonFromFile(fileName)
         persistentRepr = PersistentRepr(
-          payload       = payload,
-          sequenceNr    = 1,
+          payload = payload,
+          sequenceNr = 1,
           persistenceId = "persistenceId",
-          manifest      = "manifest",
-          writerUuid    = "writerUuid",
+          manifest = "manifest",
+          writerUuid = "writerUuid",
         )
         actual <- serializer.toEvent(persistentRepr)
       } yield {
@@ -84,14 +84,14 @@ class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matcher
   } {
 
     val persistentReprCirce = persistentRepr(circePayload)
-    val persistentReprPlay  = persistentRepr(playPayload)
+    val persistentReprPlay = persistentRepr(playPayload)
 
     test(s"toEvent with Circe & toPersistentRepr with Play: $name") {
       val check = for {
         playJsonSerializer <- EventSerializer.of[IO](actorSystem)
 
         circeJsonEvent <- serializer.toEvent(persistentReprCirce)
-        playJsonEvent  <- circeJsonEvent.traverse(json => circeToPlay(json).map(Payload.json(_)))
+        playJsonEvent <- circeJsonEvent.traverse(json => circeToPlay(json).map(Payload.json(_)))
 
         actual <- playJsonSerializer.toPersistentRepr(persistentReprCirce.persistenceId, playJsonEvent)
       } yield {
@@ -108,7 +108,7 @@ class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matcher
         playJsonEvent <- playJsonSerializer.toEvent(persistentReprPlay)
         circeJsonEvent = playJsonEvent.map {
           case p: Payload.Json => convertPlayToCirce(p.value)
-          case _               => fail("json is expected after serialization")
+          case _ => fail("json is expected after serialization")
         }
 
         actual <- serializer.toPersistentRepr(persistentReprPlay.persistenceId, circeJsonEvent)
@@ -121,11 +121,11 @@ class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matcher
   }
 
   test("toEvent: unsupported payload") {
-    val persistenceId      = "12345"
+    val persistenceId = "12345"
     val unsupportedPayload = 42
 
     val serializer = KafkaJournalCirce.JsonEventSerializer.of[Either[Throwable, *]]
-    val result     = serializer.toEvent(persistentRepr(unsupportedPayload, persistenceId))
+    val result = serializer.toEvent(persistentRepr(unsupportedPayload, persistenceId))
 
     result.left.value shouldBe a[JournalError]
     result.left.value.getMessage should include(s"persistenceId: $persistenceId")
@@ -140,18 +140,18 @@ class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matcher
 
   private def persistentRepr(payload: Any, persistenceId: String = "persistenceId") =
     PersistentRepr(
-      payload       = payload,
-      sequenceNr    = 1,
+      payload = payload,
+      sequenceNr = 1,
       persistenceId = persistenceId,
-      manifest      = "manifest",
-      writerUuid    = "writerUuid",
+      manifest = "manifest",
+      writerUuid = "writerUuid",
     )
 
   private def readJsonFromFile(name: String): IO[Json] =
     for {
       bytes <- ByteVectorOf[IO](EventSerializer.getClass, name)
-      str   <- bytes.decodeStr.liftTo[IO]
-      json  <- FromCirceResult.summon[IO].apply(parse(str))
+      str <- bytes.decodeStr.liftTo[IO]
+      json <- FromCirceResult.summon[IO].apply(parse(str))
     } yield json
 
 }

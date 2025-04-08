@@ -63,11 +63,11 @@ object ReplicatedKeyJournal {
     }
   }
 
-  private abstract sealed class WithLog
+  private sealed abstract class WithLog
 
-  private abstract sealed class WithMetrics
+  private sealed abstract class WithMetrics
 
-  private abstract sealed class MapK
+  private sealed abstract class MapK
 
   implicit class ReplicatedKeyJournalOps[F[_]](val self: ReplicatedKeyJournal[F]) extends AnyVal {
 
@@ -101,8 +101,12 @@ object ReplicatedKeyJournal {
       }
     }
 
-    def withLog(key: Key, partition: Partition, log: Log[F])(
-      implicit F: FlatMap[F],
+    def withLog(
+      key: Key,
+      partition: Partition,
+      log: Log[F],
+    )(implicit
+      F: FlatMap[F],
       measureDuration: MeasureDuration[F],
     ): ReplicatedKeyJournal[F] = {
 
@@ -119,12 +123,12 @@ object ReplicatedKeyJournal {
             r <- self.append(offset, timestamp, expireAfter, events)
             d <- d
             _ <- log.debug {
-              val origin         = events.head.origin
-              val originStr      = origin.foldMap { origin => s", origin: $origin" }
+              val origin = events.head.origin
+              val originStr = origin.foldMap { origin => s", origin: $origin" }
               val expireAfterStr = expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
-              s"$key append in ${d.toMillis}ms, " +
+              s"$key append in ${ d.toMillis }ms, " +
                 s"offset: $partition:$offset$originStr$expireAfterStr, " +
-                s"events: ${events.toList.mkString(",")}"
+                s"events: ${ events.toList.mkString(",") }"
             }
           } yield r
         }
@@ -141,7 +145,7 @@ object ReplicatedKeyJournal {
             d <- d
             _ <- log.debug {
               val originStr = origin.foldMap { origin => s", origin: $origin" }
-              s"$key delete in ${d.toMillis}ms, offset: $partition:$offset, deleteTo: $deleteTo$originStr"
+              s"$key delete in ${ d.toMillis }ms, offset: $partition:$offset, deleteTo: $deleteTo$originStr"
             }
           } yield r
         }
@@ -154,7 +158,7 @@ object ReplicatedKeyJournal {
             d <- MeasureDuration[F].start
             r <- self.purge(offset, timestamp)
             d <- d
-            _ <- log.debug(s"$key purge in ${d.toMillis}ms, offset: $partition:$offset")
+            _ <- log.debug(s"$key purge in ${ d.toMillis }ms, offset: $partition:$offset")
           } yield r
         }
       }
@@ -163,7 +167,10 @@ object ReplicatedKeyJournal {
     def withMetrics(
       topic: Topic,
       metrics: ReplicatedJournal.Metrics[F],
-    )(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): ReplicatedKeyJournal[F] = {
+    )(implicit
+      F: FlatMap[F],
+      measureDuration: MeasureDuration[F],
+    ): ReplicatedKeyJournal[F] = {
       new WithMetrics with ReplicatedKeyJournal[F] {
 
         def append(
@@ -208,7 +215,12 @@ object ReplicatedKeyJournal {
       }
     }
 
-    def enhanceError(key: Key, partition: Partition)(implicit F: ApplicativeThrowable[F]): ReplicatedKeyJournal[F] = {
+    def enhanceError(
+      key: Key,
+      partition: Partition,
+    )(implicit
+      F: ApplicativeThrowable[F],
+    ): ReplicatedKeyJournal[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
         JournalError(s"ReplicatedKeyJournal.$msg failed with $cause", cause).raiseError[F, A]

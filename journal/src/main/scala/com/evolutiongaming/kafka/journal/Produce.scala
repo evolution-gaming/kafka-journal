@@ -52,8 +52,11 @@ private[journal] object Produce {
     }
   }
 
-  def apply[F[_]: MonadThrowable: Clock](producer: Journals.Producer[F], origin: Option[Origin])(
-    implicit actionToProducerRecord: ActionToProducerRecord[F],
+  def apply[F[_]: MonadThrowable: Clock](
+    producer: Journals.Producer[F],
+    origin: Option[Origin],
+  )(implicit
+    actionToProducerRecord: ActionToProducerRecord[F],
   ): Produce[F] = {
     val produceAction = ProduceAction(producer)
     apply(produceAction, origin)
@@ -88,11 +91,11 @@ private[journal] object Produce {
             key,
             timestamp,
             ActionHeader.Append(
-              range       = range,
-              origin      = origin,
-              version     = version.some,
+              range = range,
+              origin = origin,
+              version = version.some,
               payloadType = payloadAndType.payloadType,
-              metadata    = metadata,
+              metadata = metadata,
             ),
             payloadAndType.payload,
             headers,
@@ -101,33 +104,33 @@ private[journal] object Produce {
 
         for {
           timestamp <- Clock[F].instant
-          action     = actionOf(timestamp)
-          result    <- send(action)
+          action = actionOf(timestamp)
+          result <- send(action)
         } yield result
       }
 
       def delete(key: Key, to: DeleteTo): F[PartitionOffset] = {
         for {
           timestamp <- Clock[F].instant
-          action     = Action.Delete(key, timestamp, to, origin, version.some)
-          result    <- send(action)
+          action = Action.Delete(key, timestamp, to, origin, version.some)
+          result <- send(action)
         } yield result
       }
 
       def purge(key: Key): F[PartitionOffset] = {
         for {
           timestamp <- Clock[F].instant
-          action     = Action.Purge(key, timestamp, origin, version.some)
-          result    <- send(action)
+          action = Action.Purge(key, timestamp, origin, version.some)
+          result <- send(action)
         } yield result
       }
 
       def mark(key: Key, randomId: RandomId): F[PartitionOffset] = {
         for {
           timestamp <- Clock[F].instant
-          id         = randomId.value
-          action     = Action.Mark(key, timestamp, id, origin, version.some)
-          result    <- send(action)
+          id = randomId.value
+          action = Action.Mark(key, timestamp, id, origin, version.some)
+          result <- send(action)
         } yield result
       }
     }

@@ -12,7 +12,12 @@ import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
-import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaRead, KafkaWrite}
+import com.evolutiongaming.kafka.journal.conversions.{
+  ActionToProducerRecord,
+  ConsRecordToActionRecord,
+  KafkaRead,
+  KafkaWrite,
+}
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.Measurements
 import com.evolutiongaming.kafka.journal.util.{Fail, TestTemporal}
@@ -39,13 +44,14 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
 
       val records = {
         val records = for {
-          partition     <- 0 to 1
-          keyOf          = (id: String)                   => Key(id = s"$partition-$id", topic = topic)
-          append         = (id: String, seqNrs: Nel[Int]) => appendOf(keyOf(id), seqNrs)
+          partition <- 0 to 1
+          keyOf = (id: String) => Key(id = s"$partition-$id", topic = topic)
+          append = (id: String, seqNrs: Nel[Int]) => appendOf(keyOf(id), seqNrs)
           topicPartition = topicPartitionOf(partition)
-          actions        = List(append("0", Nel.of(1)), append("1", Nel.of(1, 2)), append("0", Nel.of(2)), append("1", Nel.of(3)))
+          actions =
+            List(append("0", Nel.of(1)), append("1", Nel.of(1, 2)), append("0", Nel.of(2)), append("1", Nel.of(3)))
           (action, idx) <- actions.zipWithIndex
-          offset         = idx + 1L
+          offset = idx + 1L
         } yield {
           consumerRecordOf(action, topicPartition, offset)
         }
@@ -57,9 +63,9 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics                        = List(topic),
-            commits                       = List(Nem.of((0, 5), (1, 5))),
-            pointers                      = Map((topic, Map((0, 4L), (1, 4L)))),
+            topics = List(topic),
+            commits = List(Nem.of((0, 5), (1, 5))),
+            pointers = Map((topic, Map((0, 4L), (1, 4L)))),
             replicatedOffsetNotifications = Map((topic, Map((0, Vector(4L)), (1, Vector(4L))))),
             journal = Map(
               ("0-0", List(record(seqNr = 1, partition = 0, offset = 1), record(seqNr = 2, partition = 0, offset = 3))),
@@ -99,8 +105,8 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
     }
 
     "replicate expireAfter" in {
-      val partition      = 0
-      val key            = Key(id = "id", topic = topic)
+      val partition = 0
+      val key = Key(id = "id", topic = topic)
       val topicPartition = topicPartitionOf(partition)
       val consumerRecords = ConsumerRecordsOf(
         List(
@@ -114,9 +120,9 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(state).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics                        = List(topic),
-            commits                       = List(Nem.of((0, 2))),
-            pointers                      = Map((topic, Map((0, 1L)))),
+            topics = List(topic),
+            commits = List(Nem.of((0, 2))),
+            pointers = Map((topic, Map((0, 1L)))),
             replicatedOffsetNotifications = Map((topic, Map((0, Vector(1L))))),
             journal = Map(
               (
@@ -127,8 +133,9 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
                 ),
               ),
             ),
-            metaJournal = Map(metaJournalOf("id", partition = 0, offset = 1, expireAfter = 2.minutes.toExpireAfter.some)),
-            metrics     = List(Metrics.Round(records = 2), Metrics.Append(events = 2, records = 2)),
+            metaJournal =
+              Map(metaJournalOf("id", partition = 0, offset = 1, expireAfter = 2.minutes.toExpireAfter.some)),
+            metrics = List(Metrics.Round(records = 2), Metrics.Append(events = 2, records = 2)),
           )
       }
     }
@@ -152,7 +159,7 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
           for {
             (record, idx) <- kafkaRecords.zipWithIndex
           } yield {
-            val offset         = idx + 1L
+            val offset = idx + 1L
             val consumerRecord = consumerRecordOf(record, topicPartition, offset)
             ConsumerRecords(Map((topicPartition, Nel.of(consumerRecord))))
           }
@@ -175,7 +182,7 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
               Nem.of((0, 3)),
               Nem.of((0, 2)),
             ),
-            pointers                      = Map((topic, Map((0, 4L), (1, 4L)))),
+            pointers = Map((topic, Map((0, 4L), (1, 4L)))),
             replicatedOffsetNotifications = Map((topic, Map((0, Vector(1L, 2L, 3L, 4L)), (1, Vector(1L, 2L, 3L, 4L))))),
             journal = Map(
               ("0-0", List(record(seqNr = 2, partition = 0, offset = 3), record(seqNr = 1, partition = 0, offset = 1))),
@@ -273,9 +280,9 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics                        = List(topic),
-            commits                       = List(Nem.of((0, 10), (1, 10), (2, 10))),
-            pointers                      = Map((topic, Map((0, 9L), (1, 9L), (2, 9L)))),
+            topics = List(topic),
+            commits = List(Nem.of((0, 10), (1, 10), (2, 10))),
+            pointers = Map((topic, Map((0, 9L), (1, 9L), (2, 9L)))),
             replicatedOffsetNotifications = Map((topic, Map((0, Vector(9L)), (1, Vector(9L)), (2, Vector(9L))))),
             journal = Map(
               ("0-0", List(record(seqNr = 1, partition = 0, offset = 1), record(seqNr = 2, partition = 0, offset = 5))),
@@ -361,7 +368,7 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       val tp0 = topicPartitionOf(0)
       val tp1 = topicPartitionOf(1)
 
-      def keyOf(tp: TopicPartition, id: String) = Key(id = s"${tp.partition}-$id", topic = tp.topic)
+      def keyOf(tp: TopicPartition, id: String) = Key(id = s"${ tp.partition }-$id", topic = tp.topic)
 
       val records = ConsumerRecords(
         Map(
@@ -379,13 +386,13 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics                        = List(topic),
-            commits                       = List(Nem.of(0 -> 2L, 1 -> 12L)),
-            pointers                      = Map(topic -> Map(0 -> 1L, 1 -> 11L)),
+            topics = List(topic),
+            commits = List(Nem.of(0 -> 2L, 1 -> 12L)),
+            pointers = Map(topic -> Map(0 -> 1L, 1 -> 11L)),
             replicatedOffsetNotifications = Map(topic -> Map(0 -> Vector(1L), 1 -> Vector(11L))),
-            journal                       = Map.empty,
-            metaJournal                   = Map.empty,
-            metrics                       = List(Metrics.Round(records = 3)),
+            journal = Map.empty,
+            metaJournal = Map.empty,
+            metrics = List(Metrics.Round(records = 3)),
           )
       }
     }
@@ -443,9 +450,9 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics                        = List(topic),
-            commits                       = List(Nem.of((0, 11), (1, 11))),
-            pointers                      = Map((topic, Map((0, 10L), (1, 10L)))),
+            topics = List(topic),
+            commits = List(Nem.of((0, 11), (1, 11))),
+            pointers = Map((topic, Map((0, 10L), (1, 10L)))),
             replicatedOffsetNotifications = Map((topic, Map((0, Vector(10L)), (1, Vector(10L))))),
             journal = Map(
               ("0-0", List(record(seqNr = 1, partition = 0, offset = 1), record(seqNr = 2, partition = 0, offset = 5))),
@@ -478,15 +485,15 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
               metaJournalOf("1-2", partition = 1, offset = 7),
             ),
             metrics = List(
-              Metrics.Round(records  = 20),
-              Metrics.Append(events  = 3, records = 1),
+              Metrics.Round(records = 20),
+              Metrics.Append(events = 3, records = 1),
               Metrics.Delete(actions = 1),
-              Metrics.Append(events  = 1, records = 1),
-              Metrics.Append(events  = 2, records = 2),
-              Metrics.Append(events  = 3, records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Append(events = 2, records = 2),
+              Metrics.Append(events = 3, records = 1),
               Metrics.Delete(actions = 1),
-              Metrics.Append(events  = 1, records = 1),
-              Metrics.Append(events  = 2, records = 2),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Append(events = 2, records = 2),
             ),
           )
       }
@@ -534,7 +541,7 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
           for {
             (record, idx) <- kafkaRecords.zipWithIndex
           } yield {
-            val offset         = idx + 1L
+            val offset = idx + 1L
             val consumerRecord = consumerRecordOf(record, topicPartition, offset)
             ConsumerRecords(Map((topicPartition, Nel.of(consumerRecord))))
           }
@@ -560,7 +567,7 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
               Nem.of((0, 3)),
               Nem.of((0, 2)),
             ),
-            pointers                      = Map((topic, Map((0, 12L)))),
+            pointers = Map((topic, Map((0, 12L)))),
             replicatedOffsetNotifications = Map((topic, Map((0, Vector(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))))),
             journal = Map(
               ("0-0", Nil),
@@ -587,27 +594,27 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
               metaJournalOf("0-2", partition = 0, offset = 7),
             ),
             metrics = List(
-              Metrics.Round(records  = 1),
+              Metrics.Round(records = 1),
               Metrics.Delete(actions = 1),
-              Metrics.Round(records  = 1),
+              Metrics.Round(records = 1),
               Metrics.Delete(actions = 1),
-              Metrics.Round(records  = 1),
+              Metrics.Round(records = 1),
               Metrics.Delete(actions = 1),
-              Metrics.Round(records  = 1),
+              Metrics.Round(records = 1),
               Metrics.Delete(actions = 1),
-              Metrics.Round(records  = 1),
-              Metrics.Append(events  = 1, records = 1),
-              Metrics.Round(records  = 1),
-              Metrics.Append(events  = 3, records = 1),
-              Metrics.Round(records  = 1),
-              Metrics.Round(records  = 1),
-              Metrics.Append(events  = 1, records = 1),
-              Metrics.Round(records  = 1),
-              Metrics.Round(records  = 1),
-              Metrics.Append(events  = 2, records = 1),
-              Metrics.Round(records  = 1),
-              Metrics.Round(records  = 1),
-              Metrics.Append(events  = 1, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 3, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 2, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1),
             ),
           )
       }
@@ -615,7 +622,7 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
 
     "consume since replicated offset" in {
       val pointers = Map((topic, Map((0, 1L), (2, 2L))))
-      val data     = State(pointers = pointers)
+      val data = State(pointers = pointers)
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(topics = List(topic), pointers = pointers)
@@ -637,7 +644,8 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
 
           val topicPartition = topicPartitionOf(partition)
 
-          val actions = List(append("0", Nel.of(1)), append("1", Nel.of(1, 2)), append("0", Nel.of(2)), append("1", Nel.of(3)))
+          val actions =
+            List(append("0", Nel.of(1)), append("1", Nel.of(1, 2)), append("0", Nel.of(2)), append("1", Nel.of(3)))
 
           val records = for {
             (action, offset) <- actions.zipWithIndex
@@ -653,9 +661,9 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics                        = List(topic),
-            commits                       = List(Nem.of((0, 4), (1, 4), (2, 4))),
-            pointers                      = Map((topic, Map((0, 3L), (1, 3L), (2, 3L)))),
+            topics = List(topic),
+            commits = List(Nem.of((0, 4), (1, 4), (2, 4))),
+            pointers = Map((topic, Map((0, 3L), (1, 3L), (2, 3L)))),
             replicatedOffsetNotifications = Map((topic, Map((0, Vector(3L)), (1, Vector(3L)), (2, Vector(3L))))),
             journal = Map(
               ("0-0", List(record(seqNr = 2, partition = 0, offset = 2))),
@@ -692,44 +700,48 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
 
     "ignore already replicated data and commit" in {
       val partition = 0
-      val key       = Key(id = "key", topic = topic)
-      val action    = appendOf(key, Nel.of(1))
+      val key = Key(id = "key", topic = topic)
+      val action = appendOf(key, Nel.of(1))
 
-      val topicPartition  = topicPartitionOf(partition)
-      val consumerRecord  = consumerRecordOf(action, topicPartition, 0)
+      val topicPartition = topicPartitionOf(partition)
+      val consumerRecord = consumerRecordOf(action, topicPartition, 0)
       val consumerRecords = ConsumerRecords(Map((consumerRecord.topicPartition, Nel.of(consumerRecord))))
 
       val data = State(records = List(consumerRecords), pointers = Map((topic, Map((0, 0L)))))
       topicReplicator.run(data).unsafeToFuture().map {
         case (result, _) =>
           result shouldEqual State(
-            topics   = List(topic),
-            commits  = List(Nem.of((0, 1))),
+            topics = List(topic),
+            commits = List(Nem.of((0, 1))),
             pointers = Map((topic, Map((0, 0L)))),
-            metrics  = List(Metrics.Round(records = 1)),
+            metrics = List(Metrics.Round(records = 1)),
           )
       }
     }
 
     "replicate purge" in {
-      val partition      = 0
-      val key            = Key(id = "id", topic = topic)
+      val partition = 0
+      val key = Key(id = "id", topic = topic)
       val topicPartition = topicPartitionOf(partition)
       val consumerRecords = ConsumerRecordsOf(
-        List(consumerRecordOf(appendOf(key, Nel.of(1)), topicPartition, 0), consumerRecordOf(purgeOf(key), topicPartition, 1)),
+        List(
+          consumerRecordOf(appendOf(key, Nel.of(1)), topicPartition, 0),
+          consumerRecordOf(purgeOf(key), topicPartition, 1),
+        ),
       )
 
-      val state = State(records = List(consumerRecords), metaJournal = Map(metaJournalOf(key.id, partition = 0, offset = 0)))
+      val state =
+        State(records = List(consumerRecords), metaJournal = Map(metaJournalOf(key.id, partition = 0, offset = 0)))
       topicReplicator
         .run(state)
         .map {
           case (result, _) =>
             result shouldEqual State(
-              topics                        = List(topic),
-              commits                       = List(Nem.of((0, 2))),
-              pointers                      = Map((topic, Map((0, 1L)))),
+              topics = List(topic),
+              commits = List(Nem.of((0, 2))),
+              pointers = Map((topic, Map((0, 1L)))),
               replicatedOffsetNotifications = Map((topic, Map((0, Vector(1L))))),
-              metrics                       = List(Metrics.Round(records = 2), Metrics.Purge(actions = 1)),
+              metrics = List(Metrics.Round(records = 2), Metrics.Purge(actions = 1)),
             )
         }
         .unsafeToFuture()
@@ -744,12 +756,12 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
 
     val producerRecord = ActionToProducerRecord[Try].apply(action).get
     ConsumerRecord(
-      topicPartition   = topicPartition,
-      offset           = Offset.unsafe(offset),
+      topicPartition = topicPartition,
+      offset = Offset.unsafe(offset),
       timestampAndType = timestampAndType.some,
-      key              = producerRecord.key.map(WithSize(_)),
-      value            = producerRecord.value.map(WithSize(_)),
-      headers          = producerRecord.headers,
+      key = producerRecord.key.map(WithSize(_)),
+      value = producerRecord.value.map(WithSize(_)),
+      headers = producerRecord.headers,
     )
   }
 
@@ -760,7 +772,7 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
     expireAfter: Option[ExpireAfter] = none,
   ) = {
     val partitionOffset = PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset))
-    val event           = Event[EventualPayloadAndType](SeqNr.unsafe(seqNr), Set(seqNr.toString))
+    val event = Event[EventualPayloadAndType](SeqNr.unsafe(seqNr), Set(seqNr.toString))
     EventRecord(
       event,
       timestamp,
@@ -777,16 +789,16 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
     Action
       .Append
       .of[Try, Payload](
-        key       = key,
+        key = key,
         timestamp = timestamp,
-        origin    = origin.some,
-        version   = version.some,
+        origin = origin.some,
+        version = version.some,
         events = Events(
           events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) },
           recordMetadata.payload.copy(expireAfter = expireAfter),
         ),
         metadata = recordMetadata.header,
-        headers  = headers,
+        headers = headers,
       )
       .get
   }
@@ -814,7 +826,8 @@ object TopicReplicatorSpec {
 
   val version: Version = Version.current
 
-  val recordMetadata: RecordMetadata = RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata.empty)
+  val recordMetadata: RecordMetadata =
+    RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata.empty)
 
   val headers: Headers = Headers(("key", "value"))
 
@@ -830,14 +843,19 @@ object TopicReplicatorSpec {
     id: String,
     partition: Int,
     offset: Long,
-    deleteTo: Option[Int]            = none,
+    deleteTo: Option[Int] = none,
     expireAfter: Option[ExpireAfter] = none,
   ): (String, MetaJournal) = {
     val deleteToSeqNr = deleteTo
       .flatMap { deleteTo => SeqNr.opt(deleteTo.toLong) }
       .map { _.toDeleteTo }
     val metaJournal =
-      MetaJournal(PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset)), deleteToSeqNr, expireAfter, origin.some)
+      MetaJournal(
+        PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset)),
+        deleteToSeqNr,
+        expireAfter,
+        origin.some,
+      )
     (id, metaJournal)
   }
 
@@ -911,10 +929,11 @@ object TopicReplicatorSpec {
 
                     val deleteTo = state.metaJournal.get(id).flatMap(_.deleteTo)
 
-                    val metaJournal = MetaJournal(PartitionOffset(partition, offset), deleteTo, expireAfter, events.last.origin)
+                    val metaJournal =
+                      MetaJournal(PartitionOffset(partition, offset), deleteTo, expireAfter, events.last.origin)
 
                     val state1 = state.copy(
-                      journal     = state.journal.updated(id, records),
+                      journal = state.journal.updated(id, records),
                       metaJournal = state.metaJournal.updated(id, metaJournal),
                     )
 
@@ -928,9 +947,16 @@ object TopicReplicatorSpec {
                   }
                 }
 
-                def delete(offset: Offset, timestamp: Instant, deleteTo: DeleteTo, origin: Option[Origin]) = {
+                def delete(
+                  offset: Offset,
+                  timestamp: Instant,
+                  deleteTo: DeleteTo,
+                  origin: Option[Origin],
+                ) = {
                   StateT { state =>
-                    val deleted = state.metaJournal.get(id).fold(true) { journalHead => offset > journalHead.offset.offset }
+                    val deleted = state.metaJournal.get(id).fold(true) { journalHead =>
+                      offset > journalHead.offset.offset
+                    }
 
                     (state.delete(id, deleteTo, PartitionOffset(partition, offset), origin), deleted)
                   }
@@ -940,7 +966,9 @@ object TopicReplicatorSpec {
                   StateT { state =>
                     val state1 = state.copy(journal = state.journal - id, metaJournal = state.metaJournal - id)
 
-                    val purged = state.metaJournal.get(id).fold(false) { journalHead => offset > journalHead.offset.offset }
+                    val purged = state.metaJournal.get(id).fold(false) { journalHead =>
+                      offset > journalHead.offset.offset
+                    }
 
                     (state1, purged)
                   }
@@ -1004,7 +1032,13 @@ object TopicReplicatorSpec {
 
   implicit val metrics: TopicReplicatorMetrics[StateT] = new TopicReplicatorMetrics[StateT] {
 
-    def append(events: Int, bytes: Long, clientVersion: String, expiration: String, measurements: Measurements) = {
+    def append(
+      events: Int,
+      bytes: Long,
+      clientVersion: String,
+      expiration: String,
+      measurements: Measurements,
+    ) = {
       StateT { s =>
         s + Metrics.Append(latency = measurements.replicationLatency, events = events, records = measurements.records)
       }
@@ -1032,47 +1066,47 @@ object TopicReplicatorSpec {
   val topicReplicator: StateT[Unit] = {
     implicit val F: Concurrent[StateT] = TestTemporal.temporal[State]
 
-    val millis                = timestamp.toEpochMilli + replicationLatency.toMillis
-    implicit val fail         = Fail.lift[StateT]
-    implicit val fromTry      = FromTry.lift[StateT]
-    implicit val fromAttempt  = FromAttempt.lift[StateT]
+    val millis = timestamp.toEpochMilli + replicationLatency.toMillis
+    implicit val fail = Fail.lift[StateT]
+    implicit val fromTry = FromTry.lift[StateT]
+    implicit val fromAttempt = FromAttempt.lift[StateT]
     implicit val fromJsResult = FromJsResult.lift[StateT]
 
     implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
     implicit val sleep = new Sleep[StateT] {
       def sleep(time: FiniteDuration): StateT[Unit] = ().pure[StateT]
-      def applicative: Applicative[StateT]          = Applicative[StateT]
-      def monotonic: StateT[FiniteDuration]         = clock.monotonic
-      def realTime: StateT[FiniteDuration]          = clock.realTime
+      def applicative: Applicative[StateT] = Applicative[StateT]
+      def monotonic: StateT[FiniteDuration] = clock.monotonic
+      def realTime: StateT[FiniteDuration] = clock.realTime
     }
 
     implicit val measureDuration = MeasureDuration.fromClock(Clock[StateT])
-    val kafkaRead                = KafkaRead.summon[StateT, Payload]
-    val eventualWrite            = EventualWrite.summon[StateT, Payload]
+    val kafkaRead = KafkaRead.summon[StateT, Payload]
+    val eventualWrite = EventualWrite.summon[StateT, Payload]
 
     TopicReplicator.of[StateT, Payload](
-      topic                    = topic,
-      consumer                 = consumer.pure[StateT].toResource,
+      topic = topic,
+      consumer = consumer.pure[StateT].toResource,
       consRecordToActionRecord = ConsRecordToActionRecord[StateT],
-      kafkaRead                = kafkaRead,
-      eventualWrite            = eventualWrite,
-      journal                  = replicatedJournal,
-      metrics                  = metrics,
-      log                      = Log.empty[StateT],
-      cacheOf                  = CacheOf.empty[StateT],
+      kafkaRead = kafkaRead,
+      eventualWrite = eventualWrite,
+      journal = replicatedJournal,
+      metrics = metrics,
+      log = Log.empty[StateT],
+      cacheOf = CacheOf.empty[StateT],
       replicatedOffsetNotifier = replicatedOffsetNotifier,
     )
   }
 
   final case class State(
-    topics: List[Topic]                                               = Nil,
-    commits: List[Nem[Int, Long]]                                     = Nil,
-    records: List[ConsRecords]                                        = Nil,
-    pointers: Map[Topic, Map[Int, Long]]                              = Map.empty,
+    topics: List[Topic] = Nil,
+    commits: List[Nem[Int, Long]] = Nil,
+    records: List[ConsRecords] = Nil,
+    pointers: Map[Topic, Map[Int, Long]] = Map.empty,
     replicatedOffsetNotifications: Map[Topic, Map[Int, Vector[Long]]] = Map.empty,
-    journal: Map[String, List[EventRecord[EventualPayloadAndType]]]   = Map.empty,
-    metaJournal: Map[String, MetaJournal]                             = Map.empty,
-    metrics: List[Metrics]                                            = Nil,
+    journal: Map[String, List[EventRecord[EventualPayloadAndType]]] = Map.empty,
+    metaJournal: Map[String, MetaJournal] = Map.empty,
+    metrics: List[Metrics] = Nil,
   ) { self =>
 
     def +(metrics: Metrics): (State, Unit) = {
@@ -1084,7 +1118,12 @@ object TopicReplicatorSpec {
       copy(topics = topic :: topics)
     }
 
-    def delete(id: String, deleteTo: DeleteTo, partitionOffset: PartitionOffset, origin: Option[Origin]): State = {
+    def delete(
+      id: String,
+      deleteTo: DeleteTo,
+      partitionOffset: PartitionOffset,
+      origin: Option[Origin],
+    ): State = {
 
       def journal = self.journal.getOrElse(id, Nil)
 
@@ -1097,22 +1136,22 @@ object TopicReplicatorSpec {
         }
       } else {
         val records = delete(deleteTo)
-        val result  = records.headOption.flatMap(_.seqNr.prev[Option]) orElse journal.lastOption.map(_.seqNr)
+        val result = records.headOption.flatMap(_.seqNr.prev[Option]) orElse journal.lastOption.map(_.seqNr)
         val metaJournal = MetaJournal(
-          offset      = partitionOffset,
-          deleteTo    = result.map { _.toDeleteTo } orElse deleteTo1,
+          offset = partitionOffset,
+          deleteTo = result.map { _.toDeleteTo } orElse deleteTo1,
           expireAfter = none,
-          origin      = origin,
+          origin = origin,
         )
         copy(journal = self.journal.updated(id, records), metaJournal = self.metaJournal.updated(id, metaJournal))
       }
     }
 
     def addReplicatedOffsetNotification(topicPartition: TopicPartition, offset: Long): State = {
-      val topic                  = topicPartition.topic
-      val partition              = topicPartition.partition.value
+      val topic = topicPartition.topic
+      val partition = topicPartition.partition.value
       val prevPartitionToOffsets = replicatedOffsetNotifications.getOrElse(topic, Map.empty)
-      val prevOffsets            = prevPartitionToOffsets.getOrElse(partition, Vector.empty)
+      val prevOffsets = prevPartitionToOffsets.getOrElse(partition, Vector.empty)
       copy(
         replicatedOffsetNotifications = replicatedOffsetNotifications.updated(
           topic,

@@ -15,9 +15,8 @@ import scodec.bits.ByteVector
 import java.io.FileOutputStream
 import scala.util.Try
 
-import TestJsonCodec.instance
-
 class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
+  import TestJsonCodec.instance
 
   for {
     (name, payloadType, payload) <- List(
@@ -30,20 +29,20 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
     test(s"toEvent & toPersistentRepr, payload: $payload") {
       val persistenceId = "persistenceId"
       val persistentRepr = PersistentRepr(
-        payload       = payload,
-        sequenceNr    = 1,
+        payload = payload,
+        sequenceNr = 1,
         persistenceId = persistenceId,
-        manifest      = "manifest",
-        writerUuid    = "writerUuid",
+        manifest = "manifest",
+        writerUuid = "writerUuid",
       )
 
       val fa = for {
         serializer <- EventSerializer.of[IO](actorSystem)
-        event      <- serializer.toEvent(persistentRepr)
-        actual     <- serializer.toPersistentRepr(persistenceId, event)
-        _          <- Sync[IO].delay { actual shouldEqual persistentRepr }
-        payload    <- event.payload.getOrError[IO]("Event.payload is not defined")
-        _           = payload.payloadType shouldEqual payloadType
+        event <- serializer.toEvent(persistentRepr)
+        actual <- serializer.toPersistentRepr(persistenceId, event)
+        _ <- Sync[IO].delay { actual shouldEqual persistentRepr }
+        payload <- event.payload.getOrError[IO]("Event.payload is not defined")
+        _ = payload.payloadType shouldEqual payloadType
         /*_          <- payload match {
           case a: Payload.Binary => writeToFile(a.value, name)
           case _: Payload.Text   => IO.unit
@@ -53,8 +52,8 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
       } yield {
         payload match {
           case payload: Payload.Binary => payload.value shouldEqual bytes
-          case payload: Payload.Text   => payload.value shouldEqual bytes.fromBytes[Try, String].get
-          case payload: Payload.Json   => payload.value shouldEqual JsonCodec.summon[Try].decode.fromBytes(bytes).get
+          case payload: Payload.Text => payload.value shouldEqual bytes.fromBytes[Try, String].get
+          case payload: Payload.Json => payload.value shouldEqual JsonCodec.summon[Try].decode.fromBytes(bytes).get
         }
       }
 

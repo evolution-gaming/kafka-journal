@@ -64,11 +64,11 @@ class HeadInfoSpec extends AnyFunSuite with Matchers {
 
   private def append(from: Int, to: Int) = {
     ActionHeader.Append(
-      range       = SeqRange.unsafe(from, to),
-      origin      = None,
-      version     = Version.current.some,
+      range = SeqRange.unsafe(from, to),
+      origin = None,
+      version = Version.current.some,
       payloadType = PayloadType.Json,
-      metadata    = HeaderMetadata.empty,
+      metadata = HeaderMetadata.empty,
     )
   }
 
@@ -88,9 +88,9 @@ class HeadInfoSpec extends AnyFunSuite with Matchers {
 
   private def appendInfo(offset: Int, seqNr: Int, deleteTo: Option[Int] = None) = {
     HeadInfo.Append(
-      seqNr    = SeqNr.unsafe(seqNr),
+      seqNr = SeqNr.unsafe(seqNr),
       deleteTo = deleteTo.map { deleteTo => SeqNr.unsafe(deleteTo).toDeleteTo },
-      offset   = Offset.unsafe(offset),
+      offset = Offset.unsafe(offset),
     )
   }
 }

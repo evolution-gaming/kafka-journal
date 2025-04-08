@@ -25,7 +25,9 @@ object ExpireOn {
 
   implicit val orderExpireOn: Order[ExpireOn] = Order.fromOrdering
 
-  implicit val encodeByNameExpireOn: EncodeByName[ExpireOn] = EncodeByName[LocalDate].contramap { (a: ExpireOn) => a.value }
+  implicit val encodeByNameExpireOn: EncodeByName[ExpireOn] = EncodeByName[LocalDate].contramap { (a: ExpireOn) =>
+    a.value
+  }
 
   implicit val decodeByNameExpireOn: DecodeByName[ExpireOn] = DecodeByName[LocalDate].map { a => ExpireOn(a) }
 

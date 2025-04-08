@@ -13,10 +13,12 @@ object ProduceAction {
 
   def apply[F[_]: Monad](
     producer: Journals.Producer[F],
-  )(implicit actionToProducerRecord: ActionToProducerRecord[F]): ProduceAction[F] = { (action: Action) =>
+  )(implicit
+    actionToProducerRecord: ActionToProducerRecord[F],
+  ): ProduceAction[F] = { (action: Action) =>
     {
       for {
-        producerRecord  <- actionToProducerRecord(action)
+        producerRecord <- actionToProducerRecord(action)
         partitionOffset <- producer.send(producerRecord)
       } yield partitionOffset
     }

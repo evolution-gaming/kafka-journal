@@ -12,7 +12,10 @@ trait FromConfigReaderResult[F[_]] {
 
 object FromConfigReaderResult {
 
-  def apply[F[_]](implicit F: FromConfigReaderResult[F]): FromConfigReaderResult[F] = F
+  def apply[F[_]](
+    implicit
+    F: FromConfigReaderResult[F],
+  ): FromConfigReaderResult[F] = F
 
   implicit def lift[F[_]: ApplicativeThrowable]: FromConfigReaderResult[F] = {
     new FromConfigReaderResult[F] {

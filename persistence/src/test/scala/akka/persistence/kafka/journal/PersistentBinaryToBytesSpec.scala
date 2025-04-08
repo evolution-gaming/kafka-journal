@@ -17,9 +17,9 @@ class PersistentBinaryToBytesSpec extends AnyFunSuite with Matchers {
   test("toBytes & fromBytes") {
 
     val expected = PersistentBinary(
-      manifest   = "persistentManifest".some,
+      manifest = "persistentManifest".some,
       writerUuid = "writerUuid",
-      payload    = SerializedMsg(identifier = 2, manifest = "manifest", bytes = "payload".encodeStr),
+      payload = SerializedMsg(identifier = 2, manifest = "manifest", bytes = "payload".encodeStr),
     )
 
     def verify(bytes: ByteVector) = {

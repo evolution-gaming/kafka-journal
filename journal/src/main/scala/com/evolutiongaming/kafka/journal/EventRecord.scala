@@ -7,7 +7,8 @@ import com.evolutiongaming.skafka.{Offset, Partition}
 import java.time.Instant
 
 /**
- * @param origin identifier of event origin, for instance node IP address
+ * @param origin
+ *   identifier of event origin, for instance node IP address
  */
 final case class EventRecord[A](
   event: Event[A],
@@ -45,13 +46,13 @@ object EventRecord {
     metadata: PayloadMetadata,
   ): EventRecord[A] = {
     EventRecord(
-      event           = event,
-      timestamp       = action.timestamp,
+      event = event,
+      timestamp = action.timestamp,
       partitionOffset = partitionOffset,
-      origin          = action.origin,
-      version         = action.version,
-      metadata        = RecordMetadata(header = action.header.metadata, payload = metadata),
-      headers         = action.headers,
+      origin = action.origin,
+      version = action.version,
+      metadata = RecordMetadata(header = action.header.metadata, payload = metadata),
+      headers = action.headers,
     )
   }
 

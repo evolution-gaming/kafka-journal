@@ -101,11 +101,11 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   val timestamp: Instant = Instant.now()
 
   val schema: Schema = Schema(
-    journal     = TableName(keyspace = "journal", table = "journal"),
+    journal = TableName(keyspace = "journal", table = "journal"),
     metaJournal = TableName(keyspace = "journal", table = "metaJournal"),
-    pointer     = TableName(keyspace = "journal", table = "pointer"),
-    pointer2    = TableName(keyspace = "journal", table = "pointer2"),
-    setting     = TableName(keyspace = "journal", table = "setting"),
+    pointer = TableName(keyspace = "journal", table = "pointer"),
+    pointer2 = TableName(keyspace = "journal", table = "pointer2"),
+    setting = TableName(keyspace = "journal", table = "setting"),
   )
 
   implicit val settings: Settings[StateT] = {
@@ -129,7 +129,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
       def set(key: K, value: V): StateT[Option[Setting]] = {
         StateT { state =>
           val setting = state.version.map { version => settingOf(key, version) }
-          val state1  = state.copy(version = value.some, actions = Action.SetSetting(key, value) :: state.actions)
+          val state1 = state.copy(version = value.some, actions = Action.SetSetting(key, value) :: state.actions)
           (state1, setting)
         }
       }
@@ -147,7 +147,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     def execute(statement: Statement): Stream[StateT, Row] = {
       val stateT = StateT { state =>
         val state1 = state.add(Action.Query)
-        val rows   = Stream.empty[StateT, Row]
+        val rows = Stream.empty[StateT, Row]
         (state1, rows)
       }
       stateT.toStream.flatten
@@ -160,9 +160,9 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
     def apply[A](fa: StateT[A]): StateT[A] = {
       StateT { state =>
-        val state1      = state.add(Action.SyncStart)
+        val state1 = state.add(Action.SyncStart)
         val (state2, a) = fa.run(state1).get
-        val state3      = state2.add(Action.SyncEnd)
+        val state3 = state2.add(Action.SyncEnd)
         (state3, a)
       }
     }

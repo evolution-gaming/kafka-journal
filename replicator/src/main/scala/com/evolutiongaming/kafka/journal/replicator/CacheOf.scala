@@ -49,7 +49,9 @@ private[journal] object CacheOf {
         val config = ExpiringCache.Config[F, K, V](expireAfter)
         for {
           cache <- scache.Cache.expiring(config)
-          cache <- cacheMetrics.fold { cache.pure[Resource[F, *]] } { cacheMetrics => cache.withMetrics(cacheMetrics(topic)) }
+          cache <- cacheMetrics.fold { cache.pure[Resource[F, *]] } { cacheMetrics =>
+            cache.withMetrics(cacheMetrics(topic))
+          }
         } yield {
           new Cache[F, K, V] {
 

@@ -17,7 +17,10 @@ trait Fail[F[_]] {
 
 object Fail {
 
-  def apply[F[_]](implicit F: Fail[F]): Fail[F] = F
+  def apply[F[_]](
+    implicit
+    F: Fail[F],
+  ): Fail[F] = F
 
   implicit val idFail: Fail[Id] = new Fail[Id] {
     def fail[A](a: String): Id[A] = throw JournalError(a)

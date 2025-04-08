@@ -24,7 +24,7 @@ private[journal] object JournalStatements {
 
   def createTable(name: TableName): String = {
     s"""
-       |CREATE TABLE IF NOT EXISTS ${name.toCql} (
+       |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
        |id TEXT,
        |topic TEXT,
        |segment BIGINT,
@@ -46,15 +46,15 @@ private[journal] object JournalStatements {
   }
 
   def addHeaders(table: TableName): String = {
-    s"ALTER TABLE ${table.toCql} ADD headers map<text, text>"
+    s"ALTER TABLE ${ table.toCql } ADD headers map<text, text>"
   }
 
   def addVersion(table: TableName): String = {
-    s"ALTER TABLE ${table.toCql} ADD version TEXT"
+    s"ALTER TABLE ${ table.toCql } ADD version TEXT"
   }
 
   def addMetaRecordId(table: TableName): String = {
-    s"ALTER TABLE ${table.toCql} ADD meta_record_id UUID"
+    s"ALTER TABLE ${ table.toCql } ADD meta_record_id UUID"
   }
 
   trait InsertRecords[F[_]] {
@@ -77,7 +77,7 @@ private[journal] object JournalStatements {
 
       val query =
         s"""
-           |INSERT INTO ${name.toCql} (
+           |INSERT INTO ${ name.toCql } (
            |id,
            |topic,
            |segment,
@@ -106,7 +106,7 @@ private[journal] object JournalStatements {
               val (text, bytes) = payloadAndType
                 .payload
                 .fold(
-                  str   => (str.some, none[ByteVector]),
+                  str => (str.some, none[ByteVector]),
                   bytes => (none[String], bytes.some),
                 )
               (payloadAndType.payloadType.some, text, bytes)
@@ -176,7 +176,7 @@ private[journal] object JournalStatements {
            |payload_txt,
            |payload_bin,
            |metadata,
-           |headers FROM ${name.toCql}
+           |headers FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -193,8 +193,8 @@ private[journal] object JournalStatements {
 
             def readPayload(row: Row): Option[EventualPayloadAndType] = {
               val payloadType = row.decode[Option[PayloadType]]("payload_type")
-              val payloadTxt  = row.decode[Option[String]]("payload_txt")
-              val payloadBin  = row.decode[Option[ByteVector]]("payload_bin") getOrElse ByteVector.empty
+              val payloadTxt = row.decode[Option[String]]("payload_txt")
+              val payloadBin = row.decode[Option[ByteVector]]("payload_bin") getOrElse ByteVector.empty
 
               payloadType
                 .map(EventualPayloadAndType(payloadTxt.toLeft(payloadBin), _))
@@ -223,17 +223,17 @@ private[journal] object JournalStatements {
               val headers = row.decode[Headers]
 
               val eventRecord = EventRecord(
-                event           = event,
-                timestamp       = row.decode[Instant]("timestamp"),
-                origin          = row.decode[Option[Origin]],
-                version         = row.decode[Option[Version]],
+                event = event,
+                timestamp = row.decode[Instant]("timestamp"),
+                origin = row.decode[Option[Origin]],
+                version = row.decode[Option[Version]],
                 partitionOffset = partitionOffset,
-                metadata        = metadata,
-                headers         = headers,
+                metadata = metadata,
+                headers = headers,
               )
 
               JournalRecord(
-                event        = eventRecord,
+                event = eventRecord,
                 metaRecordId = row.decode[Option[RecordId]]("meta_record_id"),
               )
             }
@@ -257,7 +257,7 @@ private[journal] object JournalStatements {
 
       val query =
         s"""
-           |DELETE FROM ${name.toCql}
+           |DELETE FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -293,7 +293,7 @@ private[journal] object JournalStatements {
 
       val query =
         s"""
-           |DELETE FROM ${name.toCql}
+           |DELETE FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?

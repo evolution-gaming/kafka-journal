@@ -5,26 +5,25 @@ import pureconfig.generic.semiauto.deriveReader
 
 import scala.concurrent.duration.*
 
-/** Kafka-specific configuration used by a plugin.
-  *
-  * The main reason to keep the configuration separate is to have the ability to
-  * avoid defining Cassandra-specific configuration for the modules not
-  * requiring to access Cassandra such as [[AppendReplicateApp]].
-  *
-  * @param pollTimeout
-  *   The timeout used for `poll` requests in Kafka client. The usual
-  *   considerations apply, i.e. smaller timeout means better latency and larger
-  *   timeout may mean a better throughput.
-  * @param kafka
-  *   Kafka client configuration, see [[KafkaConfig]] for more details.
-  * @param headCache
-  *   Configuration of head cache, which is, currently, only about enabling or
-  *   disabling it. See [[HeadCache]] for more details on what is head cache
-  *   and how it works.
-  */
+/**
+ * Kafka-specific configuration used by a plugin.
+ *
+ * The main reason to keep the configuration separate is to have the ability to avoid defining
+ * Cassandra-specific configuration for the modules not requiring to access Cassandra such as
+ * [[AppendReplicateApp]].
+ *
+ * @param pollTimeout
+ *   The timeout used for `poll` requests in Kafka client. The usual considerations apply, i.e.
+ *   smaller timeout means better latency and larger timeout may mean a better throughput.
+ * @param kafka
+ *   Kafka client configuration, see [[KafkaConfig]] for more details.
+ * @param headCache
+ *   Configuration of head cache, which is, currently, only about enabling or disabling it. See
+ *   [[HeadCache]] for more details on what is head cache and how it works.
+ */
 final case class JournalConfig(
-  pollTimeout: FiniteDuration        = 10.millis,
-  kafka: KafkaConfig                 = KafkaConfig("journal"),
+  pollTimeout: FiniteDuration = 10.millis,
+  kafka: KafkaConfig = KafkaConfig("journal"),
   headCache: JournalConfig.HeadCache = JournalConfig.HeadCache.default,
 )
 
@@ -37,17 +36,17 @@ object JournalConfig {
     deriveReader[JournalConfig]
   }
 
-  /** Configuration of head cache.
-    *
-    * @param enabled
-    *   The head cache will be used on journal recovery if `true`. Every
-    *   recovery may need to read both Cassandra (or other long term storage)
-    *   and Kafka otherwise.
-    *
-    * @see
-    *   [[com.evolutiongaming.kafka.journal.HeadCache]] for more details on what
-    *   is head cache and how it works.
-    */
+  /**
+   * Configuration of head cache.
+   *
+   * @param enabled
+   *   The head cache will be used on journal recovery if `true`. Every recovery may need to read
+   *   both Cassandra (or other long term storage) and Kafka otherwise.
+   *
+   * @see
+   *   [[com.evolutiongaming.kafka.journal.HeadCache]] for more details on what is head cache and
+   *   how it works.
+   */
   final case class HeadCache(enabled: Boolean = true)
 
   object HeadCache {

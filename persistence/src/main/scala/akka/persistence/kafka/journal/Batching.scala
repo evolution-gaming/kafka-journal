@@ -10,7 +10,10 @@ trait Batching[F[_]] {
 
 object Batching {
 
-  def apply[F[_]](implicit F: Batching[F]): Batching[F] = F
+  def apply[F[_]](
+    implicit
+    F: Batching[F],
+  ): Batching[F] = F
 
   def disabled[F[_]: Applicative]: Batching[F] = (aws: List[AtomicWrite]) => aws.map(List(_)).pure[F]
 

@@ -11,7 +11,7 @@ import pureconfig.ConfigSource
 class EventualCassandraConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
-    val config   = ConfigFactory.empty()
+    val config = ConfigFactory.empty()
     val expected = EventualCassandraConfig.default
     ConfigSource.fromConfig(config).load[EventualCassandraConfig] shouldEqual expected.asRight
   }
@@ -19,7 +19,7 @@ class EventualCassandraConfigSpec extends AnyFunSuite with Matchers {
   test("apply from config") {
     val config = ConfigFactory.parseURL(getClass.getResource("eventual-cassandra.conf"))
     val expected = EventualCassandraConfig(
-      retries     = 1,
+      retries = 1,
       segmentSize = SegmentSize.min,
       consistencyConfig = CassandraConsistencyConfig
         .default

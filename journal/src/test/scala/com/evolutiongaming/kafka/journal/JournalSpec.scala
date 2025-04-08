@@ -32,8 +32,8 @@ class JournalSpec extends AnyWordSpec with Matchers {
   // TODO add test when Kafka missing it's tail comparing to eventual
   def testF[F[_]: Monad](withJournal: (SeqNrJournal[F] => F[Assertion]) => Assertion): Unit = {
     for {
-      size        <- 0 to 5
-      seqNrs       = (1 to size).toList.map { a => SeqNr.unsafe(a) }
+      size <- 0 to 5
+      seqNrs = (1 to size).toList.map { a => SeqNr.unsafe(a) }
       combination <- Combinations(seqNrs)
     } {
 
@@ -47,9 +47,9 @@ class JournalSpec extends AnyWordSpec with Matchers {
               .map { _.some }
           }
           for {
-            offset    <- combination.foldLeftM(none[Offset]) { (_, seqNrs) => append(seqNrs) }
+            offset <- combination.foldLeftM(none[Offset]) { (_, seqNrs) => append(seqNrs) }
             offsetNext = offset.map { _.inc[Try].get }
-            result    <- f(journal, offsetNext)
+            result <- f(journal, offsetNext)
           } yield result
         }
       }
@@ -73,12 +73,12 @@ class JournalSpec extends AnyWordSpec with Matchers {
         createAndAppend {
           case (journal, _) =>
             for {
-              a   <- journal.read(SeqRange.all)
-              _    = a shouldEqual seqNrs
+              a <- journal.read(SeqRange.all)
+              _ = a shouldEqual seqNrs
               last = seqNrLast getOrElse SeqNr.min
-              a   <- journal.read(SeqNr.min to last)
-              _    = a shouldEqual seqNrs
-              a   <- journal.read(SeqNr.min to last.next[Option].getOrElse(last))
+              a <- journal.read(SeqNr.min to last)
+              _ = a shouldEqual seqNrs
+              a <- journal.read(SeqNr.min to last.next[Option].getOrElse(last))
             } yield {
               a shouldEqual seqNrs
             }
@@ -91,7 +91,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
             for {
               _ <- seqNrLast.fold(().pure[F]) { seqNr => journal.delete(seqNr.toDeleteTo).void }
               a <- journal.read(SeqRange.all)
-              _  = a shouldEqual Nil
+              _ = a shouldEqual Nil
               a <- journal.pointer
             } yield {
               a shouldEqual seqNrLast
@@ -105,7 +105,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
             for {
               _ <- journal.delete(DeleteTo.max)
               a <- journal.read(SeqRange.all)
-              _  = a shouldEqual Nil
+              _ = a shouldEqual Nil
               a <- journal.pointer
             } yield {
               a shouldEqual seqNrLast
@@ -118,11 +118,11 @@ class JournalSpec extends AnyWordSpec with Matchers {
           case (journal, offset) =>
             for {
               a <- journal.delete(DeleteTo.min)
-              _  = a shouldEqual offset.map { _.inc[Try].get }
+              _ = a shouldEqual offset.map { _.inc[Try].get }
               a <- journal.read(SeqRange.all)
-              _  = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.min)
+              _ = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.min)
               a <- journal.pointer
-              _  = a shouldEqual seqNrLast
+              _ = a shouldEqual seqNrLast
             } yield Succeeded
         }
       }
@@ -133,9 +133,9 @@ class JournalSpec extends AnyWordSpec with Matchers {
             for {
               _ <- journal.purge
               a <- journal.read(SeqRange.all)
-              _  = a shouldEqual List.empty
+              _ = a shouldEqual List.empty
               a <- journal.pointer
-              _  = a shouldEqual none
+              _ = a shouldEqual none
             } yield Succeeded
         }
       }
@@ -145,13 +145,13 @@ class JournalSpec extends AnyWordSpec with Matchers {
           case (journal, _) =>
             for {
               a <- journal.pointer
-              _  = a shouldEqual seqNrLast
+              _ = a shouldEqual seqNrLast
             } yield Succeeded
         }
       }
 
       for {
-        _     <- seqNrLast
+        _ <- seqNrLast
         seqNr <- seqNrs.tail.lastOption
       } {
 
@@ -159,10 +159,10 @@ class JournalSpec extends AnyWordSpec with Matchers {
           createAndAppend {
             case (journal, _) =>
               for {
-                _      <- journal.delete(seqNr.toDeleteTo)
+                _ <- journal.delete(seqNr.toDeleteTo)
                 seqNrs <- journal.read(SeqRange.all)
-                _       = seqNrs shouldEqual seqNrs.dropWhile(_ <= seqNr)
-                seqNr  <- journal.pointer
+                _ = seqNrs shouldEqual seqNrs.dropWhile(_ <= seqNr)
+                seqNr <- journal.pointer
               } yield {
                 seqNr shouldEqual seqNrLast
               }
@@ -186,8 +186,8 @@ class JournalSpec extends AnyWordSpec with Matchers {
       withJournal { journal =>
         for {
           seqNrs <- journal.read(SeqRange(SeqNr.max))
-          _       = seqNrs shouldEqual Nil
-          _      <- journal.append(SeqNr.unsafe(1))
+          _ = seqNrs shouldEqual Nil
+          _ <- journal.append(SeqNr.unsafe(1))
           seqNrs <- journal.read(SeqRange(SeqNr.max))
         } yield {
           seqNrs shouldEqual Nil
@@ -198,28 +198,28 @@ class JournalSpec extends AnyWordSpec with Matchers {
     s"append, delete, append, delete, append, read, lastSeqNr, purge" in {
       withJournal { journal =>
         for {
-          _       <- journal.append(SeqNr.unsafe(1))
-          _       <- journal.delete(SeqNr.unsafe(3).toDeleteTo)
-          _       <- journal.append(SeqNr.unsafe(2), SeqNr.unsafe(3))
-          _       <- journal.delete(SeqNr.unsafe(2).toDeleteTo)
-          _       <- journal.append(SeqNr.unsafe(4))
-          seqNrs  <- journal.read(SeqRange.unsafe(1, 2))
-          _        = seqNrs shouldEqual Nil
-          seqNrs  <- journal.read(SeqRange.unsafe(2, 3))
-          _        = seqNrs shouldEqual List(SeqNr.unsafe(3))
-          seqNrs  <- journal.read(SeqRange.unsafe(3, 4))
-          _        = seqNrs shouldEqual List(SeqNr.unsafe(3), SeqNr.unsafe(4))
-          seqNrs  <- journal.read(SeqRange.unsafe(4, 5))
-          _        = seqNrs shouldEqual List(SeqNr.unsafe(4))
-          seqNrs  <- journal.read(SeqRange.unsafe(5, 6))
-          _        = seqNrs shouldEqual Nil
-          seqNr   <- journal.pointer
-          _        = seqNr shouldEqual SeqNr.unsafe(4).some
-          _       <- journal.purge
-          seqNrs  <- journal.read(SeqRange.all)
-          _        = seqNrs shouldEqual Nil
+          _ <- journal.append(SeqNr.unsafe(1))
+          _ <- journal.delete(SeqNr.unsafe(3).toDeleteTo)
+          _ <- journal.append(SeqNr.unsafe(2), SeqNr.unsafe(3))
+          _ <- journal.delete(SeqNr.unsafe(2).toDeleteTo)
+          _ <- journal.append(SeqNr.unsafe(4))
+          seqNrs <- journal.read(SeqRange.unsafe(1, 2))
+          _ = seqNrs shouldEqual Nil
+          seqNrs <- journal.read(SeqRange.unsafe(2, 3))
+          _ = seqNrs shouldEqual List(SeqNr.unsafe(3))
+          seqNrs <- journal.read(SeqRange.unsafe(3, 4))
+          _ = seqNrs shouldEqual List(SeqNr.unsafe(3), SeqNr.unsafe(4))
+          seqNrs <- journal.read(SeqRange.unsafe(4, 5))
+          _ = seqNrs shouldEqual List(SeqNr.unsafe(4))
+          seqNrs <- journal.read(SeqRange.unsafe(5, 6))
+          _ = seqNrs shouldEqual Nil
+          seqNr <- journal.pointer
+          _ = seqNr shouldEqual SeqNr.unsafe(4).some
+          _ <- journal.purge
+          seqNrs <- journal.read(SeqRange.all)
+          _ = seqNrs shouldEqual Nil
           pointer <- journal.pointer
-          _        = pointer shouldEqual none
+          _ = pointer shouldEqual none
         } yield Succeeded
       }
     }
@@ -250,10 +250,11 @@ class JournalSpec extends AnyWordSpec with Matchers {
   "Journal" when {
 
     for {
-      (headCacheStr, headCache) <- List(("invalid", HeadCache.const(none[HeadInfo].pure[StateT])), ("valid", StateT.headCache))
+      (headCacheStr, headCache) <-
+        List(("invalid", HeadCache.const(none[HeadInfo].pure[StateT])), ("valid", StateT.headCache))
       (duplicatesStr, consumeActionRecordsOf, eventualJournalOf) <- List(
-        ("off", (a: ConsumeActionRecords[StateT]) => a, (a: EventualJournal[StateT])                => a),
-        ("on", (a: ConsumeActionRecords[StateT])  => a.withDuplicates, (a: EventualJournal[StateT]) => a),
+        ("off", (a: ConsumeActionRecords[StateT]) => a, (a: EventualJournal[StateT]) => a),
+        ("on", (a: ConsumeActionRecords[StateT]) => a.withDuplicates, (a: EventualJournal[StateT]) => a),
       )
     } {
 
@@ -264,7 +265,12 @@ class JournalSpec extends AnyWordSpec with Matchers {
         headCache: HeadCache[StateT],
       ): Unit = {
         val journal =
-          SeqNrJournal(eventualJournalOf(eventual), consumeActionRecordsOf(consumeActionRecords), produceAction, headCache)
+          SeqNrJournal(
+            eventualJournalOf(eventual),
+            consumeActionRecordsOf(consumeActionRecords),
+            produceAction,
+            headCache,
+          )
 
         testF[StateT] { f =>
           f(journal)
@@ -310,13 +316,14 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
             def apply(action: Action) = {
               StateT { state =>
-                val offset          = Offset.unsafe(state.records.size)
+                val offset = Offset.unsafe(state.records.size)
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-                val record          = ActionRecord(action, partitionOffset)
-                val records         = state.records.enqueue(record)
+                val record = ActionRecord(action, partitionOffset)
+                val records = state.records.enqueue(record)
 
-                val replicatedState = state.replicatedState(record, Offset.of[Try](offset.value - n) getOrElse Offset.min)
-                val state1          = state.copy(records = records, replicatedState = replicatedState)
+                val replicatedState =
+                  state.replicatedState(record, Offset.of[Try](offset.value - n) getOrElse Offset.min)
+                val state1 = state.copy(records = records, replicatedState = replicatedState)
                 (state1, partitionOffset)
               }
             }
@@ -335,16 +342,17 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
             def apply(action: Action) = {
               StateT { state =>
-                val offset          = Offset.unsafe(state.records.size)
+                val offset = Offset.unsafe(state.records.size)
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-                val record          = ActionRecord(action, partitionOffset)
-                val records         = state.records.enqueue(record)
+                val record = ActionRecord(action, partitionOffset)
+                val records = state.records.enqueue(record)
 
                 val replicatedState = for {
                   actions <- records.dropLast(n)
-                  action  <- actions.lastOption
+                  action <- actions.lastOption
                 } yield state.replicatedState(action)
-                val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
+                val state1 =
+                  state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
                 (state1, partitionOffset)
               }
             }
@@ -364,18 +372,19 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
             def apply(action: Action) = {
               StateT { state =>
-                val offset          = Offset.unsafe(state.records.size)
+                val offset = Offset.unsafe(state.records.size)
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-                val record          = ActionRecord(action, partitionOffset)
-                val records         = state.records.enqueue(record)
+                val record = ActionRecord(action, partitionOffset)
+                val records = state.records.enqueue(record)
 
                 val replicatedState = for {
                   actions <- records.dropLast(n)
-                  action  <- actions.lastOption
+                  action <- actions.lastOption
                 } yield {
                   state.replicatedState(action, Offset.of[Try](offset.value - n) getOrElse Offset.min)
                 }
-                val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
+                val state1 =
+                  state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
                 (state1, partitionOffset)
               }
             }
@@ -389,8 +398,8 @@ class JournalSpec extends AnyWordSpec with Matchers {
 }
 
 object JournalSpec {
-  val key: Key             = Key(topic = "topic", id = "id")
-  val timestamp: Instant   = Instant.now()
+  val key: Key = Key(topic = "topic", id = "id")
+  val timestamp: Instant = Instant.now()
   val partition: Partition = Partition.min
 
   implicit val ec: ExecutionContext = CurrentThreadExecutionContext
@@ -412,13 +421,21 @@ object JournalSpec {
 
     def apply[F[_]: Monad, A](
       journals: Journals[F],
-    )(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A], kafkaWrite: KafkaWrite[F, A]): SeqNrJournal[F] = {
+    )(implicit
+      kafkaRead: KafkaRead[F, A],
+      eventualRead: EventualRead[F, A],
+      kafkaWrite: KafkaWrite[F, A],
+    ): SeqNrJournal[F] = {
       apply(journals(key))
     }
 
     def apply[F[_]: Monad, A](
       journal: Journal[F],
-    )(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A], kafkaWrite: KafkaWrite[F, A]): SeqNrJournal[F] = {
+    )(implicit
+      kafkaRead: KafkaRead[F, A],
+      eventualRead: EventualRead[F, A],
+      kafkaWrite: KafkaWrite[F, A],
+    ): SeqNrJournal[F] = {
 
       new SeqNrJournal[F] {
 
@@ -474,22 +491,22 @@ object JournalSpec {
       produceAction: ProduceAction[F],
       headCache: HeadCache[F],
     ): SeqNrJournal[F] = {
-      implicit val clock           = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
-      implicit val randomIdOf      = RandomIdOf.uuid[F]
+      implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
+      implicit val randomIdOf = RandomIdOf.uuid[F]
       implicit val measureDuration = MeasureDuration.fromClock(clock)
-      implicit val fromTry         = FromTry.lift[F]
-      implicit val fail            = Fail.lift[F]
-      implicit val fromAttempt     = FromAttempt.lift[F]
-      implicit val fromJsResult    = FromJsResult.lift[F]
-      val log                      = Log.empty[F]
+      implicit val fromTry = FromTry.lift[F]
+      implicit val fail = Fail.lift[F]
+      implicit val fromAttempt = FromAttempt.lift[F]
+      implicit val fromJsResult = FromJsResult.lift[F]
+      val log = Log.empty[F]
 
       val journal = Journals[F](
-        eventual             = eventual,
+        eventual = eventual,
         consumeActionRecords = consumeActionRecords,
-        produce              = Produce(produceAction, none),
-        headCache            = headCache,
-        log                  = log,
-        conversionMetrics    = none,
+        produce = Produce(produceAction, none),
+        headCache = headCache,
+        log = log,
+        conversionMetrics = none,
       )
         .withLog(log)
         .withMetrics(JournalMetrics.empty[F])
@@ -498,8 +515,8 @@ object JournalSpec {
   }
 
   final case class State(
-    records: Queue[ActionRecord[Action]]       = Queue.empty,
-    replicatedState: EventualJournalOf.State   = EventualJournalOf.State.empty,
+    records: Queue[ActionRecord[Action]] = Queue.empty,
+    replicatedState: EventualJournalOf.State = EventualJournalOf.State.empty,
     recordsToRead: Queue[ActionRecord[Action]] = Queue.empty,
   )
 
@@ -527,7 +544,7 @@ object JournalSpec {
 
         for {
           events <- events.toStream
-          event  <- Stream[StateT].apply(events)
+          event <- Stream[StateT].apply(events)
         } yield {
           event
         }
@@ -537,7 +554,7 @@ object JournalSpec {
         StateT { state =>
           val seqNr = state.replicatedState.events.lastOption.map(_.event.seqNr)
           val pointer = for {
-            seqNr  <- seqNr max state.replicatedState.deleteTo.map { _.value }
+            seqNr <- seqNr max state.replicatedState.deleteTo.map { _.value }
             offset <- state.replicatedState.offset
           } yield {
             val partitionOffset = PartitionOffset(partition, offset)
@@ -555,10 +572,10 @@ object JournalSpec {
 
     val actionRecords: Stream[StateT, ActionRecord[Action]] = {
       val result = StateT { state =>
-        (state.recordsToRead.dequeueOption match {
+        state.recordsToRead.dequeueOption match {
           case Some((record, records)) => (state.copy(recordsToRead = records), Stream[StateT].single(record))
-          case None                    => (state, Stream[StateT].empty[ActionRecord[Action]])
-        })
+          case None => (state, Stream[StateT].empty[ActionRecord[Action]])
+        }
       }
       Stream
         .repeat(result)
@@ -580,13 +597,13 @@ object JournalSpec {
     val produceAction: ProduceAction[StateT] = { (action: Action) =>
       {
         StateT { state =>
-          val offset          = Offset.unsafe(state.records.size)
+          val offset = Offset.unsafe(state.records.size)
           val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-          val record          = ActionRecord(action, partitionOffset)
-          val records         = state.records.enqueue(record)
+          val record = ActionRecord(action, partitionOffset)
+          val records = state.records.enqueue(record)
 
           val replicatedState = state.replicatedState(record)
-          val state1          = state.copy(records = records, replicatedState = replicatedState)
+          val state1 = state.copy(records = records, replicatedState = replicatedState)
           (state1, partitionOffset)
         }
       }
@@ -616,8 +633,8 @@ object JournalSpec {
 
     final case class State(
       events: Queue[EventRecord[EventualPayloadAndType]] = Queue.empty,
-      deleteTo: Option[DeleteTo]                         = None,
-      offset: Option[Offset]                             = None,
+      deleteTo: Option[DeleteTo] = None,
+      offset: Option[Offset] = None,
     ) {
 
       def apply(record: ActionRecord[Action]): State = {
@@ -626,17 +643,17 @@ object JournalSpec {
 
       def apply(record: ActionRecord[Action], offset: Offset): State = {
 
-        implicit val fromAttempt  = FromAttempt.lift[Try]
+        implicit val fromAttempt = FromAttempt.lift[Try]
         implicit val fromJsResult = FromJsResult.lift[Try]
 
-        val kafkaRead     = KafkaRead.summon[Try, Payload]
+        val kafkaRead = KafkaRead.summon[Try, Payload]
         val eventualWrite = EventualWrite.summon[Try, Payload]
 
         def updateOffset = copy(offset = offset.some)
 
         def onAppend(action: Action.Append) = {
           val payloadAndType = action.toPayloadAndType
-          val events1        = kafkaRead(payloadAndType).get
+          val events1 = kafkaRead(payloadAndType).get
           val batch = for {
             event <- events1.events
           } yield {
@@ -668,9 +685,9 @@ object JournalSpec {
 
         record.action match {
           case a: Action.Append => onAppend(a)
-          case _: Action.Mark   => updateOffset
+          case _: Action.Mark => updateOffset
           case a: Action.Delete => onDelete(a)
-          case _: Action.Purge  => onPurge
+          case _: Action.Purge => onPurge
         }
       }
     }
@@ -694,7 +711,10 @@ object JournalSpec {
   }
 
   implicit class ConsumeActionRecordsOps[F[_]](val self: ConsumeActionRecords[F]) extends AnyVal {
-    def withDuplicates(implicit F: Monad[F]): ConsumeActionRecords[F] = new ConsumeActionRecords[F] {
+    def withDuplicates(
+      implicit
+      F: Monad[F],
+    ): ConsumeActionRecords[F] = new ConsumeActionRecords[F] {
       def apply(key: Key, partition: Partition, from: Offset) = {
         self
           .apply(key, partition, from)
@@ -704,7 +724,10 @@ object JournalSpec {
   }
 
   implicit class StreamOps[F[_], A](val self: Stream[F, A]) extends AnyVal {
-    def withDuplicates(implicit F: Monad[F]): Stream[F, A] = {
+    def withDuplicates(
+      implicit
+      F: Monad[F],
+    ): Stream[F, A] = {
       self.flatMap { a =>
         List
           .fill(2)(a)

@@ -26,15 +26,18 @@ trait EmptyRebalanceConsumer extends RebalanceConsumer {
 
   override def commit(timeout: FiniteDuration): Try[Unit] = Failure(new NotImplementedError)
 
-  override def commit(offsets: NonEmptyMap[TopicPartition, OffsetAndMetadata]): Try[Unit] = Failure(new NotImplementedError)
+  override def commit(offsets: NonEmptyMap[TopicPartition, OffsetAndMetadata]): Try[Unit] =
+    Failure(new NotImplementedError)
 
-  override def commit(offsets: NonEmptyMap[TopicPartition, OffsetAndMetadata], timeout: FiniteDuration): Try[Unit] = Failure(
-    new NotImplementedError,
-  )
+  override def commit(offsets: NonEmptyMap[TopicPartition, OffsetAndMetadata], timeout: FiniteDuration): Try[Unit] =
+    Failure(
+      new NotImplementedError,
+    )
 
-  override def committed(partitions: NonEmptySet[TopicPartition]): Try[Map[TopicPartition, OffsetAndMetadata]] = Failure(
-    new NotImplementedError,
-  )
+  override def committed(partitions: NonEmptySet[TopicPartition]): Try[Map[TopicPartition, OffsetAndMetadata]] =
+    Failure(
+      new NotImplementedError,
+    )
 
   override def committed(
     partitions: NonEmptySet[TopicPartition],
@@ -45,7 +48,8 @@ trait EmptyRebalanceConsumer extends RebalanceConsumer {
     new NotImplementedError,
   )
 
-  override def endOffsets(partitions: NonEmptySet[TopicPartition], timeout: FiniteDuration): Try[Map[TopicPartition, Offset]] =
+  override def endOffsets(partitions: NonEmptySet[TopicPartition], timeout: FiniteDuration)
+    : Try[Map[TopicPartition, Offset]] =
     Failure(new NotImplementedError)
 
   override def groupMetadata(): Try[ConsumerGroupMetadata] = Failure(new NotImplementedError)
@@ -65,13 +69,15 @@ trait EmptyRebalanceConsumer extends RebalanceConsumer {
 
   override def partitionsFor(topic: Topic): Try[List[PartitionInfo]] = Failure(new NotImplementedError)
 
-  override def partitionsFor(topic: Topic, timeout: FiniteDuration): Try[List[PartitionInfo]] = Failure(new NotImplementedError)
+  override def partitionsFor(topic: Topic, timeout: FiniteDuration): Try[List[PartitionInfo]] =
+    Failure(new NotImplementedError)
 
   override def paused(): Try[Set[TopicPartition]] = Failure(new NotImplementedError)
 
   override def position(partition: TopicPartition): Try[Offset] = Failure(new NotImplementedError)
 
-  override def position(partition: TopicPartition, timeout: FiniteDuration): Try[Offset] = Failure(new NotImplementedError)
+  override def position(partition: TopicPartition, timeout: FiniteDuration): Try[Offset] =
+    Failure(new NotImplementedError)
 
   override def seek(partition: TopicPartition, offset: Offset): Try[Unit] = Failure(new NotImplementedError)
 

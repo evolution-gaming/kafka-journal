@@ -20,7 +20,10 @@ private[journal] object CassandraSync {
     def apply[A](fa: F[A]) = fa
   }
 
-  def apply[F[_]](implicit F: CassandraSync[F]): CassandraSync[F] = F
+  def apply[F[_]](
+    implicit
+    F: CassandraSync[F],
+  ): CassandraSync[F] = F
 
   def apply[F[_]: Temporal: CassandraSession](
     keyspace: KeyspaceConfig,
@@ -50,26 +53,30 @@ private[journal] object CassandraSync {
 
         for {
           cassandraSync <- cassandraSync
-          result        <- cassandraSync(id = "kafka-journal", metadata = metadata)(fa)
+          result <- cassandraSync(id = "kafka-journal", metadata = metadata)(fa)
         } yield result
       }
     }
   }
 
-  /** Provides [[CassandraSync]] instance guarded by a semaphore.
-    *
-    * In other words, two operations using a single [[CassandraSync]] instance
-    * will not be executed in parallel.
-    *
-    * The same guarantee do not apply if several [[CassandraSync]] instances
-    * are created.
-    *
-    * @param keyspace Keyspace, where lock table should be created.
-    * @param table Name of lock table to be used.
-    * @param origin Identification of the code performing the lock.
-    *
-    * @see [[com.evolutiongaming.cassandra.sync.CassandraSync]] for more details.
-    */
+  /**
+   * Provides [[CassandraSync]] instance guarded by a semaphore.
+   *
+   * In other words, two operations using a single [[CassandraSync]] instance will not be executed
+   * in parallel.
+   *
+   * The same guarantee do not apply if several [[CassandraSync]] instances are created.
+   *
+   * @param keyspace
+   *   Keyspace, where lock table should be created.
+   * @param table
+   *   Name of lock table to be used.
+   * @param origin
+   *   Identification of the code performing the lock.
+   *
+   * @see
+   *   [[com.evolutiongaming.cassandra.sync.CassandraSync]] for more details.
+   */
   def of[F[_]: Temporal: CassandraSession](
     keyspace: KeyspaceConfig,
     table: String,

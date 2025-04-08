@@ -9,18 +9,18 @@ import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 
 import scala.concurrent.duration.*
 
-/** Configuration of Kafka client used to store the journal.
-  *
-  * The configuration uses standard consumer and producer configuration from
-  * skafka. It is highly recommended to keep the default settings unless some
-  * internal issue is to be worked around as the logic of persistence plugin may
-  * depend on some of these settings.
-  *
-  * @param producer
-  *   Producer configuration used to write journal to Kafka.
-  * @param consumer
-  *   Consumer configuration used to read journal on recovery.
-  */
+/**
+ * Configuration of Kafka client used to store the journal.
+ *
+ * The configuration uses standard consumer and producer configuration from skafka. It is highly
+ * recommended to keep the default settings unless some internal issue is to be worked around as the
+ * logic of persistence plugin may depend on some of these settings.
+ *
+ * @param producer
+ *   Producer configuration used to write journal to Kafka.
+ * @param consumer
+ *   Consumer configuration used to read journal on recovery.
+ */
 final case class KafkaConfig(producer: ProducerConfig, consumer: ConsumerConfig)
 
 object KafkaConfig {
@@ -31,18 +31,18 @@ object KafkaConfig {
     val common = CommonConfig(clientId = name.some, sendBufferBytes = 1000000, receiveBufferBytes = 1000000)
     KafkaConfig(
       producer = ProducerConfig(
-        common          = common,
-        acks            = Acks.All,
-        idempotence     = true,
-        linger          = 1.millis,
+        common = common,
+        acks = Acks.All,
+        idempotence = true,
+        linger = 1.millis,
         compressionType = CompressionType.Lz4,
       ),
       consumer = ConsumerConfig(
-        common          = common,
-        groupId         = name.some,
+        common = common,
+        groupId = name.some,
         autoOffsetReset = AutoOffsetReset.Earliest,
-        autoCommit      = false,
-        maxPollRecords  = 1000,
+        autoCommit = false,
+        maxPollRecords = 1000,
       ),
     )
   }

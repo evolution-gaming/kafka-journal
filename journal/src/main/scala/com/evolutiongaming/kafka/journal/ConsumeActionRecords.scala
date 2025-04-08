@@ -19,7 +19,9 @@ object ConsumeActionRecords {
 
   def apply[F[_]: BracketThrowable](
     consumer: Resource[F, Journals.Consumer[F]],
-  )(implicit consRecordToActionRecord: ConsRecordToActionRecord[F]): ConsumeActionRecords[F] = {
+  )(implicit
+    consRecordToActionRecord: ConsRecordToActionRecord[F],
+  ): ConsumeActionRecords[F] = {
     class Main
     new Main with ConsumeActionRecords[F] {
       def apply(key: Key, partition: Partition, from: Offset) = {

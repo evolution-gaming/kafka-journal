@@ -35,8 +35,14 @@ class RecordMetadataTest extends AnyFunSuite with Matchers {
         ),
       ),
       (
-        RecordMetadata(HeaderMetadata.empty, PayloadMetadata(1.day.toExpireAfter.some, Json.obj(("key1", "value1")).some)),
-        Json.obj(("header", Json.obj()), ("payload", Json.obj(("expireAfter", "1 day"), ("data", Json.obj(("key1", "value1")))))),
+        RecordMetadata(
+          HeaderMetadata.empty,
+          PayloadMetadata(1.day.toExpireAfter.some, Json.obj(("key1", "value1")).some),
+        ),
+        Json.obj(
+          ("header", Json.obj()),
+          ("payload", Json.obj(("expireAfter", "1 day"), ("data", Json.obj(("key1", "value1"))))),
+        ),
       ),
       (
         RecordMetadata(HeaderMetadata(Json.obj(("key0", "value0")).some), PayloadMetadata.empty),

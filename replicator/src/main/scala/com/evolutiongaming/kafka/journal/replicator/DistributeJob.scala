@@ -19,7 +19,7 @@ import scala.concurrent.duration.*
 
 /**
  * [[DistributeJob]] is a service that distributes jobs across application nodes.
- * 
+ *
  * Distribution done with help of Apache Kafka consumers working within a single consumer group.
  * Each job expected to process subset of its data based on Kafka partitions assignment, API:
  * {{{
@@ -34,34 +34,44 @@ import scala.concurrent.duration.*
  *      }
  * }
  * }}}
- * 
+ *
  * In case of Kafka partitions rebalance (i.e. on application node restart), the service will
  * release jobs from unassigned partitions and re-allocate them to the new assigned partitions.
  * Please take into account that any job must be tolerant to execution of [[Resource]]'s release
- * action while it is still running. The service does not cancel or interrupt running jobs any other way 
- * than releasing corresponding [[Resource]]. 
- * 
- * Please note that Kafka topic used for job distribution must have at least as many partitions as the number of application nodes.
+ * action while it is still running. The service does not cancel or interrupt running jobs any other
+ * way than releasing corresponding [[Resource]].
+ *
+ * Please note that Kafka topic used for job distribution must have at least as many partitions as
+ * the number of application nodes.
  */
 trait DistributeJob[F[_]] {
   import DistributeJob.Assigned
 
   /**
-    * Assigns a job to be distributed across application nodes.
-    *
-    * @param name job name, expected to be unique within the application. Otherwise [[DistributeJobError]] will be raised.
-    * @param job job factory aimed to provide the job to process subset of its data based on Kafka partitions assignment.
-    * @return a resource that will be released when the job is done or failed.
-    */
+   * Assigns a job to be distributed across application nodes.
+   *
+   * @param name
+   *   job name, expected to be unique within the application. Otherwise [[DistributeJobError]] will
+   *   be raised.
+   * @param job
+   *   job factory aimed to provide the job to process subset of its data based on Kafka partitions
+   *   assignment.
+   * @return
+   *   a resource that will be released when the job is done or failed.
+   */
   def apply(name: String)(job: Map[Partition, Assigned] => Option[Resource[F, Unit]]): Resource[F, Unit]
 
   /**
-    * Assigns a job to one of the application nodes.
-    *
-    * @param name job name, expected to be unique within the application. Otherwise [[DistributeJobError]] will be raised.
-    * @param job the job to be done.
-    * @return a resource that will be released when the job is done or failed.
-    */
+   * Assigns a job to one of the application nodes.
+   *
+   * @param name
+   *   job name, expected to be unique within the application. Otherwise [[DistributeJobError]] will
+   *   be raised.
+   * @param job
+   *   the job to be done.
+   * @return
+   *   a resource that will be released when the job is done or failed.
+   */
   def single(name: String)(job: Resource[F, Unit]): Resource[F, Unit]
 }
 
@@ -76,7 +86,8 @@ object DistributeJob {
     kafkaConsumerOf: KafkaConsumerOf[F],
   ): Resource[F, DistributeJob[F]] = {
 
-    val consumerConfig1 = consumerConfig.copy(autoCommit = true, groupId = groupId.some, autoOffsetReset = AutoOffsetReset.Latest)
+    val consumerConfig1 =
+      consumerConfig.copy(autoCommit = true, groupId = groupId.some, autoOffsetReset = AutoOffsetReset.Latest)
 
     type Job = Map[Partition, Assigned] => Option[Resource[F, Unit]]
 
@@ -99,14 +110,14 @@ object DistributeJob {
     val unit = ().pure[F]
 
     for {
-      log    <- LogOf[F].apply(DistributeJob.getClass).toResource
+      log <- LogOf[F].apply(DistributeJob.getClass).toResource
       random <- Random.State.fromClock[F]().toResource
       strategy = Strategy
         .exponential(100.millis)
         .jitter(random)
         .limit(1.hour)
         .resetAfter(5.minutes)
-      onError   = OnError.fromLog(log)
+      onError = OnError.fromLog(log)
       deferred <- Deferred[F, Either[Throwable, Unit]].toResource
       launched = (a: Either[Throwable, Unit]) =>
         deferred
@@ -125,22 +136,22 @@ object DistributeJob {
         Ref[F].of(S.empty)
       } { ref =>
         ref.modify {
-          case _: S.Idle   => (S.Released, unit)
+          case _: S.Idle => (S.Released, unit)
           case s: S.Active => (S.Released, release(s.jobs))
-          case S.Released  => (S.Released, unit)
+          case S.Released => (S.Released, unit)
         }.flatten
       }
       modify = (f: S.Allocated => (S.Allocated, F[Unit])) => {
         ref
           .modify {
             case s: S.Allocated => f(s)
-            case S.Released     => (S.Released, DistributeJobError("already released").raiseError[F, Unit])
+            case S.Released => (S.Released, DistributeJobError("already released").raiseError[F, Unit])
           }
           .flatten
           .uncancelable
       }
       resource = for {
-        consumer      <- kafkaConsumerOf[String, Unit](consumerConfig1)
+        consumer <- kafkaConsumerOf[String, Unit](consumerConfig1)
         partitionsAll <- consumer.partitions(topic).toResource
         active = (
           deferred: Deferred[F, String => F[Unit]],
@@ -179,8 +190,8 @@ object DistributeJob {
                     } yield a
                 }
               releases <- releases.toMap.pure[F]
-              release   = (name: String) => releases.get(name).foldA
-              result   <- deferred.complete(release)
+              release = (name: String) => releases.get(name).foldA
+              result <- deferred.complete(release)
             } yield result
           }
           (S.Active(partitions, jobs1), effect.void)
@@ -249,16 +260,16 @@ object DistributeJob {
           .subscribe(topic, listener)
           .toResource
         poll = consumer.poll(10.millis)
-        _   <- poll.toResource
-        _   <- launched(().asRight).toResource
+        _ <- poll.toResource
+        _ <- launched(().asRight).toResource
       } yield {
         poll.foreverM[Unit]
       }
       _ <- resource
         .use(identity)
         .guaranteeCase {
-          case Outcome.Canceled()   => launched(().asRight)
-          case Outcome.Errored(a)   => launched(a.asLeft)
+          case Outcome.Canceled() => launched(().asRight)
+          case Outcome.Errored(a) => launched(a.asLeft)
           case Outcome.Succeeded(_) => launched(().asRight)
         }
         .retry(strategy, onError)
@@ -278,7 +289,7 @@ object DistributeJob {
                 case s: S.Idle =>
                   s.jobs.get(name) match {
                     case Some(_) => (s, DistributeJobError("duplicate job").raiseError[F, Unit])
-                    case None    => (s.copy(jobs = s.jobs.updated(name, job)), unit)
+                    case None => (s.copy(jobs = s.jobs.updated(name, job)), unit)
                   }
                 case s: S.Active =>
                   s.jobs.get(name) match {
@@ -299,9 +310,9 @@ object DistributeJob {
                                   for {
                                     _ <- d.complete(unit)
                                     _ <- ref.update {
-                                      case s: S.Idle   => s.copy(jobs = s.jobs - name)
+                                      case s: S.Idle => s.copy(jobs = s.jobs - name)
                                       case s: S.Active => s.copy(jobs = s.jobs - name)
-                                      case S.Released  => S.Released
+                                      case S.Released => S.Released
                                     }
                                     a <- a.raiseError[F, Unit]
                                   } yield a
@@ -322,7 +333,7 @@ object DistributeJob {
               case s: S.Active =>
                 s.jobs.get(name) match {
                   case Some((_, release)) => (s.copy(jobs = s.jobs - name), release)
-                  case None               => (s, unit)
+                  case None => (s, unit)
                 }
             }
           }

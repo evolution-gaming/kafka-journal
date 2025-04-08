@@ -17,7 +17,8 @@ import org.apache.kafka.common.errors.RebalanceInProgressException
 import scala.concurrent.duration.FiniteDuration
 
 /**
- * @see [[TopicCommit.asyncPeriodic]]
+ * @see
+ *   [[TopicCommit.asyncPeriodic]]
  */
 private[replicator] final class AsyncPeriodicTopicCommit[F[_]: MonadThrowable] private[commit] (
   topic: Topic,
@@ -41,14 +42,19 @@ private[replicator] final class AsyncPeriodicTopicCommit[F[_]: MonadThrowable] p
         state.removeAssignedPartitions(partitions.toSortedSet) -> revokedToCommit
       }.lift
 
-      anythingCommitted <- commitIfNotEmpty[RebalanceCallback[F, *]](revokedToCommit, commitF = RebalanceCallback.commit)
-        .recoverWith {
-          case t: Throwable =>
-            log.error(s"offset commit for revoked partitions on rebalance failed: ${t.getMessage}", t).lift.as(false)
-        }
+      anythingCommitted <-
+        commitIfNotEmpty[RebalanceCallback[F, *]](revokedToCommit, commitF = RebalanceCallback.commit)
+          .recoverWith {
+            case t: Throwable =>
+              log.error(
+                s"offset commit for revoked partitions on rebalance failed: ${ t.getMessage }",
+                t,
+              ).lift.as(false)
+          }
 
       _ <-
-        if (anythingCommitted) log.debug(s"offset commit for revoked partitions on rebalance success: $revokedToCommit").lift
+        if (anythingCommitted)
+          log.debug(s"offset commit for revoked partitions on rebalance success: $revokedToCommit").lift
         else RebalanceCallback.empty
     } yield ()
   }
@@ -60,7 +66,7 @@ private[replicator] final class AsyncPeriodicTopicCommit[F[_]: MonadThrowable] p
   // opened to the package for tests
   private[commit] def periodicCommitStep(): F[Unit] = {
     for {
-      state          <- stateRef.get
+      state <- stateRef.get
       offsetsToCommit = state.partitionOffsetsToCommit
 
       anythingCommitted <- commitIfNotEmpty[F](offsetsToCommit, commitF = consumer.commitLater)
@@ -104,11 +110,11 @@ private[replicator] object AsyncPeriodicTopicCommit {
     val mkInstanceF: F[AsyncPeriodicTopicCommit[F]] = for {
       stateRef <- Ref.of[F, State](State())
     } yield new AsyncPeriodicTopicCommit[F](
-      topic          = topic,
+      topic = topic,
       commitMetadata = commitMetadata,
-      consumer       = consumer,
-      stateRef       = stateRef,
-      log            = log,
+      consumer = consumer,
+      stateRef = stateRef,
+      log = log,
     )
 
     for {
@@ -120,7 +126,7 @@ private[replicator] object AsyncPeriodicTopicCommit {
             .periodicCommitStep()
             .recoverWith {
               case t: Throwable =>
-                log.error(s"periodic offset commit failed: ${t.getMessage}", t)
+                log.error(s"periodic offset commit failed: ${ t.getMessage }", t)
             }
       ).foreverM[Unit]
 
@@ -163,7 +169,9 @@ private[replicator] object AsyncPeriodicTopicCommit {
 
     private def updateForAllAssigned(
       offsets: Iterable[(Partition, Offset)],
-    )(f: (PartitionState, Offset) => PartitionState): State = {
+    )(
+      f: (PartitionState, Offset) => PartitionState,
+    ): State = {
       copy(
         assignedPartitions = offsets.foldLeft(assignedPartitions) {
           case (prevAssignedPartitions, (partition, offset)) =>
@@ -175,7 +183,7 @@ private[replicator] object AsyncPeriodicTopicCommit {
 
   // opened to the package for tests
   private[commit] final case class PartitionState(
-    markedOffsetOpt: Option[Offset]    = None,
+    markedOffsetOpt: Option[Offset] = None,
     committedOffsetOpt: Option[Offset] = None,
   ) {
     def needToCommit: Option[Offset] = {

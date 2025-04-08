@@ -9,12 +9,18 @@ trait KafkaConsumerOf[F[_]] {
 
   def apply[K, V](
     config: ConsumerConfig,
-  )(implicit fromBytesK: skafka.FromBytes[F, K], fromBytesV: skafka.FromBytes[F, V]): Resource[F, KafkaConsumer[F, K, V]]
+  )(implicit
+    fromBytesK: skafka.FromBytes[F, K],
+    fromBytesV: skafka.FromBytes[F, V],
+  ): Resource[F, KafkaConsumer[F, K, V]]
 }
 
 object KafkaConsumerOf {
 
-  def apply[F[_]](implicit F: KafkaConsumerOf[F]): KafkaConsumerOf[F] = F
+  def apply[F[_]](
+    implicit
+    F: KafkaConsumerOf[F],
+  ): KafkaConsumerOf[F] = F
 
   def apply[F[_]: Async: ToTry: ToFuture: MeasureDuration](
     metrics: Option[ConsumerMetrics[F]] = None,
@@ -28,7 +34,12 @@ object KafkaConsumerOf {
     class Main
     new Main with KafkaConsumerOf[F] {
 
-      def apply[K, V](config: ConsumerConfig)(implicit fromBytesK: skafka.FromBytes[F, K], fromBytesV: skafka.FromBytes[F, V]) = {
+      def apply[K, V](
+        config: ConsumerConfig,
+      )(implicit
+        fromBytesK: skafka.FromBytes[F, K],
+        fromBytesV: skafka.FromBytes[F, V],
+      ) = {
         val consumer = consumerOf[K, V](config)
         KafkaConsumer.make(consumer)
       }

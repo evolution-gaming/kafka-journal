@@ -38,14 +38,23 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
       ("text", Events(Nel.of(event(1, Payload.text("text"))), PayloadMetadata.empty)),
       ("json", Events(Nel.of(event(1, Payload.json("json"))), payloadMetadata)),
       ("empty-many", Events(Nel.of(event(1), event(2), event(3)), payloadMetadata)),
-      ("binary-many", Events(Nel.of(event(1, binary("1")), event(2, binary("2")), event(3, binary("3"))), payloadMetadata)),
+      (
+        "binary-many",
+        Events(Nel.of(event(1, binary("1")), event(2, binary("2")), event(3, binary("3"))), payloadMetadata),
+      ),
       (
         "text-many",
-        Events(Nel.of(event(1, Payload.text("1")), event(2, Payload.text("2")), event(3, Payload.text("3"))), payloadMetadata),
+        Events(
+          Nel.of(event(1, Payload.text("1")), event(2, Payload.text("2")), event(3, Payload.text("3"))),
+          payloadMetadata,
+        ),
       ),
       (
         "json-many",
-        Events(Nel.of(event(1, Payload.json("1")), event(2, Payload.json("2")), event(3, Payload.json("3"))), payloadMetadata),
+        Events(
+          Nel.of(event(1, Payload.json("1")), event(2, Payload.json("2")), event(3, Payload.json("3"))),
+          payloadMetadata,
+        ),
       ),
       (
         "empty-binary-text-json",
@@ -66,9 +75,9 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
       val result = for {
         bytes <- events.toBytes[Try]
 //        _ = writeToFile(bytes, s"v1-events-$name.bin")
-        _      = verify(bytes)
+        _ = verify(bytes)
         bytes <- ByteVectorOf[Try](getClass, s"v1-events-$name.bin")
-        _      = verify(bytes)
+        _ = verify(bytes)
       } yield {}
       result shouldEqual ().pure[Try]
     }
@@ -81,7 +90,10 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
       ("text", Events(Nel.of(event(1, Payload.text("text"))), PayloadMetadata.empty)),
       ("json", Events(Nel.of(event(1, Payload.json("json"))), PayloadMetadata.empty)),
       ("empty-many", Events(Nel.of(event(1), event(2), event(3)), PayloadMetadata.empty)),
-      ("binary-many", Events(Nel.of(event(1, binary("1")), event(2, binary("2")), event(3, binary("3"))), PayloadMetadata.empty)),
+      (
+        "binary-many",
+        Events(Nel.of(event(1, binary("1")), event(2, binary("2")), event(3, binary("3"))), PayloadMetadata.empty),
+      ),
       (
         "text-many",
         Events(
@@ -107,7 +119,7 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
   } {
     test(s"fromBytes $name") {
       val actual = for {
-        bytes  <- ByteVectorOf[Try](getClass, s"v0-events-$name.bin")
+        bytes <- ByteVectorOf[Try](getClass, s"v0-events-$name.bin")
         events <- bytes.fromBytes[Try, Events[Payload]]
       } yield events
 

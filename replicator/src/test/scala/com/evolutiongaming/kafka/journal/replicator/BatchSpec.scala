@@ -35,11 +35,11 @@ class BatchSpec extends AnyFunSuite with Matchers {
       ),
       (
         Nel.of(
-          mark(offset   = 0),
+          mark(offset = 0),
           append(offset = 1, seqNr = 1),
-          mark(offset   = 2),
+          mark(offset = 2),
           append(offset = 3, seqNr = 2),
-          mark(offset   = 4),
+          mark(offset = 4),
         ),
         List(appends(3, append(offset = 1, seqNr = 1), append(offset = 3, seqNr = 2))),
       ),
@@ -60,23 +60,27 @@ class BatchSpec extends AnyFunSuite with Matchers {
       ),
       (
         Nel.of(append(offset = 1, seqNr = 1), delete(offset = 2, to = 1), append(offset = 3, seqNr = 2)),
-        List(appends(1, append(offset = 1, seqNr = 1)), deletes(offset = 2, to = 1), appends(3, append(offset = 3, seqNr = 2))),
+        List(
+          appends(1, append(offset = 1, seqNr = 1)),
+          deletes(offset = 2, to = 1),
+          appends(3, append(offset = 3, seqNr = 2)),
+        ),
       ),
       (
         Nel.of(
           append(offset = 1, seqNr = 1),
-          delete(offset = 2, to    = 1, origin = "origin1"),
+          delete(offset = 2, to = 1, origin = "origin1"),
           append(offset = 3, seqNr = 2),
-          delete(offset = 4, to    = 2, origin = "origin2"),
+          delete(offset = 4, to = 2, origin = "origin2"),
         ),
         List(appends(3, append(offset = 3, seqNr = 2)), deletes(offset = 4, to = 2, origin = "origin2")),
       ),
       (
         Nel.of(
           append(offset = 1, seqNr = 1),
-          delete(offset = 2, to    = 1, origin = "origin"),
+          delete(offset = 2, to = 1, origin = "origin"),
           append(offset = 3, seqNr = 2),
-          delete(offset = 4, to    = 2),
+          delete(offset = 4, to = 2),
         ),
         List(appends(3, append(offset = 3, seqNr = 2)), deletes(offset = 4, to = 2)),
       ),
@@ -84,8 +88,8 @@ class BatchSpec extends AnyFunSuite with Matchers {
         Nel.of(
           append(offset = 1, seqNr = 1),
           append(offset = 2, seqNr = 2),
-          delete(offset = 3, to    = 1, origin = "origin1"),
-          delete(offset = 4, to    = 2, origin = "origin2"),
+          delete(offset = 3, to = 1, origin = "origin1"),
+          delete(offset = 4, to = 2, origin = "origin2"),
         ),
         List(appends(2, append(offset = 2, seqNr = 2)), deletes(offset = 4, to = 2, origin = "origin2")),
       ),
@@ -93,8 +97,8 @@ class BatchSpec extends AnyFunSuite with Matchers {
         Nel.of(
           append(offset = 1, seqNr = 1),
           append(offset = 2, seqNr = 2),
-          delete(offset = 3, to    = 1),
-          delete(offset = 4, to    = 2, origin = "origin"),
+          delete(offset = 3, to = 1),
+          delete(offset = 4, to = 2, origin = "origin"),
         ),
         List(
           appends(offset = 2, append(offset = 2, seqNr = 2)),
@@ -108,44 +112,52 @@ class BatchSpec extends AnyFunSuite with Matchers {
       ),
       (
         Nel.of(
-          mark(offset   = 2),
+          mark(offset = 2),
           delete(offset = 3, to = 1, origin = "origin"),
-          mark(offset   = 4),
+          mark(offset = 4),
           delete(offset = 5, to = 2),
-          mark(offset   = 6),
+          mark(offset = 6),
         ),
         List(deletes(offset = 5, to = 2)),
       ),
       (
         Nel.of(
           append(offset = 0, seqNr = 1),
-          delete(offset = 1, to    = 1),
+          delete(offset = 1, to = 1),
           append(offset = 2, seqNr = 2),
-          delete(offset = 3, to    = 2),
+          delete(offset = 3, to = 2),
           append(offset = 4, seqNr = 3),
         ),
-        List(appends(2, append(offset = 2, seqNr = 2)), deletes(offset = 3, to = 2), appends(4, append(offset = 4, seqNr = 3))),
+        List(
+          appends(2, append(offset = 2, seqNr = 2)),
+          deletes(offset = 3, to = 2),
+          appends(4, append(offset = 4, seqNr = 3)),
+        ),
       ),
       (
         Nel.of(
           append(offset = 0, seqNr = 1),
           append(offset = 1, seqNr = 2),
-          delete(offset = 2, to    = 1),
+          delete(offset = 2, to = 1),
           append(offset = 3, seqNr = 3),
-          delete(offset = 4, to    = 3),
+          delete(offset = 4, to = 3),
           append(offset = 5, seqNr = 4),
         ),
-        List(appends(3, append(offset = 3, seqNr = 3)), deletes(offset = 4, to = 3), appends(5, append(offset = 5, seqNr = 4))),
+        List(
+          appends(3, append(offset = 3, seqNr = 3)),
+          deletes(offset = 4, to = 3),
+          appends(5, append(offset = 5, seqNr = 4)),
+        ),
       ),
       (
         Nel.of(
           append(offset = 0, seqNr = 1),
           append(offset = 1, seqNr = 2),
-          mark(offset   = 2),
-          delete(offset = 3, to    = 1),
+          mark(offset = 2),
+          delete(offset = 3, to = 1),
           append(offset = 4, seqNr = 3),
           append(offset = 5, seqNr = 4),
-          mark(offset   = 6),
+          mark(offset = 6),
         ),
         List(
           appends(offset = 1, append(offset = 1, seqNr = 2)),
@@ -162,10 +174,10 @@ class BatchSpec extends AnyFunSuite with Matchers {
           append(offset = 0, seqNr = 1),
           append(offset = 1, seqNr = 2),
           append(offset = 2, seqNr = 3),
-          delete(offset = 3, to    = 1, origin = "origin"),
+          delete(offset = 3, to = 1, origin = "origin"),
           append(offset = 4, seqNr = 4),
           append(offset = 5, seqNr = 5),
-          delete(offset = 6, to    = 2),
+          delete(offset = 6, to = 2),
           append(offset = 7, seqNr = 6),
         ),
         List(
@@ -184,10 +196,10 @@ class BatchSpec extends AnyFunSuite with Matchers {
           append(offset = 0, seqNr = 1, seqNrs = 2),
           append(offset = 1, seqNr = 3, seqNrs = 4),
           append(offset = 2, seqNr = 5),
-          delete(offset = 3, to    = 1),
+          delete(offset = 3, to = 1),
           append(offset = 4, seqNr = 6),
           append(offset = 5, seqNr = 7),
-          delete(offset = 6, to    = 3),
+          delete(offset = 6, to = 3),
           append(offset = 7, seqNr = 8),
         ),
         List(
@@ -229,8 +241,8 @@ class BatchSpec extends AnyFunSuite with Matchers {
           append(offset = 0, seqNr = 1, seqNrs = 2),
           append(offset = 1, seqNr = 3, seqNrs = 4),
           append(offset = 2, seqNr = 5, seqNrs = 6),
-          delete(offset = 3, to    = 3),
-          delete(offset = 4, to    = 5),
+          delete(offset = 3, to = 3),
+          delete(offset = 4, to = 5),
         ),
         List(
           appends(offset = 2, append(offset = 2, seqNr = 5, seqNrs = 6)),
@@ -240,8 +252,8 @@ class BatchSpec extends AnyFunSuite with Matchers {
       (
         Nel.of(
           append(offset = 0, seqNr = 1, seqNrs = 2, 3, 4, 5, 6),
-          delete(offset = 1, to    = 3),
-          delete(offset = 2, to    = 6),
+          delete(offset = 1, to = 3),
+          delete(offset = 2, to = 6),
         ),
         List(
           appends(offset = 0, append(offset = 0, seqNr = 1, seqNrs = 2, 3, 4, 5, 6)),
@@ -252,8 +264,8 @@ class BatchSpec extends AnyFunSuite with Matchers {
         Nel.of(
           append(offset = 0, seqNr = 1, seqNrs = 2, 3, 4),
           append(offset = 1, seqNr = 5, seqNrs = 6),
-          delete(offset = 2, to    = 3),
-          delete(offset = 3, to    = 6),
+          delete(offset = 2, to = 3),
+          delete(offset = 3, to = 6),
         ),
         List(
           appends(offset = 1, append(offset = 1, seqNr = 5, seqNrs = 6)),
@@ -264,10 +276,14 @@ class BatchSpec extends AnyFunSuite with Matchers {
         Nel.of(
           append(offset = 0, seqNr = 1, seqNrs = 2, 3, 4),
           append(offset = 1, seqNr = 5, seqNrs = 6),
-          delete(offset = 2, to    = 3),
+          delete(offset = 2, to = 3),
         ),
         List(
-          appends(offset = 1, append(offset = 0, seqNr = 1, seqNrs = 2, 3, 4), append(offset = 1, seqNr = 5, seqNrs = 6)),
+          appends(
+            offset = 1,
+            append(offset = 0, seqNr = 1, seqNrs = 2, 3, 4),
+            append(offset = 1, seqNr = 5, seqNrs = 6),
+          ),
           deletes(offset = 2, to = 3),
         ),
       ),
@@ -284,8 +300,8 @@ class BatchSpec extends AnyFunSuite with Matchers {
         Nel.of( // state: delete_to = 384, seqNr = 573 (in Cassandra)
           append(offset = 1797039, seqNr = 574),
           append(offset = 1801629, seqNr = 575),
-          mark(offset   = 1801632),
-          delete(offset = 1801642, to    = 575),
+          mark(offset = 1801632),
+          delete(offset = 1801642, to = 575),
         ),
         List(
           appends(offset = 1801629, append(offset = 1801629, seqNr = 575)),
@@ -298,7 +314,7 @@ class BatchSpec extends AnyFunSuite with Matchers {
     val name = values.toList.mkString(",")
     test(s"of $name") {
       val records = values.map(actionRecordOf)
-      val actual  = Batch.of(records)
+      val actual = Batch.of(records)
       actual shouldEqual expected
     }
   }
@@ -343,14 +359,14 @@ class BatchSpec extends AnyFunSuite with Matchers {
 
   def appendOf(seqNrs: Nel[Int]): Action.Append = {
     Action.Append(
-      key       = keyOf,
+      key = keyOf,
       timestamp = timestamp,
       header = ActionHeader.Append(
-        range       = SeqRange(seqNrOf(seqNrs.head), seqNrOf(seqNrs.last)),
+        range = SeqRange(seqNrOf(seqNrs.head), seqNrOf(seqNrs.last)),
         payloadType = PayloadType.Binary,
-        origin      = none,
-        version     = none,
-        metadata    = HeaderMetadata.empty,
+        origin = none,
+        version = none,
+        metadata = HeaderMetadata.empty,
       ),
       payload = ByteVector.empty,
       headers = Headers.empty,
@@ -365,8 +381,8 @@ class BatchSpec extends AnyFunSuite with Matchers {
     a match {
       case a: A.Append => appendOf(Nel(a.seqNr, a.seqNrs))
       case a: A.Delete => deleteOf(seqNr = a.seqNr, origin = a.origin)
-      case a: A.Purge  => Action.Purge(keyOf, timestamp, origin = originOf(a.origin), version = none)
-      case _: A.Mark   => Action.Mark(keyOf, timestamp, ActionHeader.Mark("id", none, version = none))
+      case a: A.Purge => Action.Purge(keyOf, timestamp, origin = originOf(a.origin), version = none)
+      case _: A.Mark => Action.Mark(keyOf, timestamp, ActionHeader.Mark("id", none, version = none))
     }
   }
 

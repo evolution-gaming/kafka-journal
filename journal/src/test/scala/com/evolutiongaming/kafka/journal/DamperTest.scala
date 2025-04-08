@@ -16,11 +16,11 @@ class DamperTest extends AsyncFunSuite with Matchers {
   test(".release unblocks .acquire") {
     val result = for {
       damper <- Damper.of[IO](a => (a % 2) * 500.millis)
-      _      <- damper.acquire
-      fiber  <- damper.acquire.start
-      _      <- assertSleeping(fiber)
-      _      <- damper.release
-      _      <- fiber.joinWithNever
+      _ <- damper.acquire
+      fiber <- damper.acquire.start
+      _ <- assertSleeping(fiber)
+      _ <- damper.release
+      _ <- fiber.joinWithNever
     } yield {}
     result.run()
   }
@@ -28,14 +28,14 @@ class DamperTest extends AsyncFunSuite with Matchers {
   test(".release unblocks multiple .acquire") {
     val result = for {
       damper <- Damper.of[IO](a => (a % 2) * 500.millis)
-      _      <- damper.acquire
+      _ <- damper.acquire
       fiber0 <- damper.acquire.start
-      _      <- assertSleeping(fiber0)
+      _ <- assertSleeping(fiber0)
       fiber1 <- damper.acquire.start
-      _      <- assertSleeping(fiber1)
-      _      <- damper.release
-      _      <- fiber0.joinWithNever
-      _      <- fiber1.joinWithNever
+      _ <- assertSleeping(fiber1)
+      _ <- damper.release
+      _ <- fiber0.joinWithNever
+      _ <- fiber1.joinWithNever
     } yield {}
     result.run()
   }
@@ -49,20 +49,20 @@ class DamperTest extends AsyncFunSuite with Matchers {
           .modify {
             // always return 1.minute
             // after two delays above from initial Ref are consumed
-            case Nil     => (Nil, 1.minute)
+            case Nil => (Nil, 1.minute)
             case a :: as => (as, a)
           }
           .unsafeRunSync()
       }
 
       fiber0 <- damper.acquire.start
-      _      <- assertSleeping(fiber0)
+      _ <- assertSleeping(fiber0)
 
       fiber1 <- damper.acquire.start
-      _      <- assertSleeping(fiber1)
+      _ <- assertSleeping(fiber1)
 
       fiber2 <- damper.acquire.start
-      _      <- assertSleeping(fiber2)
+      _ <- assertSleeping(fiber2)
 
       delays <- ref.get
       _ <- IO {
@@ -86,7 +86,7 @@ class DamperTest extends AsyncFunSuite with Matchers {
   test("many") {
     val result = for {
       last <- Ref[IO].of(0)
-      max  <- Ref[IO].of(0)
+      max <- Ref[IO].of(0)
       damper <- Damper.of[IO] { acquired =>
         val result = for {
           _ <- last.set(acquired)
@@ -106,13 +106,13 @@ class DamperTest extends AsyncFunSuite with Matchers {
         .use { _ => IO.sleep(10.millis) }
         .replicateA(10)
         .parReplicateA(10)
-      _      <- damper.acquire
-      _      <- damper.release
+      _ <- damper.acquire
+      _ <- damper.release
       result <- last.get
-      _      <- IO { result shouldEqual 0 }
+      _ <- IO { result shouldEqual 0 }
       result <- max.get
-      _      <- IO { result should be <= 100 }
-      _      <- IO { result should be >= 10 }
+      _ <- IO { result should be <= 100 }
+      _ <- IO { result should be >= 10 }
     } yield {}
     result.run()
   }

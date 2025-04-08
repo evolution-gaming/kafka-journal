@@ -30,17 +30,17 @@ private[journal] object SettingStatements {
   implicit val decodeRowSetting: DecodeRow[Setting] = { (data: GettableByNameData) =>
     {
       Setting(
-        key       = data.decode[Key]("key"),
-        value     = data.decode[Value]("value"),
+        key = data.decode[Key]("key"),
+        value = data.decode[Value]("value"),
         timestamp = data.decode[Instant]("timestamp"),
-        origin    = data.decode[Option[Origin]],
+        origin = data.decode[Option[Origin]],
       )
     }
   }
 
   def createTable(name: TableName): String = {
     s"""
-       |CREATE TABLE IF NOT EXISTS ${name.toCql} (
+       |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
        |key text PRIMARY KEY,
        |value TEXT,
        |timestamp TIMESTAMP,
@@ -60,7 +60,7 @@ private[journal] object SettingStatements {
       consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[Select[F]] = {
 
-      val query = s"SELECT value, timestamp, origin FROM ${name.toCql} WHERE key = ?"
+      val query = s"SELECT value, timestamp, origin FROM ${ name.toCql } WHERE key = ?"
       for {
         prepared <- query.prepare
       } yield { (key: Key) =>
@@ -74,10 +74,10 @@ private[journal] object SettingStatements {
           row <- row
         } yield {
           Setting(
-            key       = key,
-            value     = row.decode[Value]("value"),
+            key = key,
+            value = row.decode[Value]("value"),
             timestamp = row.decode[Instant]("timestamp"),
-            origin    = row.decode[Option[Origin]],
+            origin = row.decode[Option[Origin]],
           )
         }
       }
@@ -88,9 +88,10 @@ private[journal] object SettingStatements {
 
   object All {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: CassandraConsistencyConfig.Read): F[All[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: CassandraConsistencyConfig.Read)
+      : F[All[F]] = {
 
-      val query = s"SELECT key, value, timestamp, origin FROM ${name.toCql}"
+      val query = s"SELECT key, value, timestamp, origin FROM ${ name.toCql }"
       for {
         prepared <- query.prepare
       } yield {
@@ -115,7 +116,7 @@ private[journal] object SettingStatements {
       consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Insert[F]] = {
 
-      val query = s"INSERT INTO ${name.toCql} (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
+      val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
       for {
         prepared <- query.prepare
       } yield { (setting: Setting) =>
@@ -139,7 +140,7 @@ private[journal] object SettingStatements {
       consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Delete[F]] = {
 
-      val query = s"DELETE FROM ${name.toCql} WHERE key = ?"
+      val query = s"DELETE FROM ${ name.toCql } WHERE key = ?"
       for {
         prepared <- query.prepare
       } yield { (key: Key) =>

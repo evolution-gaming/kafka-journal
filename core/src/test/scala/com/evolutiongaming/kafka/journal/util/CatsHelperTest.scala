@@ -56,7 +56,7 @@ class CatsHelperTest extends AsyncFunSuite with Matchers {
         }
         .start
       _ <- d0.get
-      e  = new RuntimeException with NoStackTrace
+      e = new RuntimeException with NoStackTrace
       _ <- d1.complete(e.asLeft)
       a <- a.join.attempt
       _ <- IO { a shouldEqual Right(Outcome.errored(e)) }

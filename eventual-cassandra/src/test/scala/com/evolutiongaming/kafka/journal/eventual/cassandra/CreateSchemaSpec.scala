@@ -12,8 +12,8 @@ class CreateSchemaSpec extends AnyFunSuite {
   type F[A] = State[Database, A]
 
   test("create keyspace and tables") {
-    val config                      = SchemaConfig.default
-    val createSchema                = CreateSchema.create[F](config, createKeyspace, createTables)
+    val config = SchemaConfig.default
+    val createSchema = CreateSchema.create[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
     assert(database.keyspaces == List("journal"))
     assert(
@@ -34,9 +34,9 @@ class CreateSchemaSpec extends AnyFunSuite {
       .default
       .copy(
         autoCreate = false,
-        keyspace   = KeyspaceConfig.default.copy(autoCreate = false),
+        keyspace = KeyspaceConfig.default.copy(autoCreate = false),
       )
-    val createSchema                = CreateSchema.create[F](config, createKeyspace, createTables)
+    val createSchema = CreateSchema.create[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
     assert(database.keyspaces == Nil)
     assert(database.tables == Nil)
@@ -54,9 +54,9 @@ class CreateSchemaSpec extends AnyFunSuite {
       .empty
       .copy(
         keyspaces = List("journal"),
-        tables    = List("journal.setting"),
+        tables = List("journal.setting"),
       )
-    val createSchema                = CreateSchema.create[F](config, createKeyspace, createTables)
+    val createSchema = CreateSchema.create[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(initialState).value
     assert(database.keyspaces == List("journal"))
     assert(
@@ -73,11 +73,11 @@ class CreateSchemaSpec extends AnyFunSuite {
   }
 
   private val schema = Schema(
-    journal     = TableName(keyspace = "journal", table = "journal"),
+    journal = TableName(keyspace = "journal", table = "journal"),
     metaJournal = TableName(keyspace = "journal", table = "metajournal"),
-    pointer     = TableName(keyspace = "journal", table = "pointer"),
-    pointer2    = TableName(keyspace = "journal", table = "pointer2"),
-    setting     = TableName(keyspace = "journal", table = "setting"),
+    pointer = TableName(keyspace = "journal", table = "pointer"),
+    pointer2 = TableName(keyspace = "journal", table = "pointer2"),
+    setting = TableName(keyspace = "journal", table = "setting"),
   )
 
   val createTables: CreateTables[F] = new CreateTables[F] {
@@ -88,7 +88,7 @@ class CreateSchemaSpec extends AnyFunSuite {
             .queries
             .head
             .contains(
-              s"CREATE TABLE IF NOT EXISTS $keyspace.${table.name}",
+              s"CREATE TABLE IF NOT EXISTS $keyspace.${ table.name }",
             ),
         )
         Database.createTable(keyspace, table.name)

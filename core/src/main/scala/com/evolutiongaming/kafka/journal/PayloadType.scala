@@ -31,7 +31,7 @@ object PayloadType {
       .mapResult { a =>
         apply(a) match {
           case Some(a) => JsSuccess(a)
-          case None    => JsError(s"No PayloadType found by $a")
+          case None => JsError(s"No PayloadType found by $a")
         }
       }
     Format(reads, writes)
@@ -55,7 +55,7 @@ object PayloadType {
         .mapResult { a =>
           apply(a) match {
             case Some(a: BinaryOrJson) => JsSuccess(a)
-            case _                     => JsError(s"No PayloadType.BinaryOrJson found by $a")
+            case _ => JsError(s"No PayloadType.BinaryOrJson found by $a")
           }
         }
       val writes = formatPayloadType.as[BinaryOrJson]
@@ -73,7 +73,7 @@ object PayloadType {
         .mapResult { a =>
           apply(a) match {
             case Some(a: TextOrJson) => JsSuccess(a)
-            case _                   => JsError(s"No PayloadType.TextOrJson found by $a")
+            case _ => JsError(s"No PayloadType.TextOrJson found by $a")
           }
         }
       val writes = formatPayloadType.as[TextOrJson]
@@ -83,16 +83,16 @@ object PayloadType {
 
   case object Binary extends BinaryOrJson {
     def name = "binary"
-    def ext  = "bin"
+    def ext = "bin"
   }
 
   case object Text extends TextOrJson {
     def name = "text"
-    def ext  = "txt"
+    def ext = "txt"
   }
 
   case object Json extends BinaryOrJson with TextOrJson {
     def name = "json"
-    def ext  = "json"
+    def ext = "json"
   }
 }

@@ -27,17 +27,20 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
     implicit val toTry = ToTry.ioToTry
     val consumerConfig = ConsumerConfig()
     val result = for {
-      actions    <- Actions.of[IO]
+      actions <- Actions.of[IO]
       partition0 <- Partition.of[IO](0)
       partition1 <- Partition.of[IO](1)
       partition2 <- Partition.of[IO](2)
-      deferred   <- Deferred[IO, RebalanceListener1[IO]]
+      deferred <- Deferred[IO, RebalanceListener1[IO]]
       kafkaConsumerOf = new KafkaConsumerOf[IO] {
         def apply[K, V](
           config: ConsumerConfig,
-        )(implicit fromBytesK: skafka.FromBytes[IO, K], fromBytesV: skafka.FromBytes[IO, V]) = {
+        )(implicit
+          fromBytesK: skafka.FromBytes[IO, K],
+          fromBytesV: skafka.FromBytes[IO, V],
+        ) = {
           val consumer: KafkaConsumer[IO, K, V] = new KafkaConsumer[IO, K, V] {
-            def assign(partitions: Nes[TopicPartition])         = ().pure[IO]
+            def assign(partitions: Nes[TopicPartition]) = ().pure[IO]
             def seek(partition: TopicPartition, offset: Offset) = ().pure[IO]
             def subscribe(topic: Topic, listener: RebalanceListener1[IO]) = {
               deferred.complete(listener).void
@@ -47,9 +50,9 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
                 .sleep(timeout)
                 .as(ConsumerRecords.empty[K, V])
             }
-            def commit(offsets: Nem[TopicPartition, OffsetAndMetadata])      = ().pure[IO]
+            def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = ().pure[IO]
             def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = ().pure[IO]
-            def topics                                                       = Set.empty[Topic].pure[IO]
+            def topics = Set.empty[Topic].pure[IO]
             def partitions(topic: Topic) = {
               Set(partition0, partition1, partition2).pure[IO]
             }
@@ -78,14 +81,16 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
         } yield {
           for {
             listener <- deferred.get
-            a        <- actions.get
-            _        <- IO { a shouldEqual List.empty }
-
-            _ <- listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition1))).run(EmptyRebalanceConsumer).liftTo[IO]
             a <- actions.get
             _ <- IO { a shouldEqual List.empty }
 
-            _ <- listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition0))).run(EmptyRebalanceConsumer).liftTo[IO]
+            _ <-
+              listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition1))).run(EmptyRebalanceConsumer).liftTo[IO]
+            a <- actions.get
+            _ <- IO { a shouldEqual List.empty }
+
+            _ <-
+              listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition0))).run(EmptyRebalanceConsumer).liftTo[IO]
             a <- actions.get
             _ <- IO { a shouldEqual List(Action.Allocate("a")) }
 
@@ -113,7 +118,8 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
             _ <- jobOf("c", partition2).allocated
             _ <- jobOf("d", Partition.max).allocated
 
-            _ <- listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition2))).run(EmptyRebalanceConsumer).liftTo[IO]
+            _ <-
+              listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition2))).run(EmptyRebalanceConsumer).liftTo[IO]
             a <- actions.get
             _ <- IO {
               a shouldEqual List(

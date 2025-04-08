@@ -23,11 +23,11 @@ class PartitionsToSegmentsTest extends AnyFunSuite with Matchers {
   } {
     test(s"partitions: $partitions, segmentNrs: $segmentNrs, partitionNrs: $partitionNrs") {
       val result = for {
-        segmentNrs   <- segmentNrs.toList.traverse { a => SegmentNr.of[Try](a.toLong) }
+        segmentNrs <- segmentNrs.toList.traverse { a => SegmentNr.of[Try](a.toLong) }
         partitionNrs <- partitionNrs.toNel.traverse { a => Partition.of[Try](a) }
       } yield {
         val partitionsToSegments = PartitionsToSegments(partitions, Segments.old)
-        val actual               = partitionsToSegments(partitionNrs.toNes)
+        val actual = partitionsToSegments(partitionNrs.toNes)
         actual shouldEqual segmentNrs.toSortedSet
       }
       result shouldEqual Succeeded.pure[Try]

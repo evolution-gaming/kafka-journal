@@ -9,26 +9,36 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import java.time.Instant
 import scala.collection.immutable.SortedSet
 
-/** Write-only implementation of a journal stored to eventual storage, i.e.
-  * Cassandra.
-  *
-  * This class is used to replicate the events read from Kafka, hence the name.
-  *
-  * The flat interface was replaced by hierarchical [[ReplicatedJournal]] for
-  * all means and purposes except for the unit tests, and should not be used
-  * directly anymore.
-  * 
-  * @see [[EventualJournal]] for a read-only counterpart of this class.
-  */
+/**
+ * Write-only implementation of a journal stored to eventual storage, i.e. Cassandra.
+ *
+ * This class is used to replicate the events read from Kafka, hence the name.
+ *
+ * The flat interface was replaced by hierarchical [[ReplicatedJournal]] for all means and purposes
+ * except for the unit tests, and should not be used directly anymore.
+ *
+ * @see
+ *   [[EventualJournal]] for a read-only counterpart of this class.
+ */
 trait ReplicatedJournalFlat[F[_]] {
 
   def topics: F[SortedSet[Topic]]
 
   def offset(topic: Topic, partition: Partition): F[Option[Offset]]
 
-  def offsetCreate(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant): F[Unit]
+  def offsetCreate(
+    topic: Topic,
+    partition: Partition,
+    offset: Offset,
+    timestamp: Instant,
+  ): F[Unit]
 
-  def offsetUpdate(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant): F[Unit]
+  def offsetUpdate(
+    topic: Topic,
+    partition: Partition,
+    offset: Offset,
+    timestamp: Instant,
+  ): F[Unit]
 
   def append(
     key: Key,
@@ -78,7 +88,12 @@ object ReplicatedJournalFlat {
           }
       }
 
-      def offsetCreate(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) = {
+      def offsetCreate(
+        topic: Topic,
+        partition: Partition,
+        offset: Offset,
+        timestamp: Instant,
+      ) = {
         replicatedJournal
           .journal(topic)
           .use { journal =>
@@ -92,7 +107,12 @@ object ReplicatedJournalFlat {
           }
       }
 
-      def offsetUpdate(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) = {
+      def offsetUpdate(
+        topic: Topic,
+        partition: Partition,
+        offset: Offset,
+        timestamp: Instant,
+      ) = {
         replicatedJournal
           .journal(topic)
           .use { journal =>

@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import TestJsonCodec.instance
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
@@ -12,8 +13,6 @@ import scodec.bits.ByteVector
 import java.io.FileOutputStream
 import scala.concurrent.duration.*
 import scala.util.Try
-
-import TestJsonCodec.instance
 
 class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
@@ -42,12 +41,28 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
     (name, payloadType, events) <- List(
       ("empty", PayloadType.Json, Events(Nel.of(event(1)), PayloadMetadata.empty)),
       ("binary", PayloadType.Binary, Events(Nel.of(event(1, binary("payload"))), PayloadMetadata.empty)),
-      ("text", PayloadType.Json, Events(Nel.of(event(1, Payload.text(""" {"key":"value"} """))), PayloadMetadata.empty)),
+      (
+        "text",
+        PayloadType.Json,
+        Events(Nel.of(event(1, Payload.text(""" {"key":"value"} """))), PayloadMetadata.empty),
+      ),
       ("json", PayloadType.Json, Events(Nel.of(event(1, Payload.json("payload"))), PayloadMetadata.empty)),
       ("empty-many", PayloadType.Json, Events(Nel.of(event(1), event(2)), payloadMetadata)),
-      ("binary-many", PayloadType.Binary, Events(Nel.of(event(1, binary("1")), event(2, binary("2"))), payloadMetadata)),
-      ("text-many", PayloadType.Json, Events(Nel.of(event(1, Payload.text("1")), event(2, Payload.text("2"))), payloadMetadata)),
-      ("json-many", PayloadType.Json, Events(Nel.of(event(1, Payload.json("1")), event(2, Payload.json("2"))), payloadMetadata)),
+      (
+        "binary-many",
+        PayloadType.Binary,
+        Events(Nel.of(event(1, binary("1")), event(2, binary("2"))), payloadMetadata),
+      ),
+      (
+        "text-many",
+        PayloadType.Json,
+        Events(Nel.of(event(1, Payload.text("1")), event(2, Payload.text("2"))), payloadMetadata),
+      ),
+      (
+        "json-many",
+        PayloadType.Json,
+        Events(Nel.of(event(1, Payload.json("1")), event(2, Payload.json("2"))), payloadMetadata),
+      ),
       (
         "empty-binary-text-json",
         PayloadType.Binary,
@@ -87,7 +102,11 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
   for {
     (name, payloadType, events) <- List(
       ("empty", PayloadType.Json, Events(Nel.of(event(1)), PayloadMetadata.empty)),
-      ("text", PayloadType.Json, Events(Nel.of(event(1, Payload.text(""" {"key":"value"} """))), PayloadMetadata.empty)),
+      (
+        "text",
+        PayloadType.Json,
+        Events(Nel.of(event(1, Payload.text(""" {"key":"value"} """))), PayloadMetadata.empty),
+      ),
       ("json", PayloadType.Json, Events(Nel.of(event(1, Payload.json("payload"))), PayloadMetadata.empty)),
       ("empty-many", PayloadType.Json, Events(Nel.of(event(1), event(2)), PayloadMetadata.empty)),
       (
@@ -106,9 +125,9 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
     test(s"fromBytes, events: $name") {
       val ext = payloadType.ext
       val actual = for {
-        payload       <- ByteVectorOf[Try](getClass, s"Payload-v0-$name.$ext")
+        payload <- ByteVectorOf[Try](getClass, s"Payload-v0-$name.$ext")
         payloadAndType = PayloadAndType(payload, payloadType)
-        events        <- kafkaRead(payloadAndType)
+        events <- kafkaRead(payloadAndType)
       } yield events
       actual shouldEqual events.pure[Try]
     }

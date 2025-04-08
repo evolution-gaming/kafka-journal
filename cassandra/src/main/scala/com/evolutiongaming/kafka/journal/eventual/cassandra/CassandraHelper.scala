@@ -34,13 +34,13 @@ object CassandraHelper {
 
   implicit class RowOps(val self: Row) extends AnyVal {
 
-    /** Same as [[com.datastax.driver.core.ResultSet#wasApplied]] with some
-      * minor differences (i.e. it may throw an exception).
-      *
-      * @throws IllegalArgumentException
-      *   if `[applied]` column is not found, i.e. for non-conditional or DDL
-      *   queries.
-      */
+    /**
+     * Same as [[com.datastax.driver.core.ResultSet#wasApplied]] with some minor differences (i.e.
+     * it may throw an exception).
+     *
+     * @throws IllegalArgumentException
+     *   if `[applied]` column is not found, i.e. for non-conditional or DDL queries.
+     */
     def wasApplied: Boolean = self.decode[Boolean]("[applied]")
 
   }
@@ -52,7 +52,10 @@ object CassandraHelper {
       def apply[B <: SettableData[B]](data: B, value: A) = data
     }
 
-    def noneAsUnset[A](implicit encode: EncodeRow[A]): EncodeRow[Option[A]] = new EncodeRow[Option[A]] {
+    def noneAsUnset[A](
+      implicit
+      encode: EncodeRow[A],
+    ): EncodeRow[Option[A]] = new EncodeRow[Option[A]] {
 
       def apply[B <: SettableData[B]](data: B, value: Option[A]) = {
         value.fold(data) { encode(data, _) }

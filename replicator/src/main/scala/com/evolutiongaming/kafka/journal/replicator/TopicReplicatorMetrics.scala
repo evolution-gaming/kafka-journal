@@ -12,23 +12,40 @@ import scala.concurrent.duration.*
 trait TopicReplicatorMetrics[F[_]] {
   import TopicReplicatorMetrics.*
 
-  /** Accounts number of processed events, the size of their payloads and client version as well as
-   * replication and delivery latencies and number of processed Kafka records */
-  def append(events: Int, bytes: Long, clientVersion: String, expiration: String, measurements: Measurements): F[Unit]
+  /**
+   * Accounts number of processed events, the size of their payloads and client version as well as
+   * replication and delivery latencies and number of processed Kafka records
+   */
+  def append(
+    events: Int,
+    bytes: Long,
+    clientVersion: String,
+    expiration: String,
+    measurements: Measurements,
+  ): F[Unit]
 
-  /** Accounts replication and delivery latencies and number of processed Kafka records */
+  /**
+   * Accounts replication and delivery latencies and number of processed Kafka records
+   */
   def delete(measurements: Measurements): F[Unit]
 
-  /** Accounts replication and delivery latencies and number of processed Kafka records */
+  /**
+   * Accounts replication and delivery latencies and number of processed Kafka records
+   */
   def purge(measurements: Measurements): F[Unit]
 
-  /** Accounts how long and how many records were processed in single batch (poll) */
+  /**
+   * Accounts how long and how many records were processed in single batch (poll)
+   */
   def round(latency: FiniteDuration, records: Int): F[Unit]
 }
 
 object TopicReplicatorMetrics {
 
-  def apply[F[_]](implicit F: TopicReplicatorMetrics[F]): TopicReplicatorMetrics[F] = F
+  def apply[F[_]](
+    implicit
+    F: TopicReplicatorMetrics[F],
+  ): TopicReplicatorMetrics[F] = F
 
   def empty[F[_]: Applicative]: TopicReplicatorMetrics[F] = const(Applicative[F].unit)
 
@@ -36,7 +53,13 @@ object TopicReplicatorMetrics {
     class Const
     new Const with TopicReplicatorMetrics[F] {
 
-      def append(events: Int, bytes: Long, clientVersion: String, expiration: String, measurements: Measurements): F[Unit] = unit
+      def append(
+        events: Int,
+        bytes: Long,
+        clientVersion: String,
+        expiration: String,
+        measurements: Measurements,
+      ): F[Unit] = unit
 
       def delete(measurements: Measurements): F[Unit] = unit
 
@@ -52,75 +75,75 @@ object TopicReplicatorMetrics {
   ): Resource[F, Topic => TopicReplicatorMetrics[F]] = {
 
     val replicationSummary = registry.summary(
-      name      = s"${prefix}_replication_latency",
-      help      = "Replication latency in seconds",
+      name = s"${ prefix }_replication_latency",
+      help = "Replication latency in seconds",
       quantiles = Quantiles.Default,
-      labels    = LabelNames("topic", "type"),
+      labels = LabelNames("topic", "type"),
     )
 
     val deliverySummary = registry.summary(
-      name      = s"${prefix}_delivery_latency",
-      help      = "Delivery latency in seconds",
+      name = s"${ prefix }_delivery_latency",
+      help = "Delivery latency in seconds",
       quantiles = Quantiles.Default,
-      labels    = LabelNames("topic", "type"),
+      labels = LabelNames("topic", "type"),
     )
 
     val eventsSummary = registry.summary(
-      name      = s"${prefix}_events",
-      help      = "Number of events replicated",
+      name = s"${ prefix }_events",
+      help = "Number of events replicated",
       quantiles = Quantiles.Empty,
-      labels    = LabelNames("topic"),
+      labels = LabelNames("topic"),
     )
 
     val bytesSummary = registry.summary(
-      name      = s"${prefix}_bytes",
-      help      = "Number of bytes replicated",
+      name = s"${ prefix }_bytes",
+      help = "Number of bytes replicated",
       quantiles = Quantiles.Empty,
-      labels    = LabelNames("topic"),
+      labels = LabelNames("topic"),
     )
 
     val recordsSummary = registry.summary(
-      name      = s"${prefix}_records",
-      help      = "Number of kafka records processed",
+      name = s"${ prefix }_records",
+      help = "Number of kafka records processed",
       quantiles = Quantiles.Empty,
-      labels    = LabelNames("topic"),
+      labels = LabelNames("topic"),
     )
 
     val roundSummary = registry.summary(
-      name      = s"${prefix}_round_duration",
-      help      = "Replication round duration",
+      name = s"${ prefix }_round_duration",
+      help = "Replication round duration",
       quantiles = Quantiles.Default,
-      labels    = LabelNames("topic"),
+      labels = LabelNames("topic"),
     )
 
     val roundRecordsSummary = registry.summary(
-      name      = s"${prefix}_round_records",
-      help      = "Number of kafka records processed in round",
+      name = s"${ prefix }_round_records",
+      help = "Number of kafka records processed in round",
       quantiles = Quantiles.Empty,
-      labels    = LabelNames("topic"),
+      labels = LabelNames("topic"),
     )
 
     val clientVersionGauge = registry.gauge(
-      name   = s"${prefix}_kafka_journal_client_version_info",
-      help   = "kafka-journal's client version as reported in payloads",
+      name = s"${ prefix }_kafka_journal_client_version_info",
+      help = "kafka-journal's client version as reported in payloads",
       labels = LabelNames("topic", "version"),
     )
 
     val expirationDurationGauge = registry.gauge(
-      name   = s"${prefix}_kafka_journal_client_journal_expiration_info",
-      help   = "kafka-journal's client expiration as observed in payloads",
+      name = s"${ prefix }_kafka_journal_client_journal_expiration_info",
+      help = "kafka-journal's client expiration as observed in payloads",
       labels = LabelNames("topic", "expiration"),
     )
 
     for {
-      replicationSummary      <- replicationSummary
-      deliverySummary         <- deliverySummary
-      eventsSummary           <- eventsSummary
-      bytesSummary            <- bytesSummary
-      recordsSummary          <- recordsSummary
-      roundSummary            <- roundSummary
-      roundRecordsSummary     <- roundRecordsSummary
-      clientVersionGauge      <- clientVersionGauge
+      replicationSummary <- replicationSummary
+      deliverySummary <- deliverySummary
+      eventsSummary <- eventsSummary
+      bytesSummary <- bytesSummary
+      recordsSummary <- recordsSummary
+      roundSummary <- roundSummary
+      roundRecordsSummary <- roundRecordsSummary
+      clientVersionGauge <- clientVersionGauge
       expirationDurationGauge <- expirationDurationGauge
     } yield { (topic: Topic) =>
       {
@@ -136,7 +159,13 @@ object TopicReplicatorMetrics {
         class Main
         new Main with TopicReplicatorMetrics[F] {
 
-          def append(events: Int, bytes: Long, clientVersion: String, expiration: String, measurements: Measurements): F[Unit] = {
+          def append(
+            events: Int,
+            bytes: Long,
+            clientVersion: String,
+            expiration: String,
+            measurements: Measurements,
+          ): F[Unit] = {
             for {
               _ <- observeMeasurements("append", measurements)
               _ <- eventsSummary.labels(topic).observe(events.toDouble)

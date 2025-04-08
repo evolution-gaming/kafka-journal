@@ -8,21 +8,24 @@ import com.evolutiongaming.scassandra.*
 import pureconfig.error.{CannotParse, ConfigReaderFailures}
 import pureconfig.{ConfigCursor, ConfigReader}
 
-/** The size of a segment in `journal` table.
-  *
-  * When [[SegmentSize]] is used then the segment column is used akin to a page
-  * number. I.e. segment number increments as soon as more than [[SegmentSize#value]]
-  * rows accumulate. This allows the nearby journal events reside mostly in the same 
-  * partitions in Cassandra, making recovery quicker and less resource consuming.
-  *
-  * The logic itself could be found in [[SegmentNr#journal]] class constructor.
-  *
-  * The value is configured per journal in `metajournal` table in `segment_size` column.
-  * and stays the same during the life of the persistent journal.
-  *
-  * @see [[SegmentNr]] for usage in `journal` table.
-  * @see [[Segments]] for alternative way, used in `metajournal` table.
-  */
+/**
+ * The size of a segment in `journal` table.
+ *
+ * When [[SegmentSize]] is used then the segment column is used akin to a page number. I.e. segment
+ * number increments as soon as more than [[SegmentSize#value]] rows accumulate. This allows the
+ * nearby journal events reside mostly in the same partitions in Cassandra, making recovery quicker
+ * and less resource consuming.
+ *
+ * The logic itself could be found in [[SegmentNr#journal]] class constructor.
+ *
+ * The value is configured per journal in `metajournal` table in `segment_size` column. and stays
+ * the same during the life of the persistent journal.
+ *
+ * @see
+ *   [[SegmentNr]] for usage in `journal` table.
+ * @see
+ *   [[Segments]] for alternative way, used in `metajournal` table.
+ */
 private[journal] sealed abstract case class SegmentSize(value: Int) {
 
   override def toString: String = value.toString
@@ -44,13 +47,15 @@ private[journal] object SegmentSize {
 
   implicit val orderSegmentSize: Order[SegmentSize] = Order.fromOrdering
 
-  implicit val encodeByNameSegmentSize: EncodeByName[SegmentSize] = EncodeByName[Int].contramap((a: SegmentSize) => a.value)
+  implicit val encodeByNameSegmentSize: EncodeByName[SegmentSize] =
+    EncodeByName[Int].contramap((a: SegmentSize) => a.value)
 
   implicit val decodeByNameSegmentSize: DecodeByName[SegmentSize] = DecodeByName[Int].map { a =>
     SegmentSize.of[Option](a) getOrElse default
   }
 
-  implicit val encodeByIdxSegmentSize: EncodeByIdx[SegmentSize] = EncodeByIdx[Int].contramap((a: SegmentSize) => a.value)
+  implicit val encodeByIdxSegmentSize: EncodeByIdx[SegmentSize] =
+    EncodeByIdx[Int].contramap((a: SegmentSize) => a.value)
 
   implicit val decodeByIdxSegmentSize: DecodeByIdx[SegmentSize] = DecodeByIdx[Int].map { a =>
     SegmentSize.of[Option](a) getOrElse default
@@ -63,8 +68,8 @@ private[journal] object SegmentSize {
   implicit val configReaderSegmentSize: ConfigReader[SegmentSize] = { (cursor: ConfigCursor) =>
     {
       for {
-        value       <- cursor.asInt
-        segmentSize  = of[Either[String, *]](value)
+        value <- cursor.asInt
+        segmentSize = of[Either[String, *]](value)
         segmentSize <- segmentSize.leftMap(a => ConfigReaderFailures(CannotParse(a, cursor.origin)))
       } yield segmentSize
     }
@@ -84,5 +89,9 @@ private[journal] object SegmentSize {
     }
   }
 
-  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SegmentSize = of[Id](numeric.toInt(value))
+  def unsafe[A](
+    value: A,
+  )(implicit
+    numeric: Numeric[A],
+  ): SegmentSize = of[Id](numeric.toInt(value))
 }

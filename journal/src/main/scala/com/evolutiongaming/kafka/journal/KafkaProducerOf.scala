@@ -12,7 +12,10 @@ trait KafkaProducerOf[F[_]] {
 
 object KafkaProducerOf {
 
-  def apply[F[_]](implicit F: KafkaProducerOf[F]): KafkaProducerOf[F] = F
+  def apply[F[_]](
+    implicit
+    F: KafkaProducerOf[F],
+  ): KafkaProducerOf[F] = F
 
   def apply[F[_]: Async: MeasureDuration: ToTry](
     metrics: Option[ProducerMetrics[F]] = None,

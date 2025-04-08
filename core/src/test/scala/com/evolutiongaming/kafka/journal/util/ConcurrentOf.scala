@@ -9,9 +9,15 @@ import scala.util.control.NonFatal
 
 object ConcurrentOf {
 
-  def fromAsync[F[_]](implicit F: Async[F]): Concurrent[F] = F
+  def fromAsync[F[_]](
+    implicit
+    F: Async[F],
+  ): Concurrent[F] = F
 
-  def fromMonad[F[_]](implicit F: Monad[F]): Concurrent[F] = {
+  def fromMonad[F[_]](
+    implicit
+    F: Monad[F],
+  ): Concurrent[F] = {
     new Concurrent[F] {
 
       def ref[A](a: A): F[Ref[F, A]] = throw new NotImplementedError(s"Concurrent.ref")
@@ -22,7 +28,7 @@ object ConcurrentOf {
         F.map(fa) { a =>
           new Fiber[F, Throwable, A] {
             def cancel = pure(())
-            def join   = pure(Outcome.succeeded(pure(a)))
+            def join = pure(Outcome.succeeded(pure(a)))
           }
         }
 

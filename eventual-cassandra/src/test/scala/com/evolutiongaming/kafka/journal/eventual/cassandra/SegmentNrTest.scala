@@ -11,7 +11,7 @@ class SegmentNrTest extends AnyFunSuite with Matchers {
     val result = for {
       a <- SegmentNr.min.next[Try]
       b <- SegmentNr.of[Try](SegmentNr.min.value + 1)
-      _  = a shouldEqual b
+      _ = a shouldEqual b
     } yield {}
     result.get
   }
@@ -20,7 +20,7 @@ class SegmentNrTest extends AnyFunSuite with Matchers {
     val result = for {
       a <- SegmentNr.max.prev[Try]
       b <- SegmentNr.of[Try](SegmentNr.max.value - 1)
-      _  = a shouldEqual b
+      _ = a shouldEqual b
     } yield {}
     result.get
   }
@@ -36,7 +36,7 @@ class SegmentNrTest extends AnyFunSuite with Matchers {
           a <- SegmentNr.of[Try](a.toLong)
           b <- SegmentNr.of[Try](b.toLong)
           c <- a.to[Try](b)
-          _  = c.map { _.value } shouldEqual expected.map { _.toLong }
+          _ = c.map { _.value } shouldEqual expected.map { _.toLong }
         } yield {}
         result.get
       }

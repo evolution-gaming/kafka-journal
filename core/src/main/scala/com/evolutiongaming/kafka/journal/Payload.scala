@@ -26,7 +26,11 @@ object Payload {
 
   def binary(value: ByteVector): Payload = Binary(value)
 
-  def json[A](value: A)(implicit writes: Writes[A]): Payload = Json(value)
+  def json[A](
+    value: A,
+  )(implicit
+    writes: Writes[A],
+  ): Payload = Json(value)
 
   final case class Binary(value: ByteVector) extends Payload {
 
@@ -65,8 +69,15 @@ object Payload {
 
     implicit val formatJson: Format[Json] = Format.of[JsValue].inmap(Json(_), _.value)
 
-    def codecJson(implicit jsonCodec: JsonCodec[Try]): Codec[Json] = formatCodec
+    def codecJson(
+      implicit
+      jsonCodec: JsonCodec[Try],
+    ): Codec[Json] = formatCodec
 
-    def apply[A](a: A)(implicit writes: Writes[A]): Json = Json(writes.writes(a))
+    def apply[A](
+      a: A,
+    )(implicit
+      writes: Writes[A],
+    ): Json = Json(writes.writes(a))
   }
 }

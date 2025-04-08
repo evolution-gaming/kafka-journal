@@ -8,28 +8,28 @@ class BufferNrSpec extends AnyFunSuite {
 
   test("create BufferNr out of an Int") {
     BufferNr.of[F](17) match {
-      case Left(message)   => fail(message)
+      case Left(message) => fail(message)
       case Right(bufferNr) => assert(bufferNr.value == 17)
     }
   }
 
   test("fail to create negative BufferNr") {
     BufferNr.of[F](-1) match {
-      case Left(message)   => assert(message == "invalid BufferNr of -1, it must be greater or equal to 0")
+      case Left(message) => assert(message == "invalid BufferNr of -1, it must be greater or equal to 0")
       case Right(bufferNr) => fail(s"exception was not thrown, but got $bufferNr instead")
     }
   }
 
   test("reuse BufferNr.min instance") {
     BufferNr.of[F](0) match {
-      case Left(message)   => fail(message)
+      case Left(message) => fail(message)
       case Right(bufferNr) => assert(bufferNr == BufferNr.min)
     }
   }
 
   test("reuse BufferNr.max instance") {
     BufferNr.of[F](Int.MaxValue) match {
-      case Left(message)   => fail(message)
+      case Left(message) => fail(message)
       case Right(bufferNr) => assert(bufferNr == BufferNr.max)
     }
   }

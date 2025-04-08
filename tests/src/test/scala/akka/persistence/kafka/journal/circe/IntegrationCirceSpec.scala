@@ -7,5 +7,5 @@ import com.typesafe.config.ConfigFactory
 class IntegrationCirceSpec extends JournalSpec(ConfigFactory.load("integration-circe.conf")) with KafkaPluginSpec {
 
   def supportsRejectingNonSerializableObjects = false
-  override def supportsSerialization          = false
+  override def supportsSerialization = false
 }

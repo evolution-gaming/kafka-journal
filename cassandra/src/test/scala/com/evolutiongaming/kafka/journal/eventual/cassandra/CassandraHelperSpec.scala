@@ -1,8 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import org.scalatest.funsuite.AnyFunSuite
-
 import CassandraHelper.*
+import org.scalatest.funsuite.AnyFunSuite
 
 class CassandraHelperSpec extends AnyFunSuite {
 
@@ -10,7 +9,7 @@ class CassandraHelperSpec extends AnyFunSuite {
     val row = new RowStub {
       override def getBool(name: String): Boolean = name match {
         case "[applied]" => true
-        case _           => throw new IllegalArgumentException
+        case _ => throw new IllegalArgumentException
       }
     }
     assert(row.wasApplied)
@@ -20,7 +19,7 @@ class CassandraHelperSpec extends AnyFunSuite {
     val row = new RowStub {
       override def getBool(name: String): Boolean = name match {
         case "[applied]" => false
-        case _           => throw new IllegalArgumentException
+        case _ => throw new IllegalArgumentException
       }
     }
     assert(!row.wasApplied)
@@ -30,7 +29,7 @@ class CassandraHelperSpec extends AnyFunSuite {
     val row = new RowStub {
       override def getBool(name: String): Boolean = name match {
         case "[applied]" => throw new IllegalArgumentException
-        case _           => fail("[applied] column was not requested")
+        case _ => fail("[applied] column was not requested")
       }
     }
     assertThrows[IllegalArgumentException](row.wasApplied)

@@ -11,7 +11,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 object IOSuite {
   val Timeout: FiniteDuration = 1.minute
 
-  implicit val executor: ExecutionContextExecutor   = ExecutionContext.global
+  implicit val executor: ExecutionContextExecutor = ExecutionContext.global
   implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock(Clock[IO])
 
   def runIO[A](io: IO[A], timeout: FiniteDuration = Timeout): Future[Succeeded.type] = {
@@ -26,7 +26,7 @@ object IOSuite {
 
     def eventually: IO[A] = {
       def attempt: IO[A] = self.attempt.flatMap {
-        case Left(_)  => IO.sleep(10.millis) >> attempt
+        case Left(_) => IO.sleep(10.millis) >> attempt
         case Right(a) => IO.pure(a)
       }
 

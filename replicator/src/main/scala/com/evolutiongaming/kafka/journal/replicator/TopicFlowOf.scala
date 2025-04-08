@@ -17,7 +17,12 @@ private[journal] object TopicFlowOf {
 
   implicit class TopicFlowOfOps[F[_]](val self: TopicFlowOf[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G)(implicit B: MonadCancel[F, Throwable], BG: MonadCancel[G, Throwable]): TopicFlowOf[G] = {
+    def mapK[G[_]](
+      f: F ~> G,
+    )(implicit
+      B: MonadCancel[F, Throwable],
+      BG: MonadCancel[G, Throwable],
+    ): TopicFlowOf[G] = {
       (topic: Topic) => self(topic).map(_.mapK(f)).mapK(f)
     }
   }
