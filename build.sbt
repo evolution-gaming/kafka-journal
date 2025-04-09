@@ -25,10 +25,14 @@ lazy val commonSettings = Seq(
   libraryDependencySchemes ++= Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
     "org.scala-lang.modules" %% "scala-xml" % "always",
-    "com.evolutiongaming" %% "scassandra" % "semver-spec",
-    // scache didn't set any versioning policy for itself, so versionCheck fails on even minor updates for scache
-    // https://github.com/evolution-gaming/scache/issues/299
-    "com.evolution" %% "scache" % "semver-spec",
+    // TODO: [next release after 4.2.1] remove
+    //  hostname 0.2.0, 0.3.0 and 1.0.0 are binary compatible
+    "com.evolutiongaming" %% "hostname" % "always",
+  ),
+  versionPolicyIgnored ++= Seq(
+    // TODO: [next release after 4.2.1] remove
+    //  random changed orgId from com.evolution to com.evolutiongaming, the code is the same
+    "com.evolutiongaming" %% "random",
   ),
   autoAPIMappings := true,
   versionScheme := Some("early-semver"),
