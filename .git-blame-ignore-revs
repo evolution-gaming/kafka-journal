@@ -1,2 +1,5 @@
 # reformat with scalafmt 3.8.2
 6e52790fdcaa57dd38a88c547739c8b95d8fb04e
+
+# reformat with a new commit-diff-friendly style
+677a6be78f92d840dd58d92a9f346dc7244fa5b5
