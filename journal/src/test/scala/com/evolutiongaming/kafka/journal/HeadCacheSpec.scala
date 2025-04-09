@@ -7,7 +7,7 @@ import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
-import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, KafkaWrite}
+import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.*
@@ -73,7 +73,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val marker = Offset.unsafe(10)
 
       val pointers = Map((partition, marker))
-      implicit val eventual = HeadCache.Eventual.const(TopicPointers(pointers).pure[IO])
+      implicit val eventual: HeadCache.Eventual[IO] = HeadCache.Eventual.const(TopicPointers(pointers).pure[IO])
 
       val state = TestConsumer.State(topics = Map((topic, List(partition))))
 
@@ -258,7 +258,6 @@ object HeadCacheSpec {
   }
 
   def appendOf(key: Key, seqNr: SeqNr): Action.Append = {
-    implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
     Action
       .Append
       .of[Try, Payload](

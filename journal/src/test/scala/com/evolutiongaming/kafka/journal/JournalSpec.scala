@@ -43,7 +43,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         withJournal { journal =>
           def append(seqNrs: Nel[SeqNr]) = {
             journal
-              .append(seqNrs.head, seqNrs.tail: _*)
+              .append(seqNrs.head, seqNrs.tail*)
               .map { _.some }
           }
           for {
@@ -441,7 +441,7 @@ object JournalSpec {
 
         def append(seqNr: SeqNr, seqNrs: SeqNr*) = {
           val events = for {
-            seqNr <- Nel.of(seqNr, seqNrs: _*)
+            seqNr <- Nel.of(seqNr, seqNrs*)
           } yield {
             Event[A](seqNr)
           }
@@ -491,13 +491,13 @@ object JournalSpec {
       produceAction: ProduceAction[F],
       headCache: HeadCache[F],
     ): SeqNrJournal[F] = {
-      implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
-      implicit val randomIdOf = RandomIdOf.uuid[F]
-      implicit val measureDuration = MeasureDuration.fromClock(clock)
-      implicit val fromTry = FromTry.lift[F]
-      implicit val fail = Fail.lift[F]
-      implicit val fromAttempt = FromAttempt.lift[F]
-      implicit val fromJsResult = FromJsResult.lift[F]
+      implicit val clock: Clock[F] = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
+      implicit val randomIdOf: RandomIdOf[F] = RandomIdOf.uuid[F]
+      implicit val measureDuration: MeasureDuration[F] = MeasureDuration.fromClock(clock)
+      implicit val fromTry: FromTry[F] = FromTry.lift[F]
+      implicit val fail: Fail[F] = Fail.lift[F]
+      implicit val fromAttempt: FromAttempt[F] = FromAttempt.lift[F]
+      implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
       val log = Log.empty[F]
 
       val journal = Journals[F](
@@ -643,8 +643,8 @@ object JournalSpec {
 
       def apply(record: ActionRecord[Action], offset: Offset): State = {
 
-        implicit val fromAttempt = FromAttempt.lift[Try]
-        implicit val fromJsResult = FromJsResult.lift[Try]
+        implicit val fromAttempt: FromAttempt[Try] = FromAttempt.lift[Try]
+        implicit val fromJsResult: FromJsResult[Try] = FromJsResult.lift[Try]
 
         val kafkaRead = KafkaRead.summon[Try, Payload]
         val eventualWrite = EventualWrite.summon[Try, Payload]

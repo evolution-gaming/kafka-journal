@@ -19,7 +19,7 @@ class ReplicatorSpec extends AsyncWordSpec with Matchers {
 
     "fail if any of replicators failed" in {
 
-      implicit val logOf = LogOf.empty[IO]
+      implicit val logOf: LogOf[IO] = LogOf.empty[IO]
 
       val error = new RuntimeException with NoStackTrace
 

@@ -5,7 +5,7 @@ import cats.data.NonEmptyList as Nel
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
 import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
 import play.api.libs.json.*
-import scodec.Codec
+import scodec.*
 import scodec.bits.ByteVector
 
 import scala.util.Try

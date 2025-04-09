@@ -9,7 +9,7 @@ import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
 import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
 import com.evolutiongaming.scassandra.*
 import play.api.libs.json.*
-import scodec.{Attempt, Codec, codecs}
+import scodec.*
 
 sealed abstract case class SeqNr(value: Long) {
 

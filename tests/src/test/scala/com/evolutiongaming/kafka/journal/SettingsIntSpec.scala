@@ -74,8 +74,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
   def test[F[_]: Async: Parallel: FromFuture](cassandraClusterOf: CassandraClusterOf[F]): F[Unit] = {
-
-    implicit val logOf = LogOf.empty[F]
+    implicit val logOf: LogOf[F] = LogOf.empty[F]
 
     for {
       origin <- Origin.hostName[F]

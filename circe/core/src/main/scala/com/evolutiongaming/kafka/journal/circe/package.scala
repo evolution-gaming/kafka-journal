@@ -18,7 +18,7 @@ package object circe {
         values
           .toList
           .traverse { value => Eval.defer(convert(value)) }
-          .map(Json.arr(_: _*))
+          .map(Json.arr(_*))
       case JsObject(fields) =>
         fields
           .toList

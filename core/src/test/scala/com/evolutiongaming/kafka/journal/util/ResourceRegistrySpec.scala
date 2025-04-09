@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.{Deferred, Ref, *}
 import cats.syntax.all.*
-import cats.{Applicative, Foldable}
+import cats.{Applicative, Foldable, Monoid}
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -37,7 +37,7 @@ class ResourceRegistrySpec extends AsyncFunSuite with Matchers {
       ResourceRegistry.make[IO].use { registry =>
         val resource = Resource.make(().pure[IO]) { _ => release }
         val fa = registry.allocate(resource)
-        implicit val monoidUnit = Applicative.monoid[IO, Unit]
+        implicit val monoidUnit: Monoid[IO[Unit]] = Applicative.monoid[IO, Unit]
         for {
           _ <- Foldable[List].fold(List.fill(n)(fa))
           _ <- error.fold(().pure[IO])(_.raiseError[IO, Unit])

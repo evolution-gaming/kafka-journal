@@ -79,7 +79,7 @@ object EventualCassandra {
       statements <- Statements.of(schema, segmentNrsOf, Segments.default, consistencyConfig.read)
       _ <- log.info(s"kafka-journal version: ${ Version.current.value }")
     } yield {
-      implicit val log1 = log
+      implicit val log1: Log[F] = log
       val journal = apply[F](statements, dataIntegrity).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }

@@ -31,7 +31,7 @@ object AppendReplicateApp extends IOApp {
 
     val config = ConfigFactory.load("AppendReplicate.conf")
     val system = ActorSystem("AppendReplicateApp", config)
-    implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
+    implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock(Clock[IO])
 
     val topic = "journal.AppendReplicate"
 
@@ -45,8 +45,8 @@ object AppendReplicateApp extends IOApp {
     system: ActorSystem,
   ): F[Unit] = {
 
-    implicit val logOf = LogOfFromAkka[F](system)
-    implicit val randomIdOf = RandomIdOf.uuid[F]
+    implicit val logOf: LogOf[F] = LogOfFromAkka[F](system)
+    implicit val randomIdOf: RandomIdOf[F] = RandomIdOf.uuid[F]
 
     val kafkaJournalConfig = ConfigSource
       .fromConfig(system.settings.config)

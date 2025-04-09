@@ -169,7 +169,7 @@ object ConsumeTopicTest {
       IO.delay {
         var result: State = state
 
-        implicit val toTryStateT = new ToTry[StateT] {
+        implicit val toTryStateT: ToTry[StateT] = new ToTry[StateT] {
 
           val ioToTry = ToTry.ioToTry
 

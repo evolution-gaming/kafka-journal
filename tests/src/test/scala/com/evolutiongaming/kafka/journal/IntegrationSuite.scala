@@ -66,7 +66,7 @@ object IntegrationSuite {
     }
 
     def replicator(log: Log[F]) = {
-      implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
+      implicit val kafkaConsumerOf: KafkaConsumerOf[F] = KafkaConsumerOf[F]()
       val config = for {
         config <- Sync[F].delay { ConfigFactory.load("replicator.conf") }
         config <- ReplicatorConfig.fromConfig[F](config)
@@ -95,7 +95,7 @@ object IntegrationSuite {
     for {
       logOf <- logOf.toResource
       result <- {
-        implicit val logOf1 = logOf
+        implicit val logOf1: LogOf[IO] = logOf
         startF[IO](cassandraClusterOf)
       }
     } yield result

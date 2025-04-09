@@ -4,7 +4,7 @@ import cats.Monad
 import cats.implicits.none
 import com.evolutiongaming.kafka.journal.util.ScodecHelper.formatCodec
 import play.api.libs.json.{JsValue, Json, OFormat}
-import scodec.Codec
+import scodec.*
 
 import scala.util.Try
 

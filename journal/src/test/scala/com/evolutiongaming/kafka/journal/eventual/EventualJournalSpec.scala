@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual
 import cats.data.NonEmptyList as Nel
 import cats.effect.Clock
 import cats.syntax.all.*
-import cats.{Applicative, FlatMap, Monad}
+import cats.{Applicative, FlatMap, Monad, Monoid}
 import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
@@ -30,9 +30,9 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
     val withJournals1 = (key: Key, timestamp: Instant) => { (f: (Eventual[F], Replicated[F]) => F[Assertion]) =>
       {
         withJournals { journals =>
-          implicit val log = Log.empty[F]
-          implicit val clock = Clock.const[F](nanos = 0, millis = 0)
-          implicit val measureDuration = MeasureDuration.fromClock(clock)
+          implicit val log: Log[F] = Log.empty[F]
+          implicit val clock: Clock[F] = Clock.const[F](nanos = 0, millis = 0)
+          implicit val measureDuration: MeasureDuration[F] = MeasureDuration.fromClock(clock)
           val eventual = {
             val journal = journals
               .eventual
@@ -61,7 +61,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
     withJournals: (Key, Instant) => ((Eventual[F], Replicated[F]) => F[Assertion]) => F[Assertion],
   ): Unit = {
 
-    implicit val monoidUnit = Applicative.monoid[F, Unit]
+    implicit val monoidUnit: Monoid[F[Unit]] = Applicative.monoid[F, Unit]
 
     val key = EventualJournalSpec.key
 

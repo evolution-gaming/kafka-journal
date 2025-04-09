@@ -104,7 +104,7 @@ object DistributeJob {
 
       final case class Active(partitions: Map[Partition, Assigned], jobs: Map[String, (Job, Release)]) extends Allocated
 
-      final case object Released extends S
+      case object Released extends S
     }
 
     val unit = ().pure[F]

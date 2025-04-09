@@ -32,10 +32,10 @@ object ReadEventsApp extends IOApp {
       logOf <- LogOf.slf4j[F]
       log <- logOf(ReadEventsApp.getClass)
       result <- {
-        implicit val logOf1 = logOf
-        implicit val measureDuration = MeasureDuration.fromClock(Clock[F])
-        implicit val fromAttempt = FromAttempt.lift[F]
-        implicit val fromJsResult = FromJsResult.lift[F]
+        implicit val logOf1: LogOf[F] = logOf
+        implicit val measureDuration: MeasureDuration[F] = MeasureDuration.fromClock(Clock[F])
+        implicit val fromAttempt: FromAttempt[F] = FromAttempt.lift[F]
+        implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
         runF[F](log).handleErrorWith { error =>
           log.error(s"failed with $error", error)
         }
@@ -51,12 +51,9 @@ object ReadEventsApp extends IOApp {
   ](
     log: Log[F],
   ): F[Unit] = {
-
-    implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
-
-    implicit val kafkaProducerOf = KafkaProducerOf[F]()
-
-    implicit val randomIdOf = RandomIdOf.uuid[F]
+    implicit val kafkaConsumerOf: KafkaConsumerOf[F] = KafkaConsumerOf[F]()
+    implicit val kafkaProducerOf: KafkaProducerOf[F] = KafkaProducerOf[F]()
+    implicit val randomIdOf: RandomIdOf[F] = RandomIdOf.uuid[F]
 
     val commonConfig = CommonConfig(clientId = "ReadEventsApp".some, bootstrapServers = Nel.of("localhost:9092"))
 

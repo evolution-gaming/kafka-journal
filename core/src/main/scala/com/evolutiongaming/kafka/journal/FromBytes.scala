@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats.syntax.all.*
 import cats.{Applicative, Functor, Monad, ~>}
 import play.api.libs.json.*
+import scodec.*
 import scodec.bits.ByteVector
-import scodec.{Decoder, codecs}
 
 trait FromBytes[F[_], A] {
 

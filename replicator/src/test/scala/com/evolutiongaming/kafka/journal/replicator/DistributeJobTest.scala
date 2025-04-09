@@ -23,8 +23,8 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
 
     def topicPartitionOf(partition: Partition) = TopicPartition(topic, partition)
 
-    implicit val logOf = LogOf.empty[IO]
-    implicit val toTry = ToTry.ioToTry
+    implicit val logOf: LogOf[IO] = LogOf.empty[IO]
+    implicit val toTry: ToTry[IO] = ToTry.ioToTry
     val consumerConfig = ConsumerConfig()
     val result = for {
       actions <- Actions.of[IO]
