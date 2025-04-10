@@ -56,7 +56,7 @@ private[journal] trait TopicCommit[F[_]] {
    * @return
    *   [[RebalanceCallback]]
    */
-  def onPartitionsAssigned(@nowarn("cat=unused") partitions: NonEmptySet[Partition]): RebalanceCallback[F, Unit] =
+  def onPartitionsAssigned(@nowarn partitions: NonEmptySet[Partition]): RebalanceCallback[F, Unit] =
     RebalanceCallback.empty
 
   /**
@@ -72,7 +72,7 @@ private[journal] trait TopicCommit[F[_]] {
    * @return
    *   [[RebalanceCallback]]
    */
-  def onPartitionsRevoked(@nowarn("cat=unused") partitions: NonEmptySet[Partition]): RebalanceCallback[F, Unit] =
+  def onPartitionsRevoked(@nowarn partitions: NonEmptySet[Partition]): RebalanceCallback[F, Unit] =
     RebalanceCallback.empty
 
   /**
@@ -92,7 +92,7 @@ private[journal] trait TopicCommit[F[_]] {
    * @return
    *   [[RebalanceCallback]]
    */
-  def onPartitionsLost(@nowarn("cat=unused") partitions: NonEmptySet[Partition]): RebalanceCallback[F, Unit] =
+  def onPartitionsLost(@nowarn partitions: NonEmptySet[Partition]): RebalanceCallback[F, Unit] =
     RebalanceCallback.empty
 }
 

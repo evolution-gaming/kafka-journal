@@ -130,7 +130,7 @@ private[journal] object ReplicatedCassandra {
                   case (journalHeadRef, segmentNr) =>
                     def metaJournal = statements.metaJournal(key, segmentNr)
 
-                    class Main
+                    class Main {}
                     new Main with ReplicatedKeyJournal[F] {
 
                       def append(

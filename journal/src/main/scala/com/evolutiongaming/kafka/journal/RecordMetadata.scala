@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import play.api.libs.json.*
+import play.api.libs.json.Json.WithDefaultValues
 
 import scala.util.Try
 
@@ -16,12 +17,16 @@ object RecordMetadata {
   val empty: RecordMetadata = RecordMetadata()
 
   implicit val formatRecordMetadata: OFormat[RecordMetadata] = {
-    val format = Json.format[RecordMetadata]
-    val reads = format.orElse { (json: JsValue) =>
-      json
-        .validate[HeaderMetadata]
-        .map { a => RecordMetadata(a, PayloadMetadata.empty) }
-    }
+    // adding WithDefaultValues, so on Scala 2 and Scala 3 the format behaves the same:
+    // https://github.com/playframework/play-json/issues/1146
+    val format = Json.using[WithDefaultValues].format[RecordMetadata]
+    val reads = format
+      .filter(_ != empty) // if empty is parsed, we might be dealing with an older format - HeaderMetadata
+      .orElse { (json: JsValue) =>
+        json
+          .validate[HeaderMetadata]
+          .map { a => RecordMetadata(a, PayloadMetadata.empty) }
+      }
     OFormat(reads, format)
   }
 

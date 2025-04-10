@@ -181,7 +181,7 @@ private[journal] object Bounds {
         bounds: Bounds[A],
       )(implicit
         order: Order[A],
-      ): Boolean = self < bounds.min
+      ): Boolean = order.lt(self, bounds.min)
 
       /**
        * Checks if this value is located after an interval `bounds`.
@@ -193,7 +193,7 @@ private[journal] object Bounds {
         bounds: Bounds[A],
       )(implicit
         order: Order[A],
-      ): Boolean = self > bounds.max
+      ): Boolean = order.gt(self, bounds.max)
     }
   }
 }

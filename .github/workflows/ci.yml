@@ -11,6 +11,7 @@ jobs:
       matrix:
         scala:
           - 2.13.16
+          - 3.3.5
 
     steps:
       - uses: actions/checkout@v4
@@ -27,8 +28,8 @@ jobs:
       - name: setup SBT
         uses: sbt/setup-sbt@v1
 
-      - name: Check code formatting
-        run: sbt clean check
+      - name: check code ${{ matrix.scala }}
+        run: sbt ++${{ matrix.scala }} clean check
 
       - name: build ${{ matrix.scala }}
         run: sbt ++${{ matrix.scala }} clean coverage test
