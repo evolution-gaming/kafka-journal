@@ -70,10 +70,11 @@ private[replicator] final class AsyncPeriodicTopicCommit[F[_]: MonadThrowable] p
       offsetsToCommit = state.partitionOffsetsToCommit
 
       anythingCommitted <- commitIfNotEmpty[F](offsetsToCommit, commitF = consumer.commitLater)
-        .recoverWith {
+        .recoverWith(matchConsumerError {
           case _: RebalanceInProgressException =>
-            Applicative[F].pure(false) // ignore, commit will be retried on the next step
-        }
+            log.debug("periodic commit failed due to overlapping with a rebalance, waiting until the next attempt")
+              .as(false)
+        })
 
       _ <-
         if (anythingCommitted) {
@@ -94,6 +95,17 @@ private[replicator] final class AsyncPeriodicTopicCommit[F[_]: MonadThrowable] p
             case (partition, offset) => TopicPartition(topic, partition) -> OffsetAndMetadata(offset, commitMetadata)
           },
       ).as(true)
+    }
+  }
+
+  /**
+   * `kafka.journal.KafkaConsumer` wraps exceptions in `KafkaConsumerError` - to be on the safe
+   * side, this method allows handling Java consumer errors both wrapped and unwrapped.
+   */
+  private def matchConsumerError[T](pf: PartialFunction[Throwable, T]): PartialFunction[Throwable, T] = {
+    pf.orElse {
+      case e: com.evolutiongaming.kafka.journal.KafkaConsumerError if pf.isDefinedAt(e.cause) =>
+        pf.apply(e.cause)
     }
   }
 }
