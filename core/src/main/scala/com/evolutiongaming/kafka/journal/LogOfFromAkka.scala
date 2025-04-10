@@ -7,6 +7,8 @@ import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
 
 object LogOfFromAkka {
+  // Scala 3 compiler couldn't construct this one implicitly
+  private implicit val logSourceFromClass: LogSource[Class[?]] = LogSource.fromClass
 
   def apply[F[_]: Sync](system: ActorSystem): LogOf[F] = {
 

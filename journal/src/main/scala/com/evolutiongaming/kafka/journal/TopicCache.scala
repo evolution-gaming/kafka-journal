@@ -541,14 +541,14 @@ private[journal] object TopicCache {
               .attempt
             a <- a match {
               case Right(a: Result.Now[F]) =>
-                f(a.asRight, true)
+                f(a.asRight, true).widen
 
               case Right(Result.Later.Behind(a)) =>
                 val result = a
                   .attempt
                   .flatMap { a => f(a, false) }
                 Result
-                  .behind(result)
+                  .behind[F](result)
                   .pure[F]
 
               case Right(Result.Later.Empty(a)) =>
@@ -556,11 +556,11 @@ private[journal] object TopicCache {
                   .attempt
                   .flatMap { a => f(a, false) }
                 Result
-                  .empty(result)
+                  .empty[F](result)
                   .pure[F]
 
               case Left(a) =>
-                f(a.asLeft, true)
+                f(a.asLeft, true).widen
             }
           } yield a
         }
