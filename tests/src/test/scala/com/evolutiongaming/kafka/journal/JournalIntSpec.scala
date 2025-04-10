@@ -36,7 +36,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
 
   private val journalsOf = { (eventualJournal: EventualJournal[IO], headCache: Boolean) =>
     {
-      implicit val logOf = LogOf.empty[IO]
+      implicit val logOf: LogOf[IO] = LogOf.empty[IO]
       val log = Log.empty[IO]
 
       def headCacheOf(config: KafkaJournalConfig) = if (headCache) {

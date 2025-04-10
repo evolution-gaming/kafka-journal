@@ -6,7 +6,7 @@ import cats.syntax.all.*
 import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.kafka.journal.JournalError
 import play.api.libs.json.{JsError, JsResult}
-import scodec.{Attempt, Err}
+import scodec.*
 
 import scala.util.{Failure, Try}
 

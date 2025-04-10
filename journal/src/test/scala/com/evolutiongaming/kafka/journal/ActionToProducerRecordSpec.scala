@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
-import TestJsonCodec.instance
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
-import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaWrite}
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord}
 import com.evolutiongaming.skafka.consumer.WithSize
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
 import org.scalatest.funsuite.AnyFunSuite
@@ -87,7 +87,6 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
   }
 
   private val appends = {
-    implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
     for {
       origin <- origins
       version <- versions

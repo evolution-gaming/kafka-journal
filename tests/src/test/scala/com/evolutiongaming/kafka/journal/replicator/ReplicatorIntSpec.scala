@@ -71,9 +71,8 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .load[JournalConfig]
         .liftTo[F]
 
-      implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
-
-      implicit val kafkaProducerOf = KafkaProducerOf[F]()
+      implicit val kafkaConsumerOf: KafkaConsumerOf[F] = KafkaConsumerOf[F]()
+      implicit val kafkaProducerOf: KafkaProducerOf[F] = KafkaProducerOf[F]()
 
       for {
         config <- config.toResource
@@ -112,7 +111,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
   }
 
   lazy val ((eventualJournal, journals), release) = {
-    implicit val logOf = LogOf.empty[IO]
+    implicit val logOf: LogOf[IO] = LogOf.empty[IO]
     resources[IO](cassandraClusterOf).allocated.unsafeRunSync()
   }
 

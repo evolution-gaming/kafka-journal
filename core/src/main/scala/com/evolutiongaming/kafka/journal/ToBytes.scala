@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats.syntax.all.*
 import cats.{Applicative, Contravariant, ~>}
 import play.api.libs.json.Writes
+import scodec.*
 import scodec.bits.ByteVector
-import scodec.{Encoder, codecs}
 
 trait ToBytes[F[_], -A] {
 

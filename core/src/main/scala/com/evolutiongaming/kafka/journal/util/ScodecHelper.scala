@@ -5,8 +5,8 @@ import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.JsonCodec
 import play.api.libs.json.Format
+import scodec.*
 import scodec.bits.ByteVector
-import scodec.{Attempt, Codec, Err, codecs}
 
 import java.nio.charset.{CharacterCodingException, StandardCharsets}
 import scala.annotation.tailrec

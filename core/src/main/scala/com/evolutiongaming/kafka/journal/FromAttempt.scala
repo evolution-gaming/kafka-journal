@@ -5,7 +5,7 @@ import cats.effect.IO
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
-import scodec.Attempt
+import scodec.*
 
 import scala.util.Try
 

@@ -6,15 +6,15 @@ import com.evolutiongaming.kafka.journal.Event.*
 import com.evolutiongaming.kafka.journal.util.ScodecHelper.{nelCodec, *}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
+import scodec.*
 import scodec.bits.ByteVector
-import scodec.{Attempt, codecs}
 
 import scala.util.Try
 
 class EventsTest extends AnyFunSuite with Matchers {
 
   test("decode newer version") {
-    implicit val jsonCodec = JsonCodec.jsoniter[Try]
+    implicit val jsonCodec: JsonCodec[Try] = JsonCodec.jsoniter[Try]
     val codec = {
       val eventsCodec =
         nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Event.codecEventPayload)))

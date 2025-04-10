@@ -42,7 +42,7 @@ object PurgeExpired {
     consistencyConfig: CassandraConsistencyConfig.Read,
   ): Resource[F, PurgeExpired[F]] = {
 
-    implicit val fromAttempt = FromAttempt.lift[F]
+    implicit val fromAttempt: FromAttempt[F] = FromAttempt.lift[F]
 
     for {
       producer <- Journals.Producer.make[F](producerConfig)

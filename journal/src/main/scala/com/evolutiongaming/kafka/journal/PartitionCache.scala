@@ -648,7 +648,7 @@ private[journal] object PartitionCache {
        *
        * In other words, the journal is already fully replicated to a long term storage.
        */
-      final case object Ahead extends Now
+      case object Ahead extends Now
 
       /**
        * [[HeadInfo]] was dropped because maximum cache size was reached.
@@ -656,7 +656,7 @@ private[journal] object PartitionCache {
        * In other words, [[PartitionCache]] has seen given offset in Kafka, but we could not return
        * a [[HeadInfo]] value to be used, and it has to be calcuated again.
        */
-      final case object Limited extends Now
+      case object Limited extends Now
 
       /**
        * The timeout occured while waiting for the [[HeadInfo]] value to load.
@@ -1038,7 +1038,7 @@ private[journal] object PartitionCache {
      * Same as [[PartitionCache#add]], but makes it a bit less verbose
      */
     def add(record: Record, records: Record*): F[Option[Diff]] = {
-      self.add(Nel.of(record, records: _*))
+      self.add(Nel.of(record, records*))
     }
   }
 }

@@ -20,10 +20,10 @@ object Group {
     sealed trait S
 
     object S {
-      final case object Idle extends S
+      case object Idle extends S
       final case class Busy(as: List[A], deferred: Deferred[F, Either[Throwable, B]]) extends S
       final case class Releasing(as: List[A], deferred: Deferred[F, Either[Throwable, B]]) extends S
-      final case object Released extends S
+      case object Released extends S
     }
 
     Resource
@@ -114,5 +114,5 @@ object Group {
       }
   }
 
-  final case object ReleasedError extends RuntimeException("released") with NoStackTrace
+  case object ReleasedError extends RuntimeException("released") with NoStackTrace
 }

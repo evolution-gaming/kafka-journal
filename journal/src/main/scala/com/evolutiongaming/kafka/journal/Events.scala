@@ -2,8 +2,8 @@ package com.evolutiongaming.kafka.journal
 
 import cats.data.NonEmptyList as Nel
 import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
+import scodec.*
 import scodec.bits.ByteVector
-import scodec.{Codec, TransformSyntax, ValueCodecEnrichedWithHListSupport, codecs}
 
 import java.lang.Byte as ByteJ
 

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import scodec.{Codec, codecs}
+import scodec.*
 
 private[journal] object Tags {
 

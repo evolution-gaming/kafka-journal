@@ -22,7 +22,7 @@ object LogOfFromAkka {
 
       def apply(source: String) = log(source)
 
-      def apply(source: Class[_]) = log(source)
+      def apply(source: Class[?]) = log(source)
     }
   }
 }

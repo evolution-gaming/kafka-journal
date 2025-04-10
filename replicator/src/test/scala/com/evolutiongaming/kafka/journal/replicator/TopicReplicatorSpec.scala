@@ -12,12 +12,7 @@ import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
-import com.evolutiongaming.kafka.journal.conversions.{
-  ActionToProducerRecord,
-  ConsRecordToActionRecord,
-  KafkaRead,
-  KafkaWrite,
-}
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaRead}
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.Measurements
 import com.evolutiongaming.kafka.journal.util.{Fail, TestTemporal}
@@ -785,7 +780,6 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int], expireAfter: Option[ExpireAfter] = none) = {
-    implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
     Action
       .Append
       .of[Try, Payload](
@@ -1067,20 +1061,20 @@ object TopicReplicatorSpec {
     implicit val F: Concurrent[StateT] = TestTemporal.temporal[State]
 
     val millis = timestamp.toEpochMilli + replicationLatency.toMillis
-    implicit val fail = Fail.lift[StateT]
-    implicit val fromTry = FromTry.lift[StateT]
-    implicit val fromAttempt = FromAttempt.lift[StateT]
-    implicit val fromJsResult = FromJsResult.lift[StateT]
+    implicit val fail: Fail[StateT] = Fail.lift[StateT]
+    implicit val fromTry: FromTry[StateT] = FromTry.lift[StateT]
+    implicit val fromAttempt: FromAttempt[StateT] = FromAttempt.lift[StateT]
+    implicit val fromJsResult: FromJsResult[StateT] = FromJsResult.lift[StateT]
 
-    implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
-    implicit val sleep = new Sleep[StateT] {
+    implicit val clock: Clock[StateT] = Clock.const[StateT](nanos = 0, millis = millis)
+    implicit val sleep: Sleep[StateT] = new Sleep[StateT] {
       def sleep(time: FiniteDuration): StateT[Unit] = ().pure[StateT]
       def applicative: Applicative[StateT] = Applicative[StateT]
       def monotonic: StateT[FiniteDuration] = clock.monotonic
       def realTime: StateT[FiniteDuration] = clock.realTime
     }
 
-    implicit val measureDuration = MeasureDuration.fromClock(Clock[StateT])
+    implicit val measureDuration: MeasureDuration[StateT] = MeasureDuration.fromClock(Clock[StateT])
     val kafkaRead = KafkaRead.summon[StateT, Payload]
     val eventualWrite = EventualWrite.summon[StateT, Payload]
 

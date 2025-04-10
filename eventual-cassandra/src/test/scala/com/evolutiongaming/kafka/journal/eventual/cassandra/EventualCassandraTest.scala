@@ -53,7 +53,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
     segments <- List(Segments.min, Segments.old)
   } {
-    implicit val log = Log.empty[StateT]
+    implicit val log: Log[StateT] = Log.empty[StateT]
 
     val config = DataIntegrityConfig(
       seqNrUniqueness = true,

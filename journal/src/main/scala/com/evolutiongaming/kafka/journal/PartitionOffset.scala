@@ -39,7 +39,7 @@ object PartitionOffset {
   implicit val orderPartitionOffset: Order[PartitionOffset] =
     Order.whenEqual(Order.by { (a: PartitionOffset) => a.partition }, Order.by { (a: PartitionOffset) => a.offset })
 
-  def apply(record: ConsumerRecord[_, _]): PartitionOffset = {
+  def apply(record: ConsumerRecord[?, ?]): PartitionOffset = {
     PartitionOffset(partition = record.topicPartition.partition, offset = record.offset)
   }
 }

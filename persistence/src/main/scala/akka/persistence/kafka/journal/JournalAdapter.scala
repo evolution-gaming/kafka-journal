@@ -6,9 +6,9 @@ import cats.syntax.all.*
 import cats.{Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.conversions.ConversionMetrics
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
@@ -123,9 +123,9 @@ object JournalAdapter {
     appendMetadataOf: AppendMetadataOf[F],
   ): JournalAdapter[F] = {
 
-    implicit val kafkaRead = journalReadWrite.kafkaRead
-    implicit val kafkaWrite = journalReadWrite.kafkaWrite
-    implicit val eventualRead = journalReadWrite.eventualRead
+    implicit val kafkaRead: KafkaRead[F, A] = journalReadWrite.kafkaRead
+    implicit val kafkaWrite: KafkaWrite[F, A] = journalReadWrite.kafkaWrite
+    implicit val eventualRead: EventualRead[F, A] = journalReadWrite.eventualRead
 
     new JournalAdapter[F] {
 

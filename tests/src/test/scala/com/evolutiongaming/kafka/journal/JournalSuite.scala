@@ -40,8 +40,8 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
   implicit val randomIdOf: RandomIdOf[IO] = RandomIdOf.uuid[IO]
 
   lazy val ((eventualJournal, producer), release) = {
-    implicit val logOf = LogOf.empty[IO]
-    implicit val jsonCodec = JsonCodec.jsoniter[IO]
+    implicit val logOf: LogOf[IO] = LogOf.empty[IO]
+    implicit val jsonCodec: JsonCodec[IO] = JsonCodec.jsoniter[IO]
     val resource = for {
       config <- config.liftTo[IO].toResource
       origin <- Origin.hostName[IO].toResource

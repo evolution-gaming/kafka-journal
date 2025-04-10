@@ -114,7 +114,7 @@ object HeadInfo {
    *
    * In other words, one can read it from Cassandra only and not look into Kafka.
    */
-  final case object Empty extends HeadInfo
+  case object Empty extends HeadInfo
 
   /**
    * There are new non-replicated events in Kafka for specific journal.
@@ -194,7 +194,7 @@ object HeadInfo {
    *
    * It means there is no need to read either Cassandra or Kafka as journal was purged.
    */
-  final case object Purge extends NonEmpty
+  case object Purge extends NonEmpty
 
   implicit class HeadInfoOps(val self: HeadInfo) extends AnyVal {
 

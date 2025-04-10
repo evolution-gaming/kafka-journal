@@ -2,8 +2,8 @@ package akka.persistence.journal
 
 import akka.persistence.journal.JournalPerfSpec.Cmd
 import akka.serialization.SerializerWithStringManifest
+import scodec.*
 import scodec.bits.BitVector
-import scodec.{Codec, TransformSyntax, ValueCodecEnrichedWithHListSupport, codecs}
 
 import java.io.NotSerializableException
 

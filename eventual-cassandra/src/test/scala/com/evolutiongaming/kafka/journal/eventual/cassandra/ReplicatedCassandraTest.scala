@@ -62,8 +62,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     val segmentNrsOf = SegmentNrs.Of[StateT](first = segmentsFirst, second = segmentsSecond)
     val segmentOfId = SegmentNr.Of[Id](segmentsFirst)
     val journal = {
-      implicit val parallel = Parallel.identity[StateT]
-      implicit val uuidGen = new UUIDGen[StateT] {
+      implicit val parallel: Parallel.Aux[StateT, StateT] = Parallel.identity[StateT]
+      implicit val uuidGen: UUIDGen[StateT] = new UUIDGen[StateT] {
         override def randomUUID = uuid.pure[StateT]
       }
       ReplicatedCassandra(

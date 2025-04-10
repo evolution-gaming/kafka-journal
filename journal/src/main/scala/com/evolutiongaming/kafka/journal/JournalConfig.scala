@@ -32,7 +32,7 @@ object JournalConfig {
   val default: JournalConfig = JournalConfig()
 
   implicit val configReaderJournalConfig: ConfigReader[JournalConfig] = {
-    implicit val configReaderKafkaConfig = KafkaConfig.configReader(default.kafka)
+    implicit val configReaderKafkaConfig: ConfigReader[KafkaConfig] = KafkaConfig.configReader(default.kafka)
     deriveReader[JournalConfig]
   }
 
