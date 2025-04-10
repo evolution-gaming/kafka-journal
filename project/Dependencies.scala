@@ -9,7 +9,7 @@ object Dependencies {
   val `kafka-clients` = "org.apache.kafka" % "kafka-clients" % "3.4.0"
   val `play-json` = "com.typesafe.play" %% "play-json" % "2.9.3"
   val `play-json-jsoniter` = "com.evolution" %% "play-json-jsoniter" % "1.1.1"
-  val `executor-tools` = "com.evolutiongaming" %% "executor-tools" % "1.0.3"
+  val `executor-tools` = "com.evolutiongaming" %% "executor-tools" % "1.0.5"
   val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
   val hostname = "com.evolutiongaming" %% "hostname" % "0.2.0"
   val scassandra = "com.evolutiongaming" %% "scassandra" % "5.3.0"
