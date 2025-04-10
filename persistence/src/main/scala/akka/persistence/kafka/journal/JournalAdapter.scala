@@ -242,13 +242,15 @@ object JournalAdapter {
   }
 
   final case class Metrics[F[_]](
-    journal: Option[JournalMetrics[F]] = none,
-    eventual: Option[EventualJournal.Metrics[F]] = none,
-    headCache: Option[HeadCacheMetrics[F]] = none,
-    producer: Option[ClientId => ProducerMetrics[F]] = none,
-    consumer: Option[ClientId => ConsumerMetrics[F]] = none,
-    conversion: Option[ConversionMetrics[F]] = none,
-    consumerPool: Option[ConsumerPoolMetrics[F]] = none,
+    // TODO: WIP why type-inference doesn't work here?
+//    journal: Option[JournalMetrics[F]] = none,
+    journal: Option[JournalMetrics[F]] = none[JournalMetrics[F]],
+    eventual: Option[EventualJournal.Metrics[F]] = none[EventualJournal.Metrics[F]],
+    headCache: Option[HeadCacheMetrics[F]] = none[HeadCacheMetrics[F]],
+    producer: Option[ClientId => ProducerMetrics[F]] = none[ClientId => ProducerMetrics[F]],
+    consumer: Option[ClientId => ConsumerMetrics[F]] = none[ClientId => ConsumerMetrics[F]],
+    conversion: Option[ConversionMetrics[F]] = none[ConversionMetrics[F]],
+    consumerPool: Option[ConsumerPoolMetrics[F]] = none[ConsumerPoolMetrics[F]],
   )
 
   object Metrics {

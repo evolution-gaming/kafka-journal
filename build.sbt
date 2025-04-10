@@ -8,22 +8,25 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://evolution.com")),
   homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
-  crossScalaVersions := Seq("2.13.16"),
-  scalaVersion := crossScalaVersions.value.head,
+  // TODO: WIP set up proper cross-compilation
+//  crossScalaVersions := Seq("2.13.16"),
+//  scalaVersion := crossScalaVersions.value.head,
+  scalaVersion := "3.3.5",
   scalacOptions ++= Seq(
     "-release:17",
     "-deprecation",
-    "-Xsource:3",
+//    "-Xsource:3",
+    "-Ykind-projector:underscores",
   ),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   // explanation of flags: https://www.scalatest.org/user_guide/using_the_runner (`Configuring reporters` section)
-  Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
-  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
+//  Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
+//  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
   libraryDependencySchemes ++= Seq(
-    "org.scala-lang.modules" %% "scala-java8-compat" % "always",
+//    "org.scala-lang.modules" %% "scala-java8-compat" % "always",
     "org.scala-lang.modules" %% "scala-xml" % "always",
     "com.evolutiongaming" %% "scassandra" % "semver-spec",
     // scache didn't set any versioning policy for itself, so versionCheck fails on even minor updates for scache
@@ -138,7 +141,8 @@ lazy val journal = project
       scache,
       `cassandra-sync`,
       `scala-java8-compat`,
-      Pureconfig.pureconfig,
+      Pureconfig.core,
+      Pureconfig.`generic-scala3`,
       Pureconfig.cats,
       Smetrics.smetrics,
       sstream,
@@ -207,7 +211,12 @@ lazy val cassandra = project
   .settings(name := "kafka-journal-cassandra")
   .settings(commonSettings)
   .dependsOn(core, `scalatest-io` % Test)
-  .settings(libraryDependencies ++= Seq(scache, scassandra, `cassandra-sync`))
+  .settings(libraryDependencies ++= Seq(
+    scache,
+    scassandra,
+    `cassandra-sync`,
+    Pureconfig.`generic-scala3`,
+  ))
 
 lazy val `eventual-cassandra` = project
   .settings(name := "kafka-journal-eventual-cassandra")

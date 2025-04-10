@@ -47,7 +47,8 @@ object Replicator {
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
-    metrics: Option[Metrics[F]] = none,
+//    metrics: Option[Metrics[F]] = none,
+    metrics: Option[Metrics[F]] = none[Metrics[F]], // TODO: WIP why type inference doesn't work here?
   ): Resource[F, F[Unit]] = {
 
     def replicatedJournal(implicit

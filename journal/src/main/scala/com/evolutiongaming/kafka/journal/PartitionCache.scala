@@ -242,7 +242,6 @@ private[journal] object PartitionCache {
                     result
                       .map { result =>
                         result
-                          .toResult
                           .asRight[Int]
                           .pure[F]
                       }
@@ -690,16 +689,6 @@ private[journal] object PartitionCache {
        *   become an actual time passed since [[PartitionCache#get]] call.
        */
       final case class Timeout[F[_]](duration: FiniteDuration) extends Now[F]
-
-      implicit class NowOps[F[_]](val self: Now[F]) extends AnyVal {
-
-        /**
-         * Widens [[Now]] to [[Result]].
-         *
-         * This might be, potentially, more performant than calling `pure[F].widen[Result]`.
-         */
-        def toResult: Result[F] = self
-      }
     }
 
     /**

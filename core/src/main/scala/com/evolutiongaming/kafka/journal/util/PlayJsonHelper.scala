@@ -43,7 +43,7 @@ private[journal] object PlayJsonHelper {
 
     def handleErrorWith[A](fa: JsResult[A])(f: JsError => JsResult[A]): JsResult[A] = {
       fa match {
-        case fa: JsSuccess[A] => fa
+        case fa: JsSuccess[A @unchecked] => fa
         case fa: JsError => f(fa)
       }
     }
@@ -55,7 +55,7 @@ private[journal] object PlayJsonHelper {
     @tailrec
     def tailRecM[A, B](a: A)(f: A => JsResult[Either[A, B]]): JsResult[B] = {
       f(a) match {
-        case b: JsSuccess[Either[A, B]] =>
+        case b: JsSuccess[Either[A, B] @unchecked] =>
           b.value match {
             case Right(a) => JsSuccess(a)
             case Left(b) => tailRecM(b)(f)

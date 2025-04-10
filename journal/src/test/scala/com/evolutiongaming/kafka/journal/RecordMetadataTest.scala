@@ -9,6 +9,7 @@ import play.api.libs.json.{JsResult, Json}
 
 import scala.concurrent.duration.*
 
+//TODO: WIP fails because of https://github.com/playframework/play-json/issues/1146
 class RecordMetadataTest extends AnyFunSuite with Matchers {
 
   for {

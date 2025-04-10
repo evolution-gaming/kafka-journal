@@ -5,11 +5,21 @@ import cats.syntax.all.*
 import scodec.*
 import scodec.bits.ByteVector
 
+import scala.reflect.{ClassTag, TypeTest}
 import scala.util.Try
 
 final case class Event[A](seqNr: SeqNr, tags: Tags = Tags.empty, payload: Option[A] = None)
 
 object Event {
+
+  // TODO: WIP WTF???
+  private implicit def typeTestOption[A <: Payload: ClassTag]: TypeTest[Option[Payload], Option[A]] =
+    new TypeTest[Option[Payload], Option[A]] {
+      override def unapply(x: Option[Payload]): Option[x.type & Option[A]] = x match {
+        case Some(a: A) => a.some.asInstanceOf[x.type & Option[A]].some
+        case _ => None
+      }
+    }
 
   implicit def codecEvent[A](
     implicit

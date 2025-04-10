@@ -7,6 +7,8 @@ import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
 
 object LogOfFromAkka {
+  // TODO: WIP WTF?
+  private implicit val wtf: LogSource[Class[?]] = LogSource.fromClass
 
   def apply[F[_]: Sync](system: ActorSystem): LogOf[F] = {
 

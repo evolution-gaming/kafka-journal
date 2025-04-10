@@ -24,7 +24,7 @@ object ScodecHelper {
 
       def handleErrorWith[A](fa: Attempt[A])(f: Failure => Attempt[A]): Attempt[A] = {
         fa match {
-          case fa: Successful[A] => fa
+          case fa: Successful[A @unchecked] => fa
           case fa: Failure => f(fa)
         }
       }
@@ -37,7 +37,7 @@ object ScodecHelper {
       def tailRecM[A, B](a: A)(f: A => Attempt[Either[A, B]]): Attempt[B] = {
         f(a) match {
           case b: Failure => b
-          case b: Successful[Either[A, B]] =>
+          case b: Successful[Either[A, B] @unchecked] =>
             b.value match {
               case Left(b1) => tailRecM(b1)(f)
               case Right(a) => Successful(a)
