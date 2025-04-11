@@ -174,10 +174,10 @@ object HeadCache {
                 .get(key.id, partition, offset)
                 .flatMap { _.toNow }
                 .map {
-                  case a: Result.Now.Value => a.value.some
-                  case Result.Now.Ahead => HeadInfo.empty.some
-                  case Result.Now.Limited => none
-                  case _: Result.Now.Timeout => none
+                  case a: Result.Now.Value[F] => a.value.some
+                  case _: Result.Now.Ahead[F] => HeadInfo.empty.some
+                  case _: Result.Now.Limited[F] => none
+                  case _: Result.Now.Timeout[F] => none
                 }
             }
         }

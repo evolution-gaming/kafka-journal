@@ -138,7 +138,7 @@ private[journal] object PartitionCache {
      * expiring listener (or deferred value), which returns an actual information if it gets into a
      * cache in a timely manner, or [[Result.Now.Timeout]] if the configured timeout expires.
      */
-    final case class Listener(id: String, offset: Offset, deferred: Deferred[F, Either[Throwable, Result.Now]])
+    final case class Listener(id: String, offset: Offset, deferred: Deferred[F, Either[Throwable, Result.Now[F]]])
 
     type ListenerId = Int
 
@@ -221,7 +221,7 @@ private[journal] object PartitionCache {
         class Main
         new Main with PartitionCache[F] {
 
-          def get(id: String, offset: Offset) = {
+          def get(id: String, offset: Offset): F[Result[F]] = {
             0.tailRecM { count =>
               ref
                 .access
@@ -231,24 +231,24 @@ private[journal] object PartitionCache {
                       if (state.ahead(offset)) {
                         Result
                           .Now
-                          .ahead
+                          .ahead[F]
                           .some
                       } else {
                         state
                           .entries
-                          .flatMap { _.result(id, offset) }
+                          .flatMap { _.result[F](id, offset) }
                       }
                     }
                     result
                       .map { result =>
                         result
-                          .toResult[F]
+                          .toResult
                           .asRight[Int]
                           .pure[F]
                       }
                       .getOrElse {
                         Deferred
-                          .apply[F, Either[Throwable, Result.Now]]
+                          .apply[F, Either[Throwable, Result.Now[F]]]
                           .flatMap { deferred =>
                             val listenerId = state.listenerId
                             set
@@ -268,7 +268,7 @@ private[journal] object PartitionCache {
                                     .sleep(timeout)
                                     .productR {
                                       deferred
-                                        .complete(Result.Now.timeout(timeout).asRight)
+                                        .complete(Result.Now.timeout[F](timeout).asRight)
                                         .flatMap {
                                           case true =>
                                             0.tailRecM { count =>
@@ -323,7 +323,7 @@ private[journal] object PartitionCache {
             }
           }
 
-          def offset = {
+          def offset: F[Option[Offset]] = {
             ref
               .get
               .rethrow
@@ -339,7 +339,7 @@ private[journal] object PartitionCache {
               }
           }
 
-          def add(records: Nel[Record]) = {
+          def add(records: Nel[Record]): F[Option[Diff]] = {
             for {
               bounds <- Bounds.of[F](
                 min = records.minimumBy { _.offset }.offset,
@@ -379,7 +379,7 @@ private[journal] object PartitionCache {
                               val (listeners1, effect) = listeners.foldLeft((listeners, ().pure[F])) {
                                 case ((listeners, effect), (listenerId, listener)) =>
                                   entriesNotLimited
-                                    .result(listener.id, listener.offset)
+                                    .result[F](listener.id, listener.offset)
                                     .fold {
                                       (listeners, effect)
                                     } { result =>
@@ -423,7 +423,7 @@ private[journal] object PartitionCache {
             } yield result
           }
 
-          def remove(offset: Offset) = {
+          def remove(offset: Offset): F[Option[Diff]] = {
             0.tailRecM { counter =>
               ref
                 .access
@@ -474,7 +474,7 @@ private[journal] object PartitionCache {
                                           .complete {
                                             Result
                                               .Now
-                                              .ahead
+                                              .ahead[F]
                                               .asRight
                                           }
                                           .void
@@ -511,7 +511,7 @@ private[journal] object PartitionCache {
             }
           }
 
-          def meters = {
+          def meters: F[Meters] = {
             ref
               .get
               .map { state =>
@@ -527,7 +527,7 @@ private[journal] object PartitionCache {
   /**
    * State of the non-replicated journal head comparing to a given offset.
    */
-  sealed trait Result[+F[_]]
+  sealed trait Result[F[_]]
 
   object Result {
 
@@ -576,14 +576,14 @@ private[journal] object PartitionCache {
      *
      * Same as [[Later.Behind]], but returns [[Result]]
      */
-    def behind[F[_]](value: F[Now]): Result[F] = Later.behind(value)
+    def behind[F[_]](value: F[Now[F]]): Result[F] = Later.behind(value)
 
     /**
      * The cache was empty when [[PartitionCache#get]] got called.
      *
      * Same as [[Later.Empty]], but returns [[Result]]
      */
-    def empty[F[_]](value: F[Now]): Result[F] = Later.empty(value)
+    def empty[F[_]](value: F[Now[F]]): Result[F] = Later.empty(value)
 
     /**
      * [[PartitionCache]] already seen such [[Offset]] in Kafka or Cassandra.
@@ -591,7 +591,7 @@ private[journal] object PartitionCache {
      * In other words, it means that this offset was either already replicated, or had the latest
      * [[HeadInfo]] information inside of [[PartitionCache]] when [[PartitionCache#get]] was called.
      */
-    sealed trait Now extends Result[Nothing]
+    sealed trait Now[F[_]] extends Result[F]
 
     object Now {
 
@@ -603,14 +603,14 @@ private[journal] object PartitionCache {
        * @see
        *   [[Now.Value]] for more details.
        */
-      def value(value: HeadInfo): Now = Value(value)
+      def value[F[_]](value: HeadInfo): Now[F] = Value(value)
 
       /**
        * [[PartitionCache]] has seen given offset in Cassandra.
        *
        * Same as [[Now.Ahead]], but returns [[Now]].
        */
-      def ahead: Now = Ahead
+      def ahead[F[_]]: Now[F] = Ahead[F]
 
       /**
        * [[HeadInfo]] was dropped because maximum cache size was reached.
@@ -620,7 +620,7 @@ private[journal] object PartitionCache {
        * @see
        *   [[Now.Limited]] for more details.
        */
-      def limited: Now = Limited
+      def limited[F[_]]: Now[F] = Limited[F]
 
       /**
        * The timeout occured while waiting for the [[HeadInfo]] value to load.
@@ -630,7 +630,7 @@ private[journal] object PartitionCache {
        * @see
        *   [[Now.Timeout]] for more details.
        */
-      def timeout(duration: FiniteDuration): Now = Timeout(duration)
+      def timeout[F[_]](duration: FiniteDuration): Now[F] = Timeout(duration)
 
       /**
        * [[PartitionCache]] has seen given offset in Kafka, but not Cassandra.
@@ -641,14 +641,20 @@ private[journal] object PartitionCache {
        * @param value
        *   Actual [[HeadInfo]] for the given journal.
        */
-      final case class Value(value: HeadInfo) extends Now
+      final case class Value[F[_]](value: HeadInfo) extends Now[F]
 
       /**
        * [[PartitionCache]] has seen given offset in Cassandra.
        *
        * In other words, the journal is already fully replicated to a long term storage.
        */
-      case object Ahead extends Now
+      sealed trait Ahead[F[_]] extends Now[F]
+      object Ahead {
+        // a trick to have a singleton object for all F[_]
+        private val instance: Ahead[Nothing] = new Ahead[Nothing] {}
+
+        def apply[F[_]]: Ahead[F] = instance.asInstanceOf[Ahead[F]]
+      }
 
       /**
        * [[HeadInfo]] was dropped because maximum cache size was reached.
@@ -656,7 +662,13 @@ private[journal] object PartitionCache {
        * In other words, [[PartitionCache]] has seen given offset in Kafka, but we could not return
        * a [[HeadInfo]] value to be used, and it has to be calcuated again.
        */
-      case object Limited extends Now
+      sealed trait Limited[F[_]] extends Now[F]
+      object Limited {
+        // a trick to have a singleton object for all F[_]
+        private val instance: Limited[Nothing] = new Limited[Nothing] {}
+
+        def apply[F[_]]: Limited[F] = instance.asInstanceOf[Limited[F]]
+      }
 
       /**
        * The timeout occured while waiting for the [[HeadInfo]] value to load.
@@ -677,16 +689,16 @@ private[journal] object PartitionCache {
        *   The value of a timeout exceeded while waiting for a value to appear. In future it may
        *   become an actual time passed since [[PartitionCache#get]] call.
        */
-      final case class Timeout(duration: FiniteDuration) extends Now
+      final case class Timeout[F[_]](duration: FiniteDuration) extends Now[F]
 
-      implicit class NowOps(val self: Now) extends AnyVal {
+      implicit class NowOps[F[_]](val self: Now[F]) extends AnyVal {
 
         /**
          * Widens [[Now]] to [[Result]].
          *
          * This might be, potentially, more performant than calling `pure[F].widen[Result]`.
          */
-        def toResult[F[_]]: Result[F] = self
+        def toResult: Result[F] = self
       }
     }
 
@@ -711,14 +723,14 @@ private[journal] object PartitionCache {
        *
        * Same as [[Behind]], but returns [[Result]]
        */
-      def behind[F[_]](value: F[Now]): Result[F] = Behind(value)
+      def behind[F[_]](value: F[Now[F]]): Result[F] = Behind(value)
 
       /**
        * The cache was empty when [[PartitionCache#get]] got called.
        *
        * Same as [[Empty]], but returns [[Result]]
        */
-      def empty[F[_]](value: F[Now]): Result[F] = Empty(value)
+      def empty[F[_]](value: F[Now[F]]): Result[F] = Empty(value)
 
       /**
        * The cache was behind Kafka when [[PartitionCache#get]] got called.
@@ -732,7 +744,7 @@ private[journal] object PartitionCache {
        * @see
        *   [[Later]] for more details.
        */
-      final case class Behind[F[_]](value: F[Now]) extends Later[F]
+      final case class Behind[F[_]](value: F[Now[F]]) extends Later[F]
 
       /**
        * The cache was empty when [[PartitionCache#get]] got called.
@@ -744,14 +756,14 @@ private[journal] object PartitionCache {
        * @see
        *   [[Later]] for more details.
        */
-      final case class Empty[F[_]](value: F[Now]) extends Later[F]
+      final case class Empty[F[_]](value: F[Now[F]]) extends Later[F]
 
       implicit class LaterOps[F[_]](val self: Later[F]) extends AnyVal {
 
         /**
          * Placholder for deferred entry
          */
-        def value: F[Now] = self match {
+        def value: F[Now[F]] = self match {
           case Behind(a) => a
           case Empty(a) => a
         }
@@ -775,9 +787,9 @@ private[journal] object PartitionCache {
       def toNow(
         implicit
         F: Monad[F],
-      ): F[Now] = {
+      ): F[Now[F]] = {
         self match {
-          case a: Now => a.pure[F]
+          case a: Now[F] => a.pure[F]
           case a: Later[F] => a.value
         }
       }
@@ -801,8 +813,8 @@ private[journal] object PartitionCache {
     val Empty: Meters = Meters(0, 0)
 
     implicit val commutativeMonoidMeters: CommutativeMonoid[Meters] = new CommutativeMonoid[Meters] {
-      def empty = Empty
-      def combine(a: Meters, b: Meters) = {
+      def empty: Meters = Empty
+      def combine(a: Meters, b: Meters): Meters = {
         Meters(listeners = a.listeners + b.listeners, entries = a.entries + b.entries)
       }
     }
@@ -883,8 +895,8 @@ private[journal] object PartitionCache {
     }
 
     implicit val commutativeMonoidDiff: CommutativeMonoid[Diff] = new CommutativeMonoid[Diff] {
-      def empty = Empty
-      def combine(a: Diff, b: Diff) = Diff(a.value + b.value)
+      def empty: Diff = Empty
+      def combine(a: Diff, b: Diff): Diff = Diff(a.value + b.value)
     }
   }
 
@@ -996,7 +1008,7 @@ private[journal] object PartitionCache {
         }
       }
 
-      def result(id: String, offset: Offset): Option[Result.Now] = {
+      def result[F[_]](id: String, offset: Offset): Option[Result.Now[F]] = {
 
         def entry = {
           self
@@ -1008,24 +1020,24 @@ private[journal] object PartitionCache {
           if (offset <= self.bounds.max) {
             Result
               .Now
-              .value {
+              .value[F] {
                 entry
                   .map { _.headInfo }
                   .getOrElse { HeadInfo.empty }
               }
               .some
           } else {
-            none[Result.Now]
+            none[Result.Now[F]]
           }
         } else {
           entry.fold {
             Result
               .Now
-              .limited
+              .limited[F]
           } { entry =>
             Result
               .Now
-              .value(entry.headInfo)
+              .value[F](entry.headInfo)
           }.some
         }
       }

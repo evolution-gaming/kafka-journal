@@ -1,4 +1,5 @@
 import Dependencies.*
+import com.typesafe.tools.mima.core.*
 import sbt.Package.ManifestAttributes
 
 lazy val commonSettings = Seq(
@@ -49,6 +50,11 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   //    ProblemFilters.exclude[IncompatibleMethTypeProblem](
   //      "com.evolutiongaming.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
   //    ),
+
+  // TODO: [next release after 4.2.1] remove
+  // package-private changes
+  ProblemFilters.exclude[Problem]("com.evolutiongaming.kafka.journal.PartitionCache$*"),
+  ProblemFilters.exclude[Problem]("com.evolutiongaming.kafka.journal.PartitionCache#*"),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =

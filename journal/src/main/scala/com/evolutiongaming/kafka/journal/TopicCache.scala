@@ -522,12 +522,12 @@ private[journal] object TopicCache {
           import com.evolutiongaming.kafka.journal.PartitionCache.Result
           for {
             d <- MeasureDuration[F].start
-            f = (result: Either[Throwable, Result.Now], hit: Boolean) => {
+            f = (result: Either[Throwable, Result.Now[F]], hit: Boolean) => {
               val name = result match {
-                case Right(_: Result.Now.Value) => "value"
-                case Right(Result.Now.Ahead) => "ahead"
-                case Right(Result.Now.Limited) => "limited"
-                case Right(_: Result.Now.Timeout) => "timeout"
+                case Right(_: Result.Now.Value[F]) => "value"
+                case Right(_: Result.Now.Ahead[F]) => "ahead"
+                case Right(_: Result.Now.Limited[F]) => "limited"
+                case Right(_: Result.Now.Timeout[F]) => "timeout"
                 case Left(_) => "failure"
               }
               for {
@@ -540,7 +540,7 @@ private[journal] object TopicCache {
               .get(id, partition, offset)
               .attempt
             a <- a match {
-              case Right(a: Result.Now) =>
+              case Right(a: Result.Now[F]) =>
                 f(a.asRight, true)
 
               case Right(Result.Later.Behind(a)) =>
