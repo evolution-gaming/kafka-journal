@@ -7,7 +7,7 @@ object Dependencies {
   val `kind-projector` = "org.typelevel" % "kind-projector" % "0.13.3"
   val `cassandra-driver` = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.2"
   val `kafka-clients` = "org.apache.kafka" % "kafka-clients" % "3.4.0"
-  val `play-json` = "com.typesafe.play" %% "play-json" % "2.10.6"
+  val `play-json` = "org.playframework" %% "play-json" % "3.0.4"
   val `play-json-jsoniter` = "com.evolution" %% "play-json-jsoniter" % "1.1.1"
   val `executor-tools` = "com.evolutiongaming" %% "executor-tools" % "1.0.5"
   val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
