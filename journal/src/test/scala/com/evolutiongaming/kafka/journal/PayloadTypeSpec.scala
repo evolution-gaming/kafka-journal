@@ -8,14 +8,6 @@ import play.api.libs.json.JsString
 class PayloadTypeSpec extends AnyFunSuite with Matchers {
 
   for {
-    (ext, payloadType) <- List(("json", PayloadType.Json), ("txt", PayloadType.Text), ("bin", PayloadType.Binary))
-  } {
-    test(s"$payloadType.ext") {
-      payloadType.ext shouldEqual ext
-    }
-  }
-
-  for {
     (json, expected) <- List(
       ("json", PayloadType.Json.some),
       ("text", PayloadType.Text.some),

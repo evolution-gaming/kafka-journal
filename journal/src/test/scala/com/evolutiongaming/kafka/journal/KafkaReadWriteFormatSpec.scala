@@ -1,41 +1,18 @@
 package com.evolutiongaming.kafka.journal
 
-import TestJsonCodec.instance
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
-import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
+import com.evolutiongaming.kafka.journal.SerdeTesting.EncodedDataType
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
-import scodec.bits.ByteVector
 
-import java.io.FileOutputStream
 import scala.concurrent.duration.*
-import scala.util.Try
 
-class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
-
-  def event(seqNr: Int, payload: Option[Payload] = None): Event[Payload] = {
-    val tags = (0 to seqNr).map(_.toString).toSet
-    Event(SeqNr.unsafe(seqNr), tags, payload)
-  }
-
-  def event(seqNr: Int, payload: Payload): Event[Payload] = {
-    event(seqNr, payload.some)
-  }
-
-  def binary(a: String): Payload.Binary = PayloadBinaryFromStr(a)
-
-  private implicit val fromAttempt: FromAttempt[Try] = FromAttempt.lift[Try]
-
-  private implicit val fromJsResult: FromJsResult[Try] = FromJsResult.lift[Try]
+class KafkaReadWriteFormatSpec extends AnyFunSuite with Matchers with SerdeTesting with KafkaReadWriteTesting {
 
   private val payloadMetadata = PayloadMetadata(1.day.toExpireAfter.some, Json.obj(("key", "value")).some)
-
-  private val kafkaWrite = KafkaWrite.summon[Try, Payload]
-
-  private val kafkaRead = KafkaRead.summon[Try, Payload]
 
   for {
     (name, payloadType, events) <- List(
@@ -74,28 +51,14 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
     )
   } {
 
-    test(s"toBytes & fromBytes, events: $name") {
-
-      def fromFile(path: String) = ByteVectorOf[Try](getClass, path).get
-
-      def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
-        val payloadAndType = PayloadAndType(payload, payloadType)
-        kafkaRead(payloadAndType) shouldEqual events.pure[Try]
-      }
-
-      val payloadAndType = kafkaWrite(events).get
-
-      payloadAndType.payloadType shouldEqual payloadType
-
-      val ext = payloadType.ext
-
-      val path = s"Payload-$name.$ext"
-
-//      writeToFile(payloadAndType.payload, path)
-
-      verify(payloadAndType.payload, payloadType)
-
-      verify(fromFile(path), payloadType)
+    test(s"toBytes & fromBytes current format, events: $name") {
+      val exampleFileName = s"Payload-$name.${ EncodedDataType.fromPayloadType(payloadType).fileExtension }"
+      verifyKafkaReadWriteExample(
+        valueExample = events,
+        encodedExampleFileName = exampleFileName,
+        examplePayloadType = payloadType,
+//        dumpEncoded = true,
+      )
     }
   }
 
@@ -122,20 +85,22 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
     )
   } {
 
-    test(s"fromBytes, events: $name") {
-      val ext = payloadType.ext
-      val actual = for {
-        payload <- ByteVectorOf[Try](getClass, s"Payload-v0-$name.$ext")
-        payloadAndType = PayloadAndType(payload, payloadType)
-        events <- kafkaRead(payloadAndType)
-      } yield events
-      actual shouldEqual events.pure[Try]
+    test(s"fromBytes v0 format, events: $name") {
+      val exampleFileName = s"Payload-v0-$name.${ payloadType.ext }"
+      verifyKafkaReadExample(
+        valueExample = events,
+        examplePayloadType = payloadType,
+        encodedExampleFileName = exampleFileName,
+      )
     }
   }
 
-  def writeToFile(bytes: ByteVector, path: String): Unit = {
-    val os = new FileOutputStream(path)
-    os.write(bytes.toArray)
-    os.close()
+  private def event(seqNr: Int, payload: Option[Payload] = None): Event[Payload] = {
+    val tags = (0 to seqNr).map(_.toString).toSet
+    Event(SeqNr.unsafe(seqNr), tags, payload)
   }
+
+  private def event(seqNr: Int, payload: Payload): Event[Payload] = event(seqNr, payload.some)
+
+  private def binary(a: String): Payload.Binary = PayloadBinaryFromStr(a)
 }

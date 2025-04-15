@@ -3,18 +3,13 @@ package com.evolutiongaming.kafka.journal
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
-import com.evolutiongaming.kafka.journal.FromBytes.implicits.*
-import com.evolutiongaming.kafka.journal.ToBytes.implicits.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
-import scodec.bits.ByteVector
 
-import java.io.FileOutputStream
 import scala.concurrent.duration.*
-import scala.util.Try
 
-class EventsToBytesSpec extends AnyFunSuite with Matchers {
+class EventsToBytesSpec extends AnyFunSuite with Matchers with SerdeTesting {
 
   def event(seqNr: Int, payload: Option[Payload] = None): Event[Payload] = {
     val tags = (0 to seqNr).map(_.toString).toSet
@@ -28,8 +23,6 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
   def binary(a: String): Payload = PayloadBinaryFromStr(a)
 
   private val payloadMetadata = PayloadMetadata(1.day.toExpireAfter.some, Json.obj(("key", "value")).some)
-
-  implicit val jsonCodec: JsonCodec[Try] = JsonCodec.jsoniter
 
   for {
     (name, events) <- List(
@@ -66,20 +59,11 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
     )
   } {
     test(s"toBytes & fromBytes $name") {
-
-      def verify(bytes: ByteVector) = {
-        val actual = bytes.fromBytes[Try, Events[Payload]]
-        actual shouldEqual events.pure[Try]
-      }
-
-      val result = for {
-        bytes <- events.toBytes[Try]
-//        _ = writeToFile(bytes, s"v1-events-$name.bin")
-        _ = verify(bytes)
-        bytes <- ByteVectorOf[Try](getClass, s"v1-events-$name.bin")
-        _ = verify(bytes)
-      } yield {}
-      result shouldEqual ().pure[Try]
+      verifyEncodeDecodeExample(
+        valueExample = events,
+        encodedExampleFileName = s"v1-events-$name.bin",
+//        dumpEncoded = true,
+      )
     }
   }
 
@@ -118,18 +102,7 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
     )
   } {
     test(s"fromBytes $name") {
-      val actual = for {
-        bytes <- ByteVectorOf[Try](getClass, s"v0-events-$name.bin")
-        events <- bytes.fromBytes[Try, Events[Payload]]
-      } yield events
-
-      actual shouldEqual events.pure[Try]
+      verifyDecodeExample(valueExample = events, encodedExampleFileName = s"v0-events-$name.bin")
     }
-  }
-
-  def writeToFile(bytes: ByteVector, path: String): Unit = {
-    val os = new FileOutputStream(path)
-    os.write(bytes.toArray)
-    os.close()
   }
 }

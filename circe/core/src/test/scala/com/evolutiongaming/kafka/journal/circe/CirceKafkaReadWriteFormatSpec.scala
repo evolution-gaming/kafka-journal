@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.circe
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.circe.Instances.*
 import com.evolutiongaming.kafka.journal.conversions.*
 import io.circe.Json as CirceJson
@@ -17,10 +16,14 @@ import java.nio.charset.StandardCharsets
 import scala.concurrent.duration.*
 import scala.util.Try
 
-class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
+class CirceKafkaReadWriteFormatSpec extends AnyFunSuite
+with Matchers
+with EitherValues
+with SerdeTesting
+with KafkaReadWriteTesting {
 
-  private implicit val fromAttempt: FromAttempt[Try] = FromAttempt.lift[Try]
-  private implicit val fromJsResult: FromJsResult[Try] = FromJsResult.lift[Try]
+  // get example files from the journal module, reuse the ones made for the main KafkaReadWriteFormatSpec
+  override protected def serdeExampleFileContext: Class[?] = PayloadAndType.getClass
 
   private val playKafkaWrite = KafkaWrite.summon[Try, Payload]
   private val playKafkaRead = KafkaRead.summon[Try, Payload]
@@ -131,13 +134,11 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
     )
   } {
     test(s"fromBytes, events: $name") {
-      val ext = PayloadType.Json.ext
-      val actual = for {
-        payload <- ByteVectorOf[Try](PayloadAndType.getClass, s"Payload-v0-$name.$ext")
-        payloadAndType = PayloadAndType(payload, PayloadType.Json)
-        events <- circeKafkaRead(payloadAndType)
-      } yield events
-      actual shouldEqual events.pure[Try]
+      verifyKafkaReadExample(
+        valueExample = events,
+        examplePayloadType = PayloadType.Json,
+        encodedExampleFileName = s"Payload-v0-$name.json",
+      )
     }
   }
 
@@ -160,12 +161,12 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
     result.left.value.getMessage should (include("ParsingFailure") and include("sss"))
   }
 
-  def event[A](seqNr: Int, payload: Option[A] = None): Event[A] = {
+  private def event[A](seqNr: Int, payload: Option[A] = None): Event[A] = {
     val tags = (0 to seqNr).map(_.toString).toSet
     Event(SeqNr.unsafe(seqNr), tags, payload)
   }
 
-  def event[A](seqNr: Int, payload: A): Event[A] = {
+  private def event[A](seqNr: Int, payload: A): Event[A] = {
     event(seqNr, payload.some)
   }
 

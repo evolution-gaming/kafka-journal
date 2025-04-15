@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import cats.*
 import cats.syntax.all.*
 import scodec.*
-import scodec.bits.ByteVector
 
 import scala.util.Try
 
@@ -26,29 +25,14 @@ object Event {
 
     implicit val payloadCodec: Codec[Option[Payload]] = {
 
-      val errEmpty = Err("")
+      // in the original codec, all subtypes were prefixed with an int32 length, even the None option
+      def sizePrefixed[A](codec: Codec[A]): Codec[A] = codecs.variableSizeBytes(codecs.int32, codec)
 
-      def codecSome[A](
-        implicit
-        codec: Codec[A],
-      ) = {
-        codec.exmap[Option[A]](a => Attempt.successful(a.some), a => Attempt.fromOption(a, errEmpty))
-      }
-
-      def codecOpt[A](payloadType: Byte, codec: Codec[Option[A]]) = {
-        val byteVector = ByteVector.fromByte(payloadType)
-        codecs.constant(byteVector) ~> codecs.variableSizeBytes(codecs.int32, codec)
-      }
-
-      val emptyCodec = codecOpt(0, codecs.provide(none[Payload]))
-
-      val binaryCodec = codecOpt(1, codecSome[Payload.Binary])
-
-      val jsonCodec = codecOpt(2, codecSome[Payload.Json](codecJson))
-
-      val textCodec = codecOpt(3, codecSome[Payload.Text])
-
-      codecs.choice[Option[Payload]](binaryCodec.upcast, jsonCodec.upcast, textCodec.upcast, emptyCodec)
+      codecs.discriminated[Option[Payload]].by(codecs.uint8)
+        .caseP(0) { case None => None }(identity)(sizePrefixed(codecs.provide(None)))
+        .caseP(1) { case Some(binary: Payload.Binary) => binary }(_.some)(sizePrefixed(Codec[Payload.Binary]))
+        .caseP(2) { case Some(json: Payload.Json) => json }(_.some)(sizePrefixed(codecJson))
+        .caseP(3) { case Some(text: Payload.Text) => text }(_.some)(sizePrefixed(Codec[Payload.Text]))
     }
 
     codecEvent[Payload]
