@@ -8,7 +8,6 @@ import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.circe.*
-import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
 import io.circe.Json
 import io.circe.jawn.*
 import org.scalatest.EitherValues
@@ -16,7 +15,15 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.*
 
-class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers with EitherValues {
+class CirceJsonEventSerializerSpec extends AsyncFunSuite
+with ActorSuite
+with Matchers
+with EitherValues
+with SerdeTesting {
+
+  // get example files from the kafka-journal-persistence module,
+  // reuse the ones made for the main EventSerializerSpec
+  override protected def serdeExampleFileContext: Class[?] = EventSerializer.getClass
 
   private val serializer = KafkaJournalCirce.JsonEventSerializer.of[IO]
 
@@ -149,8 +156,8 @@ class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matcher
 
   private def readJsonFromFile(name: String): IO[Json] =
     for {
-      bytes <- ByteVectorOf[IO](EventSerializer.getClass, name)
-      str <- bytes.decodeStr.liftTo[IO]
+      bytes <- IO { readSerdeExampleFile(name) }
+      str <- bytes.decodeUtf8.liftTo[IO]
       json <- FromCirceResult.summon[IO].apply(parse(str))
     } yield json
 

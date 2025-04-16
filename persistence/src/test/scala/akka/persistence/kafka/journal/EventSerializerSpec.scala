@@ -2,21 +2,15 @@ package akka.persistence.kafka.journal
 
 import akka.persistence.PersistentRepr
 import akka.persistence.serialization.Snapshot
-import cats.effect.{IO, Sync}
+import cats.effect.IO
 import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.FromBytes.implicits.*
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsString
-import scodec.bits.ByteVector
 
-import java.io.FileOutputStream
-import scala.util.Try
-
-class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
-  import TestJsonCodec.instance
+class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers with SerdeTesting {
 
   for {
     (name, payloadType, payload) <- List(
@@ -40,32 +34,20 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
         serializer <- EventSerializer.of[IO](actorSystem)
         event <- serializer.toEvent(persistentRepr)
         actual <- serializer.toPersistentRepr(persistenceId, event)
-        _ <- Sync[IO].delay { actual shouldEqual persistentRepr }
+        _ <- IO { actual shouldEqual persistentRepr }
         payload <- event.payload.getOrError[IO]("Event.payload is not defined")
         _ = payload.payloadType shouldEqual payloadType
-        /*_          <- payload match {
-          case a: Payload.Binary => writeToFile(a.value, name)
-          case _: Payload.Text   => IO.unit
-          case _: Payload.Json   => IO.unit
-        }*/
-        bytes <- ByteVectorOf[IO](getClass, name)
+//        _ <- payload match {
+//          case a: Payload.Binary => IO { dumpEncodedDataToFile(a.value, name) }
+//          case _: Payload.Text => IO.unit
+//          case _: Payload.Json => IO.unit
+//        }
+        payloadExample <- IO { readSerdeExampleFileAsPayload(name, payloadType) }
       } yield {
-        payload match {
-          case payload: Payload.Binary => payload.value shouldEqual bytes
-          case payload: Payload.Text => payload.value shouldEqual bytes.fromBytes[Try, String].get
-          case payload: Payload.Json => payload.value shouldEqual JsonCodec.summon[Try].decode.fromBytes(bytes).get
-        }
+        payload shouldEqual payloadExample
       }
 
       fa.run()
-    }
-  }
-
-  def writeToFile[F[_]: Sync](bytes: ByteVector, path: String): F[Unit] = {
-    Sync[F].delay {
-      val os = new FileOutputStream(path)
-      os.write(bytes.toArray)
-      os.close()
     }
   }
 }
