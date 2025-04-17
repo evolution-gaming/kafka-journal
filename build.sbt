@@ -57,25 +57,10 @@ lazy val commonSettings = Seq(
   libraryDependencySchemes ++= Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
     "org.scala-lang.modules" %% "scala-xml" % "always",
-    // TODO: [next release after 4.2.1] remove
-    //  hostname 0.2.0, 0.3.0 and 1.0.0 are binary compatible
-    "com.evolutiongaming" %% "hostname" % "always",
-  ),
-  versionPolicyIgnored ++= Seq(
-    // TODO: [next release after 4.2.1] remove
-    //  random changed orgId from com.evolution to com.evolutiongaming, the code is the same
-    "com.evolutiongaming" %% "random",
   ),
   autoAPIMappings := true,
   versionScheme := Some("early-semver"),
-  // TODO: [after first release with Scala 3] return back Compatibility.BinaryCompatible for all Scala versions
-//  versionPolicyIntention := Compatibility.BinaryCompatible,
-  // without this incantation, mima fails for Scala 3 because there are no previous artefacts for Scala 3
-  versionPolicyIntention := crossSettings(
-    scalaVersion = scalaVersion.value,
-    if2 = Compatibility.BinaryCompatible,
-    if3 = Compatibility.None,
-  ),
+  versionPolicyIntention := Compatibility.BinaryCompatible,
   packageOptions := {
     Seq(
       ManifestAttributes(
@@ -93,11 +78,6 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   //    ProblemFilters.exclude[IncompatibleMethTypeProblem](
   //      "com.evolutiongaming.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
   //    ),
-
-  // TODO: [next release after 4.2.1] remove
-  // package-private changes
-  ProblemFilters.exclude[Problem]("com.evolutiongaming.kafka.journal.PartitionCache$*"),
-  ProblemFilters.exclude[Problem]("com.evolutiongaming.kafka.journal.PartitionCache#*"),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
