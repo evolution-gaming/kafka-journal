@@ -2,26 +2,58 @@ import Dependencies.*
 import com.typesafe.tools.mima.core.*
 import sbt.Package.ManifestAttributes
 
+def crossSettings[T](scalaVersion: String, if3: T, if2: T): T = {
+  scalaVersion match {
+    case version if version.startsWith("3") => if3
+    case _ => if2
+  }
+}
+
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
   organizationName := "Evolution",
   organizationHomepage := Some(url("https://evolution.com")),
   homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
-  crossScalaVersions := Seq("2.13.16"),
+  crossScalaVersions := Seq("2.13.16", "3.3.5"),
   scalaVersion := crossScalaVersions.value.head,
   scalacOptions ++= Seq(
     "-release:17",
     "-deprecation",
-    "-Xsource:3",
+  ),
+  scalacOptions ++= crossSettings(
+    scalaVersion = scalaVersion.value,
+    // Good compiler options for Scala 2.13 are coming from com.evolution:sbt-scalac-opts-plugin:0.0.9,
+    // but its support for Scala 3 is limited, especially what concerns linting options.
+    //
+    // If Scala 3 is made the primary target, good linting scalac options for it should be added first.
+    if3 = Seq(
+      "-Ykind-projector:underscores",
+
+      // disable new brace-less syntax:
+      // https://alexn.org/blog/2022/10/24/scala-3-optional-braces/
+      "-no-indent",
+
+      // improve error messages:
+      "-explain",
+      "-explain-types",
+    ),
+    if2 = Seq(
+      "-Xsource:3",
+    ),
   ),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
-  // explanation of flags: https://www.scalatest.org/user_guide/using_the_runner (`Configuring reporters` section)
-  Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
-  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
+  // set up compiler plugins:
+  libraryDependencies ++= crossSettings(
+    scalaVersion = scalaVersion.value,
+    if3 = Seq(),
+    if2 = Seq(
+      compilerPlugin(`kind-projector` cross CrossVersion.full),
+    ),
+  ),
   libraryDependencySchemes ++= Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
     "org.scala-lang.modules" %% "scala-xml" % "always",
@@ -36,7 +68,14 @@ lazy val commonSettings = Seq(
   ),
   autoAPIMappings := true,
   versionScheme := Some("early-semver"),
-  versionPolicyIntention := Compatibility.BinaryCompatible,
+  // TODO: [after first release with Scala 3] return back Compatibility.BinaryCompatible for all Scala versions
+//  versionPolicyIntention := Compatibility.BinaryCompatible,
+  // without this incantation, mima fails for Scala 3 because there are no previous artefacts for Scala 3
+  versionPolicyIntention := crossSettings(
+    scalaVersion = scalaVersion.value,
+    if2 = Compatibility.BinaryCompatible,
+    if3 = Compatibility.None,
+  ),
   packageOptions := {
     Seq(
       ManifestAttributes(
@@ -62,12 +101,12 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
-  addCommandAlias("fmt", "all scalafmtAll scalafmtSbt") ++
+  addCommandAlias("fmt", "+all scalafmtAll scalafmtSbt") ++
     addCommandAlias(
-      "check",
+      "check", // check is called with + from the release action
       "all versionPolicyCheck Compile/doc scalafmtCheckAll scalafmtSbtCheck",
     ) ++
-    addCommandAlias("build", "all compile test")
+    addCommandAlias("build", "+all compile test")
 
 lazy val root = project
   .in(file("."))
@@ -112,8 +151,17 @@ lazy val core = project
       hostname,
       Cats.core,
       Cats.effect,
-      Scodec.core,
-      Scodec.bits,
+    ),
+    libraryDependencies ++= crossSettings(
+      scalaVersion = scalaVersion.value,
+      if2 = Seq(
+        Scodec.Scala2.core,
+        Scodec.Scala2.bits,
+      ),
+      if3 = Seq(
+        Scodec.Scala3.core,
+        Scodec.Scala3.bits,
+      ),
     ),
   )
 
@@ -142,17 +190,20 @@ lazy val journal = project
       scache,
       `cassandra-sync`,
       `scala-java8-compat`,
-      Pureconfig.pureconfig,
+      Pureconfig.core,
       Pureconfig.cats,
       Smetrics.smetrics,
       sstream,
       Cats.core,
       Cats.effect,
-      Scodec.core,
-      Scodec.bits,
       `resource-pool`,
       Logback.core % Test,
       Logback.classic % Test,
+    ),
+    libraryDependencies ++= crossSettings(
+      scalaVersion = scalaVersion.value,
+      if2 = Seq(),
+      if3 = Seq(Pureconfig.`generic-scala3`),
     ),
   )
 
@@ -211,7 +262,18 @@ lazy val cassandra = project
   .settings(name := "kafka-journal-cassandra")
   .settings(commonSettings)
   .dependsOn(core, `scalatest-io` % Test)
-  .settings(libraryDependencies ++= Seq(scache, scassandra, `cassandra-sync`))
+  .settings(
+    libraryDependencies ++= Seq(
+      scache,
+      scassandra,
+      `cassandra-sync`,
+    ),
+    libraryDependencies ++= crossSettings(
+      scalaVersion = scalaVersion.value,
+      if2 = Seq(),
+      if3 = Seq(Pureconfig.`generic-scala3`),
+    ),
+  )
 
 lazy val `eventual-cassandra` = project
   .settings(name := "kafka-journal-eventual-cassandra")
