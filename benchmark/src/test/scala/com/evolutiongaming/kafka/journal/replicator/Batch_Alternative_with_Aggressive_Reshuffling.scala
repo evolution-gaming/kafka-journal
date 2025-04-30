@@ -7,7 +7,7 @@ import com.evolutiongaming.skafka.Offset
 
 /**
  * Copy of `Batch` with changes:
- *  - aggressive batching algorithm based on some assumptions with reshuffling of actions
+ *   - aggressive batching algorithm based on some assumptions with reshuffling of actions
  */
 private[journal] sealed abstract class Batch_Alternative_with_Aggressive_Reshuffling extends Product {
 
@@ -20,7 +20,10 @@ private[journal] object Batch_Alternative_with_Aggressive_Reshuffling {
     State(records).batches
   }
 
-  /** Builds minimal set of actions, which will execute fewer calls to Cassandra while producing the same result */
+  /**
+   * Builds minimal set of actions, which will execute fewer calls to Cassandra while producing the
+   * same result
+   */
   private object State {
     def apply(records: NonEmptyList[ActionRecord[Action]]): State = {
       records.reverse.foldLeft(State()) { _.handle(_) }
@@ -28,9 +31,9 @@ private[journal] object Batch_Alternative_with_Aggressive_Reshuffling {
   }
 
   private final case class State(
-    private val purge: Option[Purge]     = None,
+    private val purge: Option[Purge] = None,
     private val appends: Option[Appends] = None,
-    private val delete: Option[Delete]   = None,
+    private val delete: Option[Delete] = None,
   ) {
     // Expects records to be provided in reversed order, e.g., youngest first
     private def handle: ActionRecord[Action] => State = {
@@ -60,7 +63,7 @@ private[journal] object Batch_Alternative_with_Aggressive_Reshuffling {
       val delete_ = this.delete match {
         case Some(younger) =>
           // take `origin` and `version` from "older" entity, if it has them
-          val origin  = delete.origin.orElse(younger.origin)
+          val origin = delete.origin.orElse(younger.origin)
           val version = delete.version.orElse(younger.version)
           // make `Delete` action with largest `seqNr` and largest `offset`
           if (younger.to < delete.to) Delete(partitionOffset.offset, delete.to, origin, version)
@@ -97,7 +100,7 @@ private[journal] object Batch_Alternative_with_Aggressive_Reshuffling {
       val appends = {
         this.appends.flatMap { appends =>
           val deleteTo = this.delete.map(_.to.value)
-          val records  = appends.records
+          val records = appends.records
           val actions =
             if (deleteTo.contains(records.head.action.range.to)) NonEmptyList.fromList(records.tail).getOrElse(records)
             else records
@@ -108,7 +111,7 @@ private[journal] object Batch_Alternative_with_Aggressive_Reshuffling {
       // if `delete` was not last action, adjust `delete`'s batch offset to update `metajournal` correctly
       val delete = appends match {
         case Some(appends) => this.delete.map(delete => delete.copy(offset = delete.offset max appends.offset))
-        case None          => this.delete
+        case None => this.delete
       }
 
       // apply action batches in order: `Purge`, `Append`s and `Delete`

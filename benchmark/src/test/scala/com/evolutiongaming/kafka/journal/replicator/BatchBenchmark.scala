@@ -4,14 +4,16 @@ import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Offset
-import scodec.bits.ByteVector
 import org.openjdk.jmh.annotations.{Benchmark, Fork, Measurement, Scope, State, Warmup}
 import org.openjdk.jmh.infra.Blackhole
+import scodec.bits.ByteVector
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-/** To run benchmarks: {{{sbt benchmark/Jmh/run com.evolutiongaming.kafka.journal.replicator.BatchBenchmark}}}
+/**
+ * To run benchmarks:
+ * {{{sbt benchmark/Jmh/run com.evolutiongaming.kafka.journal.replicator.BatchBenchmark}}}
  */
 @State(Scope.Benchmark)
 @Fork(1)
@@ -100,11 +102,11 @@ class BatchBenchmark {
   def b7: Nel[A] = Nel.of(mark(offset = 0), append(offset = 1, seqNr = 1))
   def b8: Nel[A] = Nel.of(append(offset = 0, seqNr = 1), append(offset = 1, seqNr = 2))
   def b9: Nel[A] = Nel.of(
-    mark(offset   = 0),
+    mark(offset = 0),
     append(offset = 1, seqNr = 1),
-    mark(offset   = 2),
+    mark(offset = 2),
     append(offset = 3, seqNr = 2),
-    mark(offset   = 4),
+    mark(offset = 4),
   )
   def b10: Nel[A] = Nel.of(delete(offset = 1, to = 1))
   def b11: Nel[A] = Nel.of(mark(offset = 1), delete(offset = 2, to = 1))
@@ -115,86 +117,87 @@ class BatchBenchmark {
   def b16: Nel[A] = Nel.of(append(offset = 1, seqNr = 1), delete(offset = 2, to = 1), append(offset = 3, seqNr = 2))
   def b17: Nel[A] = Nel.of(
     append(offset = 1, seqNr = 1),
-    delete(offset = 2, to    = 1, origin = "origin1"),
+    delete(offset = 2, to = 1, origin = "origin1"),
     append(offset = 3, seqNr = 2),
-    delete(offset = 4, to    = 2, origin = "origin2"),
+    delete(offset = 4, to = 2, origin = "origin2"),
   )
   def b18: Nel[A] = Nel.of(
     append(offset = 1, seqNr = 1),
-    delete(offset = 2, to    = 1, origin = "origin"),
+    delete(offset = 2, to = 1, origin = "origin"),
     append(offset = 3, seqNr = 2),
-    delete(offset = 4, to    = 2),
+    delete(offset = 4, to = 2),
   )
   def b19: Nel[A] = Nel.of(
     append(offset = 1, seqNr = 1),
     append(offset = 2, seqNr = 2),
-    delete(offset = 3, to    = 1, origin = "origin1"),
-    delete(offset = 4, to    = 2, origin = "origin2"),
+    delete(offset = 3, to = 1, origin = "origin1"),
+    delete(offset = 4, to = 2, origin = "origin2"),
   )
   def b20: Nel[A] = Nel.of(
     append(offset = 1, seqNr = 1),
     append(offset = 2, seqNr = 2),
-    delete(offset = 3, to    = 1),
-    delete(offset = 4, to    = 2, origin = "origin"),
+    delete(offset = 3, to = 1),
+    delete(offset = 4, to = 2, origin = "origin"),
   )
   def b21: Nel[A] = Nel.of(delete(offset = 2, to = 1), delete(offset = 3, to = 2))
   def b22: Nel[A] = Nel.of(delete(offset = 2, to = 2, origin = "origin"), delete(offset = 3, to = 1))
   def b23: Nel[A] = Nel.of(
-    mark(offset   = 2),
+    mark(offset = 2),
     delete(offset = 3, to = 1, origin = "origin"),
-    mark(offset   = 4),
+    mark(offset = 4),
     delete(offset = 5, to = 2),
-    mark(offset   = 6),
+    mark(offset = 6),
   )
   def b24: Nel[A] = Nel.of(
     append(offset = 0, seqNr = 1),
-    delete(offset = 1, to    = 1),
+    delete(offset = 1, to = 1),
     append(offset = 2, seqNr = 2),
-    delete(offset = 3, to    = 2),
+    delete(offset = 3, to = 2),
     append(offset = 4, seqNr = 3),
   )
   def b25: Nel[A] = Nel.of(
     append(offset = 0, seqNr = 1),
     append(offset = 1, seqNr = 2),
-    delete(offset = 2, to    = 1),
+    delete(offset = 2, to = 1),
     append(offset = 3, seqNr = 3),
-    delete(offset = 4, to    = 3),
+    delete(offset = 4, to = 3),
     append(offset = 5, seqNr = 4),
   )
   def b26: Nel[A] = Nel.of(
     append(offset = 0, seqNr = 1),
     append(offset = 1, seqNr = 2),
-    mark(offset   = 2),
-    delete(offset = 3, to    = 1),
+    mark(offset = 2),
+    delete(offset = 3, to = 1),
     append(offset = 4, seqNr = 3),
     append(offset = 5, seqNr = 4),
-    mark(offset   = 6),
+    mark(offset = 6),
   )
   def b27: Nel[A] = Nel.of(
     append(offset = 0, seqNr = 1),
     append(offset = 1, seqNr = 2),
     append(offset = 2, seqNr = 3),
-    delete(offset = 3, to    = 1, origin = "origin"),
+    delete(offset = 3, to = 1, origin = "origin"),
     append(offset = 4, seqNr = 4),
     append(offset = 5, seqNr = 5),
-    delete(offset = 6, to    = 2),
+    delete(offset = 6, to = 2),
     append(offset = 7, seqNr = 6),
   )
   def b28: Nel[A] = Nel.of(
     append(offset = 0, seqNr = 1, seqNrs = 2),
     append(offset = 1, seqNr = 3, seqNrs = 4),
     append(offset = 2, seqNr = 5),
-    delete(offset = 3, to    = 1),
+    delete(offset = 3, to = 1),
     append(offset = 4, seqNr = 6),
     append(offset = 5, seqNr = 7),
-    delete(offset = 6, to    = 3),
+    delete(offset = 6, to = 3),
     append(offset = 7, seqNr = 8),
   )
   def b29: Nel[A] = Nel.of(purge(offset = 0))
   def b30: Nel[A] = Nel.of(mark(offset = 0), purge(offset = 1))
   def b31: Nel[A] = Nel.of(purge(offset = 0), mark(offset = 1))
   def b32: Nel[A] = Nel.of(purge(offset = 0, origin = "origin"), mark(offset = 1), purge(offset = 2))
-  def b33: Nel[A] = Nel.of(purge(offset = 0, origin = "origin0"), mark(offset = 1), purge(offset = 2, origin = "origin"))
+  def b33: Nel[A] =
+    Nel.of(purge(offset = 0, origin = "origin0"), mark(offset = 1), purge(offset = 2, origin = "origin"))
   def b34: Nel[A] = Nel.of(append(offset = 0, seqNr = 1), purge(offset = 1))
   def b35: Nel[A] = Nel.of(purge(offset = 0), append(offset = 1, seqNr = 1))
   def b36: Nel[A] = Nel.of(delete(offset = 0, to = 1), purge(offset = 1))
@@ -204,24 +207,24 @@ class BatchBenchmark {
     append(offset = 0, seqNr = 1, seqNrs = 2),
     append(offset = 1, seqNr = 3, seqNrs = 4),
     append(offset = 2, seqNr = 5, seqNrs = 6),
-    delete(offset = 3, to    = 3),
-    delete(offset = 4, to    = 5),
+    delete(offset = 3, to = 3),
+    delete(offset = 4, to = 5),
   )
   def b40: Nel[A] = Nel.of(
     append(offset = 0, seqNr = 1, seqNrs = 2, 3, 4, 5, 6),
-    delete(offset = 1, to    = 3),
-    delete(offset = 2, to    = 6),
+    delete(offset = 1, to = 3),
+    delete(offset = 2, to = 6),
   )
   def b41: Nel[A] = Nel.of(
     append(offset = 0, seqNr = 1, seqNrs = 2, 3, 4),
     append(offset = 1, seqNr = 5, seqNrs = 6),
-    delete(offset = 2, to    = 3),
-    delete(offset = 3, to    = 6),
+    delete(offset = 2, to = 3),
+    delete(offset = 3, to = 6),
   )
   def b42: Nel[A] = Nel.of(
     append(offset = 0, seqNr = 1, seqNrs = 2, 3, 4),
     append(offset = 1, seqNr = 5, seqNrs = 6),
-    delete(offset = 2, to    = 3),
+    delete(offset = 2, to = 3),
   )
   def b43: Nel[A] = Nel.of(
     delete(offset = 1, to = 10),
@@ -230,21 +233,21 @@ class BatchBenchmark {
   def b44: Nel[A] = Nel.of( // state: delete_to = 384, seqNr = 573 (in Cassandra)
     append(offset = 1797039, seqNr = 574),
     append(offset = 1801629, seqNr = 575),
-    mark(offset   = 1801632),
-    delete(offset = 1801642, to    = 575),
+    mark(offset = 1801632),
+    delete(offset = 1801642, to = 575),
   )
 
   def b45: Nel[A] = Nel.of( // state: delete_to = 384, seqNr = 573 (in Cassandra)
-    append(offset = 1, seqNr  = 1),
-    append(offset = 2, seqNr  = 2),
-    append(offset = 3, seqNr  = 3),
-    append(offset = 4, seqNr  = 4),
-    append(offset = 5, seqNr  = 5),
-    append(offset = 6, seqNr  = 6),
-    append(offset = 7, seqNr  = 7),
-    append(offset = 8, seqNr  = 8),
-    append(offset = 9, seqNr  = 9),
-    delete(offset = 10, to    = 5),
+    append(offset = 1, seqNr = 1),
+    append(offset = 2, seqNr = 2),
+    append(offset = 3, seqNr = 3),
+    append(offset = 4, seqNr = 4),
+    append(offset = 5, seqNr = 5),
+    append(offset = 6, seqNr = 6),
+    append(offset = 7, seqNr = 7),
+    append(offset = 8, seqNr = 8),
+    append(offset = 9, seqNr = 9),
+    delete(offset = 10, to = 5),
     append(offset = 11, seqNr = 11),
     append(offset = 12, seqNr = 12),
     append(offset = 13, seqNr = 13),
@@ -254,7 +257,7 @@ class BatchBenchmark {
     append(offset = 17, seqNr = 17),
     append(offset = 18, seqNr = 18),
     append(offset = 19, seqNr = 19),
-    delete(offset = 20, to    = 15),
+    delete(offset = 20, to = 15),
     append(offset = 21, seqNr = 21),
     append(offset = 22, seqNr = 22),
     append(offset = 23, seqNr = 23),
@@ -294,14 +297,14 @@ class BatchBenchmark {
 
   def appendOf(seqNrs: Nel[Int]): Action.Append = {
     Action.Append(
-      key       = keyOf,
+      key = keyOf,
       timestamp = timestamp,
       header = ActionHeader.Append(
-        range       = SeqRange(seqNrOf(seqNrs.head), seqNrOf(seqNrs.last)),
+        range = SeqRange(seqNrOf(seqNrs.head), seqNrOf(seqNrs.last)),
         payloadType = PayloadType.Binary,
-        origin      = none,
-        version     = none,
-        metadata    = HeaderMetadata.empty,
+        origin = none,
+        version = none,
+        metadata = HeaderMetadata.empty,
       ),
       payload = ByteVector.empty,
       headers = Headers.empty,
@@ -316,8 +319,8 @@ class BatchBenchmark {
     a match {
       case a: A.Append => appendOf(Nel(a.seqNr, a.seqNrs))
       case a: A.Delete => deleteOf(seqNr = a.seqNr, origin = a.origin)
-      case a: A.Purge  => Action.Purge(keyOf, timestamp, origin = originOf(a.origin), version = none)
-      case _: A.Mark   => Action.Mark(keyOf, timestamp, ActionHeader.Mark("id", none, version = none))
+      case a: A.Purge => Action.Purge(keyOf, timestamp, origin = originOf(a.origin), version = none)
+      case _: A.Mark => Action.Mark(keyOf, timestamp, ActionHeader.Mark("id", none, version = none))
     }
   }
 
