@@ -3,3 +3,6 @@
 
 # reformat with a new commit-diff-friendly style
 677a6be78f92d840dd58d92a9f346dc7244fa5b5
+
+# Scala Steward: Reformat with scalafmt 3.9.5
+b3e3aa91ff1a2dc8829635d3d83733623eca80df
