@@ -7,8 +7,8 @@ import com.evolutiongaming.skafka.Offset
 
 /**
  * Copy of `Batch` with changes:
- *  - change batching algorithm so it is easier to comprehend
- *  - records are aggregated within `Vector` to make append faster (line: 31)
+ *   - change batching algorithm so it is easier to comprehend
+ *   - records are aggregated within `Vector` to make append faster (line: 31)
  */
 private[journal] sealed abstract class Batch_4_1_0_Alternative_with_Vector extends Product {
 
@@ -32,8 +32,8 @@ private[journal] object Batch_4_1_0_Alternative_with_Vector {
       }
       .groupBy { record =>
         record.action match {
-          case _: Action.Mark   => "M" // cannot be - we remove them in previous step
-          case _: Action.Purge  => "P"
+          case _: Action.Mark => "M" // cannot be - we remove them in previous step
+          case _: Action.Purge => "P"
           case _: Action.Delete => "D"
           case _: Action.Append => "A"
         }
@@ -44,7 +44,7 @@ private[journal] object Batch_4_1_0_Alternative_with_Vector {
       _.headOption.flatMap { record =>
         record.action match {
           case purge: Action.Purge => Purge(record.offset, purge.origin, purge.version).some
-          case _                   => none
+          case _ => none
         }
       }
     }
@@ -75,19 +75,19 @@ private[journal] object Batch_4_1_0_Alternative_with_Vector {
       // we can drop first `append`, if `deleteTo` will discard it AND there is at least one more `append`
       val actions = actions0.headOption match {
         case Some(head) if deleteTo.contains(head.action.range.to) && actions0.tail.nonEmpty => actions0.tail
-        case _                                                                               => actions0
+        case _ => actions0
       }
 
       NonEmptyList.fromList(actions.toList) match { // CHANGE: use `.toList`
         case Some(actions) => Appends(appends.last.offset, actions).some
-        case None          => none
+        case None => none
       }
     }
 
     // if `delete` was not last action, adjust `delete`'s batch offset to update `metajournal` correctly
     val delete = appends match {
       case Some(appends) => delete0.map(delete => delete.copy(offset = delete.offset max appends.offset))
-      case None          => delete0
+      case None => delete0
     }
 
     // apply action batches in order: `Purge`, `Append`s and `Delete`

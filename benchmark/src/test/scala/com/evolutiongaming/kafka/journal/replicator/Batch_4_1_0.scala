@@ -54,9 +54,9 @@ private[journal] object Batch_4_1_0 {
           bs.foldRight(none[Origin]) { (b, origin) =>
             origin orElse {
               b match {
-                case b: Batch_4_1_0.Delete  => b.origin
+                case b: Batch_4_1_0.Delete => b.origin
                 case _: Batch_4_1_0.Appends => none
-                case b: Batch_4_1_0.Purge   => b.origin
+                case b: Batch_4_1_0.Purge => b.origin
               }
             }
           }
@@ -66,9 +66,9 @@ private[journal] object Batch_4_1_0 {
           bs.foldRight(none[Version]) { (b, version) =>
             version orElse {
               b match {
-                case b: Batch_4_1_0.Delete  => b.version
+                case b: Batch_4_1_0.Delete => b.version
                 case _: Batch_4_1_0.Appends => none
-                case b: Batch_4_1_0.Purge   => b.version
+                case b: Batch_4_1_0.Purge => b.version
               }
             }
           }
@@ -107,14 +107,15 @@ private[journal] object Batch_4_1_0 {
                 if (a.to > b.to) {
                   val cleanTail: List[Batch_4_1_0] = tail.mapFilter {
                     case appends: Appends => dropDeleted(appends, a)
-                    case delete: Delete   => delete.some
-                    case purge: Purge     => purge.some
+                    case delete: Delete => delete.some
+                    case purge: Purge => purge.some
                   }
 
                   val delete = deleteOf(a.to, b.origin orElse a.origin, b.version orElse a.version)
                   delete :: cleanTail
                 } else {
-                  val delete = b.copy(offset = offset, origin = b.origin orElse a.origin, version = b.version orElse a.version)
+                  val delete =
+                    b.copy(offset = offset, origin = b.origin orElse a.origin, version = b.version orElse a.version)
                   delete :: tail
                 }
 
@@ -137,17 +138,17 @@ private[journal] object Batch_4_1_0 {
           case Nil =>
             record.action match {
               case a: Action.Append => appendsOf(NonEmptyList.of(actionRecord(a))) :: Nil
-              case _: Action.Mark   => Nil
+              case _: Action.Mark => Nil
               case a: Action.Delete => deleteOf(a.to, a.origin, a.version) :: Nil
-              case a: Action.Purge  => purgeOf(a.origin, a.version) :: Nil
+              case a: Action.Purge => purgeOf(a.origin, a.version) :: Nil
             }
         }
       }
       .foldLeft(List.empty[Batch_4_1_0]) { (bs, b) => // reverse order of Batch_4_1_0es
         b match {
           case b: Appends => b.copy(records = b.records.reverse) :: bs // reverse append actions
-          case b: Delete  => b :: bs
-          case b: Purge   => b :: bs
+          case b: Delete => b :: bs
+          case b: Purge => b :: bs
         }
       }
   }
