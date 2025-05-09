@@ -48,7 +48,7 @@ object Replicator {
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
     // TODO: [5.0.0 release] replace default value with just None
-    // none doesn't compile with Scala 3.3.5
+    // none doesn't compile with Scala 3.3.6
     // None and none[<concrete type from the left>] breaks bincompat
     metrics: Option[Metrics[F]] = none[Nothing],
   ): Resource[F, F[Unit]] = {

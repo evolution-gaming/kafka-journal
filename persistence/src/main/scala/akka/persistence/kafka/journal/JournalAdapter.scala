@@ -243,7 +243,7 @@ object JournalAdapter {
 
   final case class Metrics[F[_]](
     // TODO: [5.0.0 release] replace default values with just None
-    // none doesn't compile with Scala 3.3.5
+    // none doesn't compile with Scala 3.3.6
     // None and none[<concrete type from the left>] breaks bincompat
     journal: Option[JournalMetrics[F]] = none[Nothing],
     eventual: Option[EventualJournal.Metrics[F]] = none[Nothing],
