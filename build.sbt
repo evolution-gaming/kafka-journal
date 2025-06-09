@@ -2,13 +2,6 @@ import Dependencies.*
 import com.typesafe.tools.mima.core.*
 import sbt.Package.ManifestAttributes
 
-def crossSettings[T](scalaVersion: String, if3: T, if2: T): T = {
-  scalaVersion match {
-    case version if version.startsWith("3") => if3
-    case _ => if2
-  }
-}
-
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
   organizationName := "Evolution",
@@ -129,17 +122,12 @@ lazy val core = project
       hostname,
       Cats.core,
       Cats.effect,
+      Scodec.bits,
     ),
     libraryDependencies ++= crossSettings(
       scalaVersion = scalaVersion.value,
-      if2 = Seq(
-        Scodec.Scala2.core,
-        Scodec.Scala2.bits,
-      ),
-      if3 = Seq(
-        Scodec.Scala3.core,
-        Scodec.Scala3.bits,
-      ),
+      if2 = Seq(Scodec.Scala2.core),
+      if3 = Seq(Scodec.Scala3.core),
     ),
   )
 
@@ -295,3 +283,10 @@ lazy val benchmark = project
     Jmh / classDirectory := (Test / classDirectory).value,
     Jmh / dependencyClasspath := (Test / dependencyClasspath).value,
   )
+
+def crossSettings[T](scalaVersion: String, if3: T, if2: T): T = {
+  scalaVersion match {
+    case version if version.startsWith("3") => if3
+    case _ => if2
+  }
+}
