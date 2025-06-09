@@ -71,13 +71,10 @@ lazy val commonSettings = Seq(
 )
 
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
-  // add mima check exceptions here, i.e.:
-  //
-  //    // TODO: [4.2.0 release] remove
-  //    // package-private method change
-  //    ProblemFilters.exclude[IncompatibleMethTypeProblem](
-  //      "com.evolutiongaming.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
-  //    ),
+  // add mima check exceptions here, like:
+//  ProblemFilters.exclude[IncompatibleMethTypeProblem](
+//    "com.evolutiongaming.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
+//  ),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
@@ -116,6 +113,7 @@ lazy val `scalatest-io` = project
   .settings(libraryDependencies ++= Seq(scalatest, Smetrics.smetrics, `cats-helper`, Cats.core, Cats.effect))
 
 lazy val core = project
+  .in(file("akka/core"))
   .settings(name := "kafka-journal-core")
   .settings(commonSettings)
   .dependsOn(`scalatest-io` % Test)
@@ -146,6 +144,7 @@ lazy val core = project
   )
 
 lazy val journal = project
+  .in(file("akka/journal"))
   .settings(name := "kafka-journal")
   .settings(commonSettings)
   .dependsOn(core % "test->test;compile->compile", `scalatest-io` % Test)
@@ -188,12 +187,14 @@ lazy val journal = project
   )
 
 lazy val snapshot = project
+  .in(file("akka/snapshot"))
   .settings(name := "kafka-journal-snapshot")
   .settings(commonSettings)
   .dependsOn(core)
   .settings(libraryDependencies ++= Seq(scalatest % Test))
 
 lazy val persistence = project
+  .in(file("akka/persistence"))
   .settings(name := "kafka-journal-persistence")
   .settings(commonSettings)
   .dependsOn(journal % "test->test;compile->compile", `eventual-cassandra`, `snapshot-cassandra`)
@@ -207,6 +208,7 @@ lazy val persistence = project
   )
 
 lazy val `tests` = project
+  .in(file("akka/tests"))
   .settings(name := "kafka-journal-tests")
   .settings(commonSettings)
   .settings(
@@ -233,12 +235,14 @@ lazy val `tests` = project
   )
 
 lazy val replicator = project
+  .in(file("akka/replicator"))
   .settings(name := "kafka-journal-replicator")
   .settings(commonSettings)
   .dependsOn(journal % "test->test;compile->compile", `eventual-cassandra`)
   .settings(libraryDependencies ++= Seq(`cats-helper`, Logback.core % Test, Logback.classic % Test))
 
 lazy val cassandra = project
+  .in(file("akka/cassandra"))
   .settings(name := "kafka-journal-cassandra")
   .settings(commonSettings)
   .dependsOn(core, `scalatest-io` % Test)
@@ -256,32 +260,34 @@ lazy val cassandra = project
   )
 
 lazy val `eventual-cassandra` = project
+  .in(file("akka/eventual-cassandra"))
   .settings(name := "kafka-journal-eventual-cassandra")
   .settings(commonSettings)
   .dependsOn(cassandra % "test->test;compile->compile", journal % "test->test;compile->compile")
   .settings(libraryDependencies ++= Seq(scassandra))
 
 lazy val `snapshot-cassandra` = project
+  .in(file("akka/snapshot-cassandra"))
   .settings(name := "kafka-journal-snapshot-cassandra")
   .settings(commonSettings)
   .dependsOn(cassandra, snapshot % "test->test;compile->compile")
   .settings(libraryDependencies ++= Seq(scassandra))
 
 lazy val `journal-circe` = project
-  .in(file("circe/core"))
+  .in(file("akka/circe/core"))
   .settings(name := "kafka-journal-circe")
   .settings(commonSettings)
   .dependsOn(journal % "test->test;compile->compile")
   .settings(libraryDependencies ++= Seq(Circe.core, Circe.generic, Circe.jawn))
 
 lazy val `persistence-circe` = project
-  .in(file("circe/persistence"))
+  .in(file("akka/circe/persistence"))
   .settings(name := "kafka-journal-persistence-circe")
   .settings(commonSettings)
   .dependsOn(`journal-circe`, persistence % "test->test;compile->compile")
 
 lazy val benchmark = project
-  .dependsOn(replicator % "test->test", journal % "test->test;compile->compile", `eventual-cassandra`)
+  .dependsOn(journal % "test->test;compile->compile")
   .enablePlugins(JmhPlugin)
   .settings(commonSettings)
   .settings(
