@@ -218,8 +218,17 @@ lazy val akkaReplicator = project
   .in(file("akka/replicator"))
   .settings(name := "kafka-journal-replicator")
   .settings(commonSettings)
-  .dependsOn(akkaJournal % "test->test;compile->compile", akkaEventualCassandra)
-  .settings(libraryDependencies ++= Seq(CatsHelper, Logback.Core % Test, Logback.Classic % Test))
+  .dependsOn(
+    akkaJournal % "test->test",
+    akkaEventualCassandra,
+    ScalaTestIO % Test,
+  )
+  .settings(libraryDependencies ++= Seq(
+    CatsHelper,
+    Logback.Core % Test,
+    Logback.Classic % Test,
+    ScalaTest % Test,
+  ))
 
 lazy val akkaCassandra = project
   .in(file("akka/cassandra"))
