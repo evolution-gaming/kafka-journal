@@ -2,15 +2,10 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.syntax.all.*
 import cats.{Applicative, ApplicativeThrow, Hash}
-import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.catshelper.ApplicativeThrowable
-import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.{Bytes, Offset, Partition, Topic}
 import scodec.bits.ByteVector
-
-import scala.util.Try
 
 // TODO move to skafka & scassandra
 object SkafkaHelper {
@@ -28,38 +23,6 @@ object SkafkaHelper {
     def inc[F[_]: ApplicativeThrowable]: F[Offset] = Offset.of[F](self.value + 1)
 
     def dec[F[_]: ApplicativeThrowable]: F[Offset] = Offset.of[F](self.value - 1)
-  }
-
-  implicit val encodeByNamePartition: EncodeByName[Partition] = EncodeByName[Int].contramap { (a: Partition) =>
-    a.value
-  }
-
-  implicit val decodeByNamePartition: DecodeByName[Partition] = DecodeByName[Int].map { a => Partition.of[Try](a).get }
-
-  implicit val encodeByNameOffset: EncodeByName[Offset] = EncodeByName[Long].contramap { (a: Offset) => a.value }
-
-  implicit val decodeByNameOffset: DecodeByName[Offset] = DecodeByName[Long].map { a => Offset.of[Try](a).get }
-
-  implicit val decodeRowPartition: DecodeRow[Partition] = (data: GettableByNameData) => {
-    data.decode[Partition]("partition")
-  }
-
-  implicit val encodeRowPartition: EncodeRow[Partition] = new EncodeRow[Partition] {
-
-    def apply[B <: SettableData[B]](data: B, partition: Partition) = {
-      data.encode("partition", partition.value)
-    }
-  }
-
-  implicit val decodeRowOffset: DecodeRow[Offset] = (data: GettableByNameData) => {
-    data.decode[Offset]("offset")
-  }
-
-  implicit val encodeRowOffset: EncodeRow[Offset] = new EncodeRow[Offset] {
-
-    def apply[B <: SettableData[B]](data: B, offset: Offset) = {
-      data.encode("offset", offset.value)
-    }
   }
 
   implicit val hashPartition: Hash[Partition] = Hash.by { _.value }

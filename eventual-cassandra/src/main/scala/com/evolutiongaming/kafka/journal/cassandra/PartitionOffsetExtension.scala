@@ -1,24 +1,13 @@
-package com.evolutiongaming.kafka.journal
+package com.evolutiongaming.kafka.journal.cassandra
 
-import cats.{Eq, Order, Show}
 import com.datastax.driver.core.{GettableByNameData, SettableData}
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.kafka.journal.PartitionOffset
+import com.evolutiongaming.kafka.journal.cassandra.SkafkaHelperExtension.*
 import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
-import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.{Offset, Partition}
 
-final case class PartitionOffset(
-  partition: Partition = Partition.min,
-  offset: Offset = Offset.min,
-) {
-  override def toString = s"$partition:$offset"
-}
-
-object PartitionOffset {
-
-  val empty: PartitionOffset = PartitionOffset()
-
+object PartitionOffsetExtension {
   implicit val encodeRowPartitionOffset: EncodeRow[PartitionOffset] = new EncodeRow[PartitionOffset] {
 
     def apply[B <: SettableData[B]](data: B, value: PartitionOffset) = {
@@ -30,16 +19,5 @@ object PartitionOffset {
 
   implicit val decodeRowPartitionOffset: DecodeRow[PartitionOffset] = (data: GettableByNameData) => {
     PartitionOffset(partition = data.decode[Partition]("partition"), offset = data.decode[Offset]("offset"))
-  }
-
-  implicit val eqPartitionOffset: Eq[PartitionOffset] = Eq.fromUniversalEquals
-
-  implicit val showPartitionOffset: Show[PartitionOffset] = Show.fromToString[PartitionOffset]
-
-  implicit val orderPartitionOffset: Order[PartitionOffset] =
-    Order.whenEqual(Order.by { (a: PartitionOffset) => a.partition }, Order.by { (a: PartitionOffset) => a.offset })
-
-  def apply(record: ConsumerRecord[?, ?]): PartitionOffset = {
-    PartitionOffset(partition = record.topicPartition.partition, offset = record.offset)
   }
 }

@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.syntax.all.*
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.cassandra.DeleteToExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.PartitionOffsetExtension.*
 import com.evolutiongaming.kafka.journal.cassandra.SeqNrExtension.*
 import com.evolutiongaming.kafka.journal.{DeleteTo, PartitionOffset, SeqNr}
 import com.evolutiongaming.scassandra.syntax.*

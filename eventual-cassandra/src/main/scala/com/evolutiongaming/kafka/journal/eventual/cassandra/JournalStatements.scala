@@ -8,6 +8,7 @@ import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.cassandra.KeyExtension.*
 import com.evolutiongaming.kafka.journal.cassandra.OriginExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.PartitionOffsetExtension.*
 import com.evolutiongaming.kafka.journal.cassandra.PayloadTypeExtension.*
 import com.evolutiongaming.kafka.journal.cassandra.RecordMetadataExtension.*
 import com.evolutiongaming.kafka.journal.cassandra.SeqNrExtension.*
