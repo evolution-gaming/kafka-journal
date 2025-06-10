@@ -71,6 +71,9 @@ object Dependencies {
     private val version = "0.17.8"
     val Core = "com.github.pureconfig" %% "pureconfig-core" % version
     val Cats = "com.github.pureconfig" %% "pureconfig-cats" % version
+    object Scala2 {
+      val Generic = "com.github.pureconfig" %% "pureconfig-generic" % version
+    }
     object Scala3 {
       val Generic = "com.github.pureconfig" %% "pureconfig-generic-scala3" % version
     }
