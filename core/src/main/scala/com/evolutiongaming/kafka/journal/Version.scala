@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Show
 import cats.kernel.{Eq, Order}
-import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import play.api.libs.json.{Reads, Writes}
 
 /**
@@ -28,19 +27,4 @@ object Version {
 
   implicit val readsVersion: Reads[Version] = Reads.of[String].map(Version(_))
 
-  implicit val encodeByNameVersion: EncodeByName[Version] = EncodeByName[String].contramap { (a: Version) => a.value }
-
-  implicit val decodeByNameVersion: DecodeByName[Version] = DecodeByName[String].map { a => Version(a) }
-
-  implicit val encodeByNameOptVersion: EncodeByName[Option[Version]] = EncodeByName.optEncodeByName
-
-  implicit val decodeByNameOptVersion: DecodeByName[Option[Version]] = DecodeByName.optDecodeByName
-
-  implicit val encodeRowVersion: EncodeRow[Version] = EncodeRow("version")
-
-  implicit val decodeRowVersion: DecodeRow[Version] = DecodeRow("version")
-
-  implicit val encodeRowOptVersion: EncodeRow[Option[Version]] = EncodeRow("version")
-
-  implicit val decodeRowOptVersion: DecodeRow[Option[Version]] = DecodeRow("version")
 }

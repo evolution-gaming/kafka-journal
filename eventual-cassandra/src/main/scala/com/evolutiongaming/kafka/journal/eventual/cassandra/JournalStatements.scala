@@ -6,7 +6,14 @@ import cats.syntax.all.*
 import com.datastax.driver.core.{BatchStatement, Row}
 import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
+import com.evolutiongaming.kafka.journal.cassandra.KeyExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.OriginExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.PartitionOffsetExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.PayloadTypeExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.RecordMetadataExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.SeqNrExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.VersionExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, RecordMetadataExtension}
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper.*
@@ -73,7 +80,7 @@ private[journal] object JournalStatements {
       implicit val encodeByNameByteVector: EncodeByName[ByteVector] = EncodeByName[Array[Byte]]
         .contramap { _.toArray }
 
-      val encodeByNameRecordMetadata = EncodeByName[RecordMetadata]
+      val encodeByNameRecordMetadata = EncodeByName[RecordMetadata](RecordMetadataExtension.encodeByNameRecordMetadata)
 
       val query =
         s"""

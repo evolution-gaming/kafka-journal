@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.Origin
+import com.evolutiongaming.kafka.journal.cassandra.OriginExtension.*
 import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 
