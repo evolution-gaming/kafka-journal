@@ -1,7 +1,8 @@
-package com.evolutiongaming.kafka.journal
+package com.evolutiongaming.kafka.journal.akka
 
 import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
 import cats.effect.Sync
+import com.evolutiongaming.kafka.journal.Origin
 
 object OriginExtension {
 

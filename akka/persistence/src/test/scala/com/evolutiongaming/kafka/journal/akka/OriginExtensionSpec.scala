@@ -1,9 +1,10 @@
-package com.evolutiongaming.kafka.journal
+package com.evolutiongaming.kafka.journal.akka
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import cats.effect.IO
 import com.evolutiongaming.kafka.journal.IOSuite.*
+import com.evolutiongaming.kafka.journal.Origin
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
