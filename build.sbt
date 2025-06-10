@@ -104,13 +104,11 @@ lazy val akkaCore = project
   .dependsOn(ScalaTestIO % Test)
   .settings(
     libraryDependencies ++= Seq(
-      Akka.Actor,
-      Akka.Testkit % Test,
       SKafka,
       CatsHelper,
       PlayJson,
       PlayJsonJsoniter,
-      SCassandra,
+      SCassandra, // TODO MR remove
       Hostname,
       Cats.Core,
       Cats.Effect,
@@ -130,10 +128,6 @@ lazy val akkaJournal = project
   .dependsOn(akkaCore % "test->test;compile->compile", ScalaTestIO % Test)
   .settings(
     libraryDependencies ++= Seq(
-      Akka.Actor,
-      Akka.Stream,
-      Akka.Testkit % Test,
-      Akka.Slf4j % Test,
       KafkaClients,
       SKafka,
       ScalaTest % Test,
@@ -145,9 +139,9 @@ lazy val akkaJournal = project
       PlayJsonJsoniter,
       Hostname,
       CassandraDriver,
-      SCassandra,
+      SCassandra, // TODO MR remove
       SCache,
-      CassandraSync,
+      CassandraSync, // TODO MR remove
       ScalaJava8Compat,
       Pureconfig.Core,
       Pureconfig.Cats,
@@ -180,6 +174,7 @@ lazy val akkaPersistence = project
   .dependsOn(akkaJournal % "test->test;compile->compile", akkaEventualCassandra, akkaSnapshotCassandra)
   .settings(
     libraryDependencies ++= Seq(
+      Akka.Testkit % Test,
       AkkaSerialization,
       CatsHelper,
       Akka.Persistence,
@@ -202,6 +197,7 @@ lazy val akkaTests = project
   .dependsOn(akkaPersistence % "test->test;compile->compile", akkaPersistenceCirce, akkaReplicator)
   .settings(
     libraryDependencies ++= Seq(
+      Akka.Slf4j % Test,
       CatsHelper,
       TestContainers.Cassandra % Test,
       TestContainers.Kafka % Test,
