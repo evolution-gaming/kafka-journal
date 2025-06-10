@@ -5,6 +5,10 @@ import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
+import com.evolutiongaming.kafka.journal.cassandra.DeleteToExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.KeyExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.OriginExtension.*
+import com.evolutiongaming.kafka.journal.cassandra.SeqNrExtension.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
 import com.evolutiongaming.scassandra.TableName
