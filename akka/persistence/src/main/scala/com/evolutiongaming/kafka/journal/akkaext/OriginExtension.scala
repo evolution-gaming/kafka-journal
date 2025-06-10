@@ -1,4 +1,4 @@
-package com.evolutiongaming.kafka.journal.akka
+package com.evolutiongaming.kafka.journal.akkaext
 
 import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
 import cats.effect.Sync

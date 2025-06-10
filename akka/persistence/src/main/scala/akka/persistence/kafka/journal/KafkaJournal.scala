@@ -9,7 +9,7 @@ import cats.syntax.all.*
 import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.akka.OriginExtension
+import com.evolutiongaming.kafka.journal.akkaext.OriginExtension
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.retry.Retry.implicits.*
