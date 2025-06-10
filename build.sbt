@@ -85,15 +85,15 @@ lazy val root = project
   .aggregate(
     core,
     journal,
-    akkaSnapshot,
+    snapshot,
+    replicator,
+    cassandra,
+    eventualCassandra,
+    snapshotCassandra,
+    circe,
     akkaPersistence,
-    akkaTests,
-    akkaReplicator,
-    akkaCassandra,
-    akkaEventualCassandra,
-    akkaSnapshotCassandra,
-    akkaJournalCirce,
     akkaPersistenceCirce,
+    akkaTests,
     ScalaTestIO,
   )
 
@@ -160,8 +160,8 @@ lazy val journal = project
     ),
   )
 
-lazy val akkaSnapshot = project
-  .in(file("akka/snapshot"))
+lazy val snapshot = project
+  .in(file("snapshot"))
   .settings(name := "kafka-journal-snapshot")
   .settings(commonSettings)
   .dependsOn(core)
@@ -171,7 +171,7 @@ lazy val akkaPersistence = project
   .in(file("akka/persistence"))
   .settings(name := "kafka-journal-persistence")
   .settings(commonSettings)
-  .dependsOn(journal % "test->test;compile->compile", akkaEventualCassandra, akkaSnapshotCassandra)
+  .dependsOn(journal % "test->test;compile->compile", eventualCassandra, snapshotCassandra)
   .settings(
     libraryDependencies ++= Seq(
       AkkaSerialization,
@@ -194,7 +194,7 @@ lazy val akkaTests = project
       Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
     ),
   )
-  .dependsOn(akkaPersistence % "test->test;compile->compile", akkaPersistenceCirce, akkaReplicator)
+  .dependsOn(akkaPersistence % "test->test;compile->compile", akkaPersistenceCirce, replicator)
   .settings(
     libraryDependencies ++= Seq(
       CatsHelper,
@@ -210,13 +210,13 @@ lazy val akkaTests = project
     ),
   )
 
-lazy val akkaReplicator = project
-  .in(file("akka/replicator"))
+lazy val replicator = project
+  .in(file("replicator"))
   .settings(name := "kafka-journal-replicator")
   .settings(commonSettings)
   .dependsOn(
     journal % "test->test",
-    akkaEventualCassandra,
+    eventualCassandra,
     ScalaTestIO % Test,
   )
   .settings(libraryDependencies ++= Seq(
@@ -226,8 +226,8 @@ lazy val akkaReplicator = project
     ScalaTest % Test,
   ))
 
-lazy val akkaCassandra = project
-  .in(file("akka/cassandra"))
+lazy val cassandra = project
+  .in(file("cassandra"))
   .settings(name := "kafka-journal-cassandra")
   .settings(commonSettings)
   .dependsOn(core, ScalaTestIO % Test)
@@ -244,32 +244,32 @@ lazy val akkaCassandra = project
     ),
   )
 
-lazy val akkaEventualCassandra = project
-  .in(file("akka/eventual-cassandra"))
+lazy val eventualCassandra = project
+  .in(file("eventual-cassandra"))
   .settings(name := "kafka-journal-eventual-cassandra")
   .settings(commonSettings)
-  .dependsOn(akkaCassandra % "test->test;compile->compile", journal % "test->test;compile->compile")
+  .dependsOn(cassandra % "test->test;compile->compile", journal % "test->test;compile->compile")
   .settings(libraryDependencies ++= Seq(SCassandra))
 
-lazy val akkaSnapshotCassandra = project
-  .in(file("akka/snapshot-cassandra"))
+lazy val snapshotCassandra = project
+  .in(file("snapshot-cassandra"))
   .settings(name := "kafka-journal-snapshot-cassandra")
   .settings(commonSettings)
-  .dependsOn(akkaCassandra, akkaSnapshot % "test->test;compile->compile")
+  .dependsOn(cassandra, snapshot % "test->test;compile->compile")
   .settings(libraryDependencies ++= Seq(SCassandra))
 
-lazy val akkaJournalCirce = project
-  .in(file("akka/circe/core"))
+lazy val circe = project
+  .in(file("circe"))
   .settings(name := "kafka-journal-circe")
   .settings(commonSettings)
   .dependsOn(journal % "test->test;compile->compile")
   .settings(libraryDependencies ++= Seq(Circe.Core, Circe.Generic, Circe.Jawn))
 
 lazy val akkaPersistenceCirce = project
-  .in(file("akka/circe/persistence"))
+  .in(file("akka/persistence-circe"))
   .settings(name := "kafka-journal-persistence-circe")
   .settings(commonSettings)
-  .dependsOn(akkaJournalCirce, akkaPersistence % "test->test;compile->compile")
+  .dependsOn(circe, akkaPersistence % "test->test;compile->compile")
 
 lazy val ScalaTestIO = project
   .in(file("scalatest-io"))
