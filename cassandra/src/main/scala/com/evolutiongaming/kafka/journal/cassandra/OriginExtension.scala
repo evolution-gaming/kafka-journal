@@ -1,29 +1,9 @@
-package com.evolutiongaming.kafka.journal
+package com.evolutiongaming.kafka.journal.cassandra
 
-import cats.effect.Sync
-import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.Origin
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
-import play.api.libs.json.*
 
-/**
- * Name of the host, which produced an event or a snapshot.
- *
- * There is no formal requirement of which name is to be used, so it could be `/etc/hostname`, IP
- * address or even the underlying actor system name.
- */
-final case class Origin(value: String) extends AnyVal {
-
-  override def toString: String = value
-}
-
-object Origin {
-
-  val empty: Origin = Origin("")
-
-  implicit val writesOrigin: Writes[Origin] = Writes.of[String].contramap(_.value)
-
-  implicit val readsOrigin: Reads[Origin] = Reads.of[String].map(Origin(_))
-
+object OriginExtension {
   implicit val encodeByNameOrigin: EncodeByName[Origin] = EncodeByName[String].contramap((a: Origin) => a.value)
 
   implicit val decodeByNameOrigin: DecodeByName[Origin] = DecodeByName[String].map(a => Origin(a))
@@ -39,16 +19,4 @@ object Origin {
   implicit val encodeRowOptOrigin: EncodeRow[Option[Origin]] = EncodeRow("origin")
 
   implicit val decodeRowOptOrigin: DecodeRow[Option[Origin]] = DecodeRow("origin")
-
-  def fromHostName(hostName: HostName): Origin = Origin(hostName.value)
-
-  def hostName[F[_]: Sync]: F[Option[Origin]] = {
-    for {
-      hostName <- HostName.of[F]()
-    } yield for {
-      hostName <- hostName
-    } yield {
-      fromHostName(hostName)
-    }
-  }
 }
