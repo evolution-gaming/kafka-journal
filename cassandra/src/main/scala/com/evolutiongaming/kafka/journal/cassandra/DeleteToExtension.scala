@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.{DeleteTo, SeqNr}
 import com.evolutiongaming.kafka.journal.cassandra.SeqNrExtension.*
+import com.evolutiongaming.kafka.journal.{DeleteTo, SeqNr}
 import com.evolutiongaming.scassandra.*
 
 object DeleteToExtension {

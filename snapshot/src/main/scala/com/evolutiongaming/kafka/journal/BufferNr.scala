@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all.*
 import cats.Applicative
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 
