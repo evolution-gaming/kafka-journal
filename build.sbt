@@ -108,8 +108,9 @@ lazy val core = project
       CatsHelper,
       PlayJson,
       PlayJsonJsoniter,
-      SCassandra, // TODO MR remove
+      SStream,
       Hostname,
+      Pureconfig.Core,
       Cats.Core,
       Cats.Effect,
       Scodec.Bits,
