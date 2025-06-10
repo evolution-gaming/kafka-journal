@@ -83,8 +83,8 @@ lazy val root = project
   .settings(publish / skip := true)
   .settings(alias)
   .aggregate(
-    akkaCore,
-    akkaJournal,
+    core,
+    journal,
     akkaSnapshot,
     akkaPersistence,
     akkaTests,
@@ -97,8 +97,8 @@ lazy val root = project
     ScalaTestIO,
   )
 
-lazy val akkaCore = project
-  .in(file("akka/core"))
+lazy val core = project
+  .in(file("core"))
   .settings(name := "kafka-journal-core")
   .settings(commonSettings)
   .dependsOn(ScalaTestIO % Test)
@@ -121,11 +121,11 @@ lazy val akkaCore = project
     ),
   )
 
-lazy val akkaJournal = project
-  .in(file("akka/journal"))
+lazy val journal = project
+  .in(file("journal"))
   .settings(name := "kafka-journal")
   .settings(commonSettings)
-  .dependsOn(akkaCore % "test->test;compile->compile", ScalaTestIO % Test)
+  .dependsOn(core % "test->test;compile->compile", ScalaTestIO % Test)
   .settings(
     libraryDependencies ++= Seq(
       KafkaClients,
@@ -164,20 +164,20 @@ lazy val akkaSnapshot = project
   .in(file("akka/snapshot"))
   .settings(name := "kafka-journal-snapshot")
   .settings(commonSettings)
-  .dependsOn(akkaCore)
+  .dependsOn(core)
   .settings(libraryDependencies ++= Seq(ScalaTest % Test))
 
 lazy val akkaPersistence = project
   .in(file("akka/persistence"))
   .settings(name := "kafka-journal-persistence")
   .settings(commonSettings)
-  .dependsOn(akkaJournal % "test->test;compile->compile", akkaEventualCassandra, akkaSnapshotCassandra)
+  .dependsOn(journal % "test->test;compile->compile", akkaEventualCassandra, akkaSnapshotCassandra)
   .settings(
     libraryDependencies ++= Seq(
-      Akka.Testkit % Test,
       AkkaSerialization,
       CatsHelper,
       Akka.Persistence,
+      Akka.Testkit % Test,
       AkkaTestActor % Test,
     ),
   )
@@ -197,12 +197,12 @@ lazy val akkaTests = project
   .dependsOn(akkaPersistence % "test->test;compile->compile", akkaPersistenceCirce, akkaReplicator)
   .settings(
     libraryDependencies ++= Seq(
-      Akka.Slf4j % Test,
       CatsHelper,
       TestContainers.Cassandra % Test,
       TestContainers.Kafka % Test,
       ScalaTest % Test,
       Akka.PersistenceTck % Test,
+      Akka.Slf4j % Test,
       Slf4j.Log4jOverSlf4j % Test,
       Logback.Core % Test,
       Logback.Classic % Test,
@@ -215,7 +215,7 @@ lazy val akkaReplicator = project
   .settings(name := "kafka-journal-replicator")
   .settings(commonSettings)
   .dependsOn(
-    akkaJournal % "test->test",
+    journal % "test->test",
     akkaEventualCassandra,
     ScalaTestIO % Test,
   )
@@ -230,7 +230,7 @@ lazy val akkaCassandra = project
   .in(file("akka/cassandra"))
   .settings(name := "kafka-journal-cassandra")
   .settings(commonSettings)
-  .dependsOn(akkaCore, ScalaTestIO % Test)
+  .dependsOn(core, ScalaTestIO % Test)
   .settings(
     libraryDependencies ++= Seq(
       SCache,
@@ -248,7 +248,7 @@ lazy val akkaEventualCassandra = project
   .in(file("akka/eventual-cassandra"))
   .settings(name := "kafka-journal-eventual-cassandra")
   .settings(commonSettings)
-  .dependsOn(akkaCassandra % "test->test;compile->compile", akkaJournal % "test->test;compile->compile")
+  .dependsOn(akkaCassandra % "test->test;compile->compile", journal % "test->test;compile->compile")
   .settings(libraryDependencies ++= Seq(SCassandra))
 
 lazy val akkaSnapshotCassandra = project
@@ -262,7 +262,7 @@ lazy val akkaJournalCirce = project
   .in(file("akka/circe/core"))
   .settings(name := "kafka-journal-circe")
   .settings(commonSettings)
-  .dependsOn(akkaJournal % "test->test;compile->compile")
+  .dependsOn(journal % "test->test;compile->compile")
   .settings(libraryDependencies ++= Seq(Circe.Core, Circe.Generic, Circe.Jawn))
 
 lazy val akkaPersistenceCirce = project
@@ -280,7 +280,7 @@ lazy val ScalaTestIO = project
 
 // not part of aggregate, tests can be run only manually
 lazy val benchmark = project
-  .dependsOn(akkaJournal % "test->test;compile->compile")
+  .dependsOn(journal % "test->test;compile->compile")
   .enablePlugins(JmhPlugin)
   .settings(commonSettings)
   .settings(
