@@ -112,9 +112,9 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
     val hostName = Origin.hostName[IO]
 
-    def akkaHost = Origin.akkaHost[IO](system)
+    def akkaHost = OriginExtension.akkaHost[IO](system)
 
-    def akkaName = Origin.akkaName(system)
+    def akkaName = OriginExtension.akkaName(system)
 
     hostName
       .toOptionT
