@@ -247,14 +247,12 @@ lazy val eventualCassandra = project
   .settings(name := "kafka-journal-eventual-cassandra")
   .settings(commonSettings)
   .dependsOn(cassandra % "test->test;compile->compile", journal % "test->test;compile->compile")
-  .settings(libraryDependencies ++= Seq(SCassandra))
 
 lazy val snapshotCassandra = project
   .in(file("snapshot-cassandra"))
   .settings(name := "kafka-journal-snapshot-cassandra")
   .settings(commonSettings)
   .dependsOn(cassandra, snapshot % "test->test;compile->compile")
-  .settings(libraryDependencies ++= Seq(SCassandra))
 
 lazy val circe = project
   .in(file("circe"))
