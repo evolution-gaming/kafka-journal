@@ -94,6 +94,9 @@ lazy val root = project
     akkaPersistence,
     akkaPersistenceCirce,
     akkaTests,
+    pekkoPersistence,
+    pekkoPersistenceCirce,
+    pekkoTests,
     ScalaTestIO,
   )
 
@@ -180,6 +183,21 @@ lazy val akkaPersistence = project
     ),
   )
 
+lazy val pekkoPersistence = project
+  .in(file("pekko/persistence"))
+  .settings(name := "kafka-journal-pekko-persistence")
+  .settings(commonSettings)
+  .dependsOn(journal % "test->test;compile->compile", eventualCassandra, snapshotCassandra)
+  .settings(
+    libraryDependencies ++= Seq(
+      PekkoSerialization,
+      CatsHelper,
+      Pekko.Persistence,
+      Pekko.Testkit % Test,
+      PekkoTestActor % Test,
+    ),
+  )
+
 lazy val akkaTests = project
   .in(file("akka/tests"))
   .settings(name := "kafka-journal-tests")
@@ -201,6 +219,34 @@ lazy val akkaTests = project
       ScalaTest % Test,
       Akka.PersistenceTck % Test,
       Akka.Slf4j % Test,
+      Slf4j.Log4jOverSlf4j % Test,
+      Logback.Core % Test,
+      Logback.Classic % Test,
+      ScalaTest % Test,
+    ),
+  )
+
+lazy val pekkoTests = project
+  .in(file("pekko/tests"))
+  .settings(name := "kafka-journal-pekko-tests")
+  .settings(commonSettings)
+  .settings(
+    Seq(
+      publish / skip := true,
+      Test / fork := true,
+      Test / parallelExecution := false,
+      Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
+    ),
+  )
+  .dependsOn(pekkoPersistence % "test->test;compile->compile", pekkoPersistenceCirce, replicator)
+  .settings(
+    libraryDependencies ++= Seq(
+      CatsHelper,
+      TestContainers.Cassandra % Test,
+      TestContainers.Kafka % Test,
+      ScalaTest % Test,
+      Pekko.PersistenceTck % Test,
+      Pekko.Slf4j % Test,
       Slf4j.Log4jOverSlf4j % Test,
       Logback.Core % Test,
       Logback.Classic % Test,
@@ -266,6 +312,12 @@ lazy val akkaPersistenceCirce = project
   .settings(name := "kafka-journal-persistence-circe")
   .settings(commonSettings)
   .dependsOn(circe, akkaPersistence % "test->test;compile->compile")
+
+lazy val pekkoPersistenceCirce = project
+  .in(file("pekko/persistence-circe"))
+  .settings(name := "kafka-journal-pekko-persistence-circe")
+  .settings(commonSettings)
+  .dependsOn(circe, pekkoPersistence % "test->test;compile->compile")
 
 lazy val ScalaTestIO = project
   .in(file("scalatest-io"))

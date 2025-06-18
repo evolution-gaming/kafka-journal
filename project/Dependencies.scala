@@ -11,6 +11,7 @@ object Dependencies {
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.1.1"
   val ExecutorTools = "com.evolutiongaming" %% "executor-tools" % "1.0.5"
   val AkkaSerialization = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
+  val PekkoSerialization = "com.evolution" %% "pekko-extension-serialization" % "0.0.3"
   val Hostname = "com.evolutiongaming" %% "hostname" % "1.0.0"
   val SCassandra = "com.evolutiongaming" %% "scassandra" % "5.3.0"
   val CassandraSync = "com.evolutiongaming" %% "cassandra-sync" % "3.1.1"
@@ -20,6 +21,7 @@ object Dependencies {
   val SStream = "com.evolutiongaming" %% "sstream" % "1.1.0"
   val SKafka = "com.evolutiongaming" %% "skafka" % "17.2.0"
   val AkkaTestActor = "com.evolutiongaming" %% "akka-test-actor" % "0.3.0"
+  val PekkoTestActor = "com.evolution" %% "pekko-extension-test-actor" % "0.0.3"
   val SCache = "com.evolution" %% "scache" % "5.1.4"
   val ResourcePool = "com.evolution" %% "resource-pool" % "1.0.5"
 
@@ -48,6 +50,16 @@ object Dependencies {
     val Persistence = "com.typesafe.akka" %% "akka-persistence" % version
     val PersistenceTck = "com.typesafe.akka" %% "akka-persistence-tck" % version
     val Slf4j = "com.typesafe.akka" %% "akka-slf4j" % version
+  }
+
+  object Pekko {
+    private val version = "1.1.4"
+    val Actor = "org.apache.pekko" %% "pekko-actor" % version
+    val Testkit = "org.apache.pekko" %% "pekko-testkit" % version
+    val Stream = "org.apache.pekko" %% "pekko-stream" % version
+    val Persistence = "org.apache.pekko" %% "pekko-persistence" % version
+    val PersistenceTck = "org.apache.pekko" %% "pekko-persistence-tck" % version
+    val Slf4j = "org.apache.pekko" %% "pekko-slf4j" % version
   }
 
   object Scodec {
