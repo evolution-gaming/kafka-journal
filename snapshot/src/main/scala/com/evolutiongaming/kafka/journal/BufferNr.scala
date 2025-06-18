@@ -1,10 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.Applicative
 import cats.syntax.all.*
-import cats.{Applicative, Id}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
-import com.evolutiongaming.scassandra.*
 
 /**
  * Snapshot index in a stored ring buffer
@@ -46,20 +45,4 @@ private[journal] object BufferNr {
     case max.value => max.pure[F]
     case value => fromIntUnsafe(value).pure[F]
   }
-
-  implicit val encodeByNameBufferNr: EncodeByName[BufferNr] =
-    EncodeByName[Int].contramap(_.value)
-  implicit val decodeByNameBufferNr: DecodeByName[BufferNr] =
-    DecodeByName[Int].map(BufferNr.of[Id])
-
-  implicit val encodeByIdxBufferNr: EncodeByIdx[BufferNr] =
-    EncodeByIdx[Int].contramap(_.value)
-  implicit val decodeByIdxBufferNr: DecodeByIdx[BufferNr] =
-    DecodeByIdx[Int].map(BufferNr.of[Id])
-
-  implicit val encodeRowSeqNr: EncodeRow[BufferNr] =
-    EncodeRow[BufferNr]("buffer_idx")
-  implicit val decodeRowSeqNr: DecodeRow[BufferNr] =
-    DecodeRow[BufferNr]("buffer_idx")
-
 }

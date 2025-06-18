@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
-import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json.*
 
 sealed abstract class PayloadType extends Product {
@@ -21,12 +20,6 @@ object PayloadType {
   val values: Set[PayloadType] = Set(Binary, Text, Json)
 
   private val byName = values.map(value => (value.name, value)).toMap
-
-  implicit val encodeByNamePayloadType: EncodeByName[PayloadType] = EncodeByName[String].contramap { _.name }
-
-  implicit val decodeByNamePayloadType: DecodeByName[PayloadType] = DecodeByName[String].map { name =>
-    apply(name) getOrElse Binary
-  }
 
   implicit val formatPayloadType: Format[PayloadType] = {
     val writes = Writes
