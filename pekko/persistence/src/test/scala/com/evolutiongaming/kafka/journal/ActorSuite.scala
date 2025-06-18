@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import akka.actor.ActorSystem
-import akka.testkit.{DefaultTimeout, ImplicitSender, TestKit}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.{DefaultTimeout, ImplicitSender, TestKit}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{BeforeAndAfterAll, Suite}
 

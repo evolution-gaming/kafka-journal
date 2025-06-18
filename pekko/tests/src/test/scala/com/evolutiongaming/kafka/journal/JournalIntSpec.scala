@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import TestJsonCodec.instance
-import akka.persistence.kafka.journal.KafkaJournalConfig
+import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import cats.Foldable
 import cats.data.NonEmptyList as Nel
 import cats.effect.{IO, Resource}

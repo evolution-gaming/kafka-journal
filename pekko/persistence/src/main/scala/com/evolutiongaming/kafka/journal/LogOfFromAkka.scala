@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
-import akka.actor.ActorSystem
-import akka.event.LogSource
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.event.LogSource
 import cats.effect.Sync
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
 
-object LogOfFromAkka {
+object LogOfFromPekko {
   // Scala 3 compiler couldn't construct this one implicitly
   private implicit val logSourceFromClass: LogSource[Class[?]] = LogSource.fromClass
 
@@ -14,9 +14,9 @@ object LogOfFromAkka {
 
     def log[A: LogSource](source: A) = {
       for {
-        log <- Sync[F].delay { akka.event.Logging(system, source) }
+        log <- Sync[F].delay { org.apache.pekko.event.Logging(system, source) }
       } yield {
-        LogFromAkka[F](log)
+        LogFromPekko[F](log)
       }
     }
 

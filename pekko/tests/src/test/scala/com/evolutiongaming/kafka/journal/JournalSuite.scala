@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import akka.persistence.kafka.journal.KafkaJournalConfig
+import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
 import cats.data.NonEmptyList as Nel
 import cats.effect.IO

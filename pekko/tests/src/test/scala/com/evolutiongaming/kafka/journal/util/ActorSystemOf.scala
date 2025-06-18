@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import cats.effect.syntax.all.*
 import cats.effect.{Resource, Sync}
 import cats.syntax.all.*

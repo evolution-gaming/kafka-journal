@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import akka.actor.ActorSystem
-import akka.persistence.kafka.journal.KafkaJournalConfig
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import cats.Parallel
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
@@ -45,7 +45,7 @@ object AppendReplicateApp extends IOApp {
     system: ActorSystem,
   ): F[Unit] = {
 
-    implicit val logOf: LogOf[F] = LogOfFromAkka[F](system)
+    implicit val logOf: LogOf[F] = LogOfFromPekko[F](system)
     implicit val randomIdOf: RandomIdOf[F] = RandomIdOf.uuid[F]
 
     val kafkaJournalConfig = ConfigSource
