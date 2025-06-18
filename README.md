@@ -69,13 +69,23 @@ List of known "error" cases which may be ignored:
 
 ## Akka persistence plugin
 
-In order to use `kafka-journal` as [akka persistence plugin](https://doc.akka.io/docs/akka/2.5/persistence.html#storage-plugins) 
+In order to use `kafka-journal` as [akka persistence plugin](https://doc.akka.io/libraries/akka-core/2.6/persistence-plugins.html) 
 you have to add following to your `*.conf` file:
 ```hocon
 akka.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
 ```
 
 Unfortunately akka persistence `snapshot` plugin is not implemented, yet.
+
+## Pekko persistence plugin
+
+In order to use `kafka-journal` as [pekko persistence plugin](https://pekko.apache.org/docs/pekko/1.0/persistence-plugins.html) 
+you have to add following to your `*.conf` file:
+```hocon
+pekko.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
+```
+
+Unfortunately pekko persistence `snapshot` plugin is not implemented, yet.
 
 ## Setup
 
@@ -84,7 +94,12 @@ addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 
 libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "3.4.0"
 
+// for akka persistence
 libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "3.4.0"
+
+// for pekko persistence
+// libraryDependencies += "com.evolutiongaming" %% "kafka-journal-pekko-persistence" % "3.4.0"
+
 
 libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "3.4.0"
 
