@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import cats.Parallel
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
@@ -20,6 +18,8 @@ import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
 import com.typesafe.config.ConfigFactory
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import pureconfig.ConfigSource
 
 import scala.concurrent.duration.*

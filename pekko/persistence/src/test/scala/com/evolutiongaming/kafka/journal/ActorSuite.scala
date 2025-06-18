@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.{DefaultTimeout, ImplicitSender, TestKit}
-import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
 trait ActorSuite extends BeforeAndAfterAll { self: Suite =>

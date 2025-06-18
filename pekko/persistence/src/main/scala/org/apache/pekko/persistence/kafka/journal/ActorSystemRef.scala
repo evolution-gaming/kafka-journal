@@ -1,8 +1,8 @@
 package org.apache.pekko.persistence.kafka.journal
 
-import org.apache.pekko.actor.{ExtendedActorSystem, Extension}
 import cats.~>
 import com.evolutiongaming.catshelper.FromFuture
+import org.apache.pekko.actor.{ExtendedActorSystem, Extension}
 
 import scala.concurrent.{Future, Promise}
 import scala.util.Try

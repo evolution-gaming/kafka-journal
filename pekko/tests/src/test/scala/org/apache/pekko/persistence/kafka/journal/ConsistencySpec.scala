@@ -1,10 +1,10 @@
 package org.apache.pekko.persistence.kafka.journal
 
+import cats.data.NonEmptyList as Nel
+import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
 import org.apache.pekko.persistence.*
 import org.apache.pekko.persistence.journal.JournalSpec
-import cats.data.NonEmptyList as Nel
-import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Promise}

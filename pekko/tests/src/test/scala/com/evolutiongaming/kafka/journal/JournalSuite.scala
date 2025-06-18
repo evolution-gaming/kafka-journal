@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
 import cats.data.NonEmptyList as Nel
 import cats.effect.IO
@@ -15,6 +14,7 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
+import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import org.scalatest.Suite
 import org.scalatest.matchers.should.Matchers
 import pureconfig.{ConfigReader, ConfigSource}

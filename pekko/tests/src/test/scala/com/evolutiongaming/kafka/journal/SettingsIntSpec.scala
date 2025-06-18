@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import org.apache.pekko.actor.ActorSystem
 import cats.Parallel
 import cats.effect.*
 import cats.effect.syntax.resource.*
@@ -14,6 +13,7 @@ import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.typesafe.config.ConfigFactory
+import org.apache.pekko.actor.ActorSystem
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec

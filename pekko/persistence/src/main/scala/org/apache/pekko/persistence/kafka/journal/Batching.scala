@@ -1,8 +1,8 @@
 package org.apache.pekko.persistence.kafka.journal
 
-import org.apache.pekko.persistence.AtomicWrite
 import cats.Applicative
 import cats.syntax.all.*
+import org.apache.pekko.persistence.AtomicWrite
 
 trait Batching[F[_]] {
   def apply(aws: List[AtomicWrite]): F[List[List[AtomicWrite]]]

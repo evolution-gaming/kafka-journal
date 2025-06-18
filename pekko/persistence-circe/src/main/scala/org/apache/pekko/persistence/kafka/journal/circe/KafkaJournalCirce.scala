@@ -1,8 +1,5 @@
 package org.apache.pekko.persistence.kafka.journal.circe
 
-import org.apache.pekko.persistence.kafka.journal.*
-import org.apache.pekko.persistence.kafka.journal.EventSerializer.PersistentRepresentation
-import org.apache.pekko.persistence.kafka.journal.circe.KafkaJournalCirce.*
 import cats.effect.{IO, Resource}
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MonadThrowable
@@ -15,6 +12,9 @@ import com.typesafe.config.Config
 import io.circe.*
 import io.circe.generic.semiauto.*
 import io.circe.syntax.*
+import org.apache.pekko.persistence.kafka.journal.*
+import org.apache.pekko.persistence.kafka.journal.EventSerializer.PersistentRepresentation
+import org.apache.pekko.persistence.kafka.journal.circe.KafkaJournalCirce.*
 
 class KafkaJournalCirce(config: Config) extends KafkaJournal(config) {
 

@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.event.LogSource
 import cats.effect.Sync
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.event.LogSource
 
 object LogOfFromPekko {
   // Scala 3 compiler couldn't construct this one implicitly

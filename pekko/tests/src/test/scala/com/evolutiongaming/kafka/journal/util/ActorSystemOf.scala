@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.util
 
-import org.apache.pekko.actor.ActorSystem
 import cats.effect.syntax.all.*
 import cats.effect.{Resource, Sync}
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.FromFuture
 import com.typesafe.config.Config
+import org.apache.pekko.actor.ActorSystem
 
 private[journal] object ActorSystemOf {
 

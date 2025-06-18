@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.pekkoext
 
-import org.apache.pekko.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
 import cats.effect.Sync
 import com.evolutiongaming.kafka.journal.Origin
+import org.apache.pekko.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
 
 object OriginExtension {
 

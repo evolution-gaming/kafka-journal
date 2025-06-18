@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
-import org.apache.pekko.event.LoggingAdapter
 import cats.effect.Sync
 import cats.implicits.catsSyntaxApplicativeId
 import com.evolutiongaming.catshelper.Log
+import org.apache.pekko.event.LoggingAdapter
 
 object LogFromPekko {
 

@@ -1,8 +1,5 @@
 package org.apache.pekko.persistence.kafka.journal.circe
 
-import org.apache.pekko.persistence.PersistentRepr
-import org.apache.pekko.persistence.journal.Tagged
-import org.apache.pekko.persistence.kafka.journal.EventSerializer
 import cats.effect.IO
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.*
@@ -10,6 +7,9 @@ import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.circe.*
 import io.circe.Json
 import io.circe.jawn.*
+import org.apache.pekko.persistence.PersistentRepr
+import org.apache.pekko.persistence.journal.Tagged
+import org.apache.pekko.persistence.kafka.journal.EventSerializer
 import org.scalatest.EitherValues
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers

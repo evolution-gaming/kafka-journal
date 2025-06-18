@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
 import TestJsonCodec.instance
-import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import cats.Foldable
 import cats.data.NonEmptyList as Nel
 import cats.effect.{IO, Resource}
@@ -14,6 +13,7 @@ import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.retry.{Retry, Strategy}
+import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import org.scalatest.Succeeded
 import org.scalatest.wordspec.AsyncWordSpec
 import play.api.libs.json.Json
