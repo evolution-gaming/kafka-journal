@@ -92,7 +92,7 @@ object Dependencies {
   }
 
   object Circe {
-    private val version = "0.14.13"
+    private val version = "0.14.14"
     val Core = "io.circe" %% "circe-core" % version
     val Generic = "io.circe" %% "circe-generic" % version
     val Jawn = "io.circe" %% "circe-jawn" % version
