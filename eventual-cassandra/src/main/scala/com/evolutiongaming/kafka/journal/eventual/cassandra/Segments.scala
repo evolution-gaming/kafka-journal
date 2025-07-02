@@ -68,10 +68,6 @@ private[journal] object Segments {
   ): Segments = of[Id](numeric.toInt(value))
 
   implicit class SegmentsOps(val self: Segments) extends AnyVal {
-
-    @deprecated("use `metaJournalSegmentNrs` instead", "4.1.0")
-    def segmentNrs: List[SegmentNr] = metaJournalSegmentNrs
-
     def metaJournalSegmentNrs: List[SegmentNr] = SegmentNr.allForSegmentSize(self)
   }
 }

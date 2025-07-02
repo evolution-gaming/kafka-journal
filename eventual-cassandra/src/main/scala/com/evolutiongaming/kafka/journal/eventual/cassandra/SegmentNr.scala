@@ -133,20 +133,11 @@ object SegmentNr {
     }
   }
 
-  @deprecated("use `journal` instead", "4.1.0")
-  def apply(seqNr: SeqNr, segmentSize: SegmentSize): SegmentNr = journal(seqNr, segmentSize)
-
   /**
    * Calculate segment number for `journal` table
    */
   def journal(seqNr: SeqNr, segmentSize: SegmentSize): SegmentNr = {
     val segmentNr = (seqNr.value - SeqNr.min.value) / segmentSize.value
-    new SegmentNr(segmentNr) {}
-  }
-
-  @deprecated("use `metaJournal` instead", "4.1.0")
-  def apply(hashCode: Int, segments: Segments): SegmentNr = {
-    val segmentNr = math.abs(hashCode.toLong % segments.value)
     new SegmentNr(segmentNr) {}
   }
 
@@ -166,11 +157,6 @@ object SegmentNr {
   )(implicit
     numeric: Numeric[A],
   ): SegmentNr = of[Id](numeric.toLong(value))
-
-  @deprecated("use `allForSegmentSize` instead", "4.1.0")
-  def fromSegments(segments: Segments): List[SegmentNr] = {
-    allForSegmentSize(segments)
-  }
 
   /**
    * All possible [[SegmentNr]] values for the given [[Segments]].
@@ -213,12 +199,6 @@ object SegmentNr {
 
   object implicits {
     implicit class SeqNrOpsSegmentNr(val self: SeqNr) extends AnyVal {
-
-      @deprecated("use `seqNr.toJournalSegmentNr` instead", "4.1.0")
-      def toSegmentNr(segmentSize: SegmentSize): SegmentNr = {
-        toJournalSegmentNr(segmentSize)
-      }
-
       def toJournalSegmentNr(segmentSize: SegmentSize): SegmentNr = SegmentNr.journal(self, segmentSize)
     }
   }

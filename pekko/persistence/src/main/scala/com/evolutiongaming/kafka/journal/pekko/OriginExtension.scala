@@ -1,4 +1,4 @@
-package com.evolutiongaming.kafka.journal.pekkoext
+package com.evolutiongaming.kafka.journal.pekko
 
 import cats.effect.Sync
 import com.evolutiongaming.kafka.journal.Origin

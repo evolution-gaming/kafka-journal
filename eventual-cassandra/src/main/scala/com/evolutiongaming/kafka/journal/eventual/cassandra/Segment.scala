@@ -15,9 +15,6 @@ private[journal] final case class Segment(nr: SegmentNr, size: SegmentSize)
 
 private[journal] object Segment {
 
-  @deprecated("use `Segment.journal` instead", "4.1.0")
-  def apply(seqNr: SeqNr, size: SegmentSize): Segment = journal(seqNr, size)
-
   /**
    * Calculate segment number for `seqNr` based on `segmentSize` for `journal` table.
    *
