@@ -69,22 +69,6 @@ object Replicator {
     } yield result
   }
 
-  @deprecated(since = "4.1.7", message = "use 'make' version with added arguments")
-  def make[F[_]: Temporal: Parallel: Runtime: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec](
-    config: ReplicatorConfig,
-    metrics: Option[Metrics[F]],
-    journal: ReplicatedJournal[F],
-    hostName: Option[HostName],
-  ): Resource[F, F[Unit]] = {
-    make(
-      config = config,
-      metrics = metrics,
-      journal = journal,
-      hostName = hostName,
-      replicatedOffsetNotifier = ReplicatedOffsetNotifier.empty,
-    )
-  }
-
   def make[F[_]: Temporal: Parallel: Runtime: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]],

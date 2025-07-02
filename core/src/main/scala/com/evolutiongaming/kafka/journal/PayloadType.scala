@@ -5,14 +5,6 @@ import play.api.libs.json.*
 
 sealed abstract class PayloadType extends Product {
   def name: String
-
-  // TODO: [5.0.0 release] remove
-  @deprecated(
-    "should not be used in production code; will be removed in 5.0.0; " +
-      "if you need this for testing, duplicate this functionality in your code",
-    since = "4.3.0",
-  )
-  def ext: String
 }
 
 object PayloadType {
@@ -83,16 +75,13 @@ object PayloadType {
 
   case object Binary extends BinaryOrJson {
     override def name = "binary"
-    override def ext = "bin"
   }
 
   case object Text extends TextOrJson {
     override def name = "text"
-    override def ext = "txt"
   }
 
   case object Json extends BinaryOrJson with TextOrJson {
     override def name = "json"
-    override def ext = "json"
   }
 }

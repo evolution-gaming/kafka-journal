@@ -4,18 +4,14 @@ import cats.Applicative
 import cats.data.{NonEmptyMap as Nem, NonEmptySet}
 import cats.effect.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.KafkaConsumer
 import com.evolutiongaming.kafka.journal.replicator.commit.AsyncPeriodicTopicCommit
-import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.RebalanceCallback
 
-import java.time.Instant
 import scala.annotation.nowarn
-import scala.collection.immutable.SortedMap
 import scala.concurrent.duration.*
 
 /**
@@ -100,19 +96,6 @@ private[journal] object TopicCommit {
 
   def empty[F[_]: Applicative]: TopicCommit[F] = new EmptyTopicCommit[F]
 
-  @deprecated("renamed to `sync`, use it instead", since = "4.2.0")
-  def apply[F[_]](
-    topic: Topic,
-    metadata: String,
-    consumer: KafkaConsumer[F, ?, ?],
-  ): TopicCommit[F] = {
-    sync[F](
-      topic = topic,
-      commitMetadata = metadata,
-      consumer = consumer,
-    )
-  }
-
   /**
    * [[TopicCommit]] which performs synchronous blocking commit on each offset mark call.
    *
@@ -134,50 +117,6 @@ private[journal] object TopicCommit {
     commitMetadata = commitMetadata,
     consumer = consumer,
   )
-
-  @deprecated(
-    "use `asyncPeriodic` instead - the delayed impl blocks the poll-loop on commit and " +
-      "looses progress on rebalance and shutdown",
-    since = "4.2.0",
-  )
-  def delayed[F[_]: Concurrent: Clock](
-    delay: FiniteDuration,
-    commit: TopicCommit[F],
-  ): F[TopicCommit[F]] = {
-
-    case class State(until: Instant, offsets: SortedMap[Partition, Offset] = SortedMap.empty)
-
-    for {
-      timestamp <- Clock[F].instant
-      stateRef <- Ref[F].of(State(timestamp + delay))
-    } yield {
-      new TopicCommit[F] {
-        def apply(offsets: Nem[Partition, Offset]): F[Unit] = {
-
-          def apply(state: State, timestamp: Instant): F[State] = {
-            val offsets1 = state.offsets ++ offsets.toSortedMap
-            if (state.until <= timestamp) {
-              offsets1
-                .toNem()
-                .foldMapM { offsets => commit(offsets) }
-                .as(State(timestamp + delay))
-            } else {
-              state
-                .copy(offsets = offsets1)
-                .pure[F]
-            }
-          }
-
-          for {
-            timestamp <- Clock[F].instant
-            state <- stateRef.get
-            state <- apply(state, timestamp)
-            _ <- stateRef.set(state)
-          } yield {}
-        }
-      }
-    }
-  }
 
   /**
    * [[TopicCommit]] which commits progress periodically using an async commit method, without

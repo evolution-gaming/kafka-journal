@@ -86,7 +86,7 @@ class KafkaReadWriteFormatSpec extends AnyFunSuite with Matchers with SerdeTesti
   } {
 
     test(s"fromBytes v0 format, events: $name") {
-      val exampleFileName = s"Payload-v0-$name.${ payloadType.ext }"
+      val exampleFileName = s"Payload-v0-$name.${ EncodedDataType.fromPayloadType(payloadType).fileExtension }"
       verifyKafkaReadExample(
         valueExample = events,
         examplePayloadType = payloadType,
