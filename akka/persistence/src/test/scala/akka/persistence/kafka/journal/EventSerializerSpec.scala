@@ -3,9 +3,8 @@ package akka.persistence.kafka.journal
 import akka.persistence.PersistentRepr
 import akka.persistence.serialization.Snapshot
 import cats.effect.IO
-import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.IOSuite.*
-import com.evolutiongaming.kafka.journal.util.CatsHelper.*
+import com.evolution.kafka.journal.*
+import com.evolution.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsString

@@ -6,11 +6,9 @@ import akka.persistence.kafka.journal.circe.KafkaJournalCirce.*
 import cats.effect.{IO, Resource}
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MonadThrowable
-import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.circe.Codecs.*
-import com.evolutiongaming.kafka.journal.circe.FromCirceResult
-import com.evolutiongaming.kafka.journal.circe.Instances.*
-import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolution.kafka.journal.*
+import com.evolution.kafka.journal.circe.FromCirceResult
+import com.evolution.kafka.journal.util.Fail
 import com.typesafe.config.Config
 import io.circe.*
 import io.circe.generic.semiauto.*

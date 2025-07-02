@@ -1,8 +1,8 @@
 package org.apache.pekko.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolConfig, DataIntegrityConfig}
-import com.evolutiongaming.kafka.journal.JournalConfig
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
+import com.evolution.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolConfig, DataIntegrityConfig}
+import com.evolution.kafka.journal.JournalConfig
+import com.evolution.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import pureconfig.generic.semiauto.{deriveEnumerationReader, deriveReader}
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 

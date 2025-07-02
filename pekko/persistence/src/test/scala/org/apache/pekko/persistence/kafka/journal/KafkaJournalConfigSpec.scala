@@ -1,8 +1,8 @@
 package org.apache.pekko.persistence.kafka.journal
 
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolConfig, DataIntegrityConfig}
-import com.evolutiongaming.kafka.journal.{JournalConfig, KafkaConfig}
+import com.evolution.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolConfig, DataIntegrityConfig}
+import com.evolution.kafka.journal.{JournalConfig, KafkaConfig}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

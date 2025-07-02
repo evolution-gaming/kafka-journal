@@ -1,0 +1,38 @@
+package com.evolution.kafka.journal.replicator
+
+import cats.data.NonEmptySet as Nes
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolution.kafka.journal.eventual.cassandra.{SegmentNr, Segments}
+import com.evolutiongaming.skafka.Partition
+
+import scala.collection.immutable.SortedSet
+
+trait PartitionsToSegments {
+
+  def apply(partitions: Nes[Partition]): SortedSet[SegmentNr]
+}
+
+object PartitionsToSegments {
+
+  def apply(partitions: Int, segments: Segments = Segments.default): PartitionsToSegments = {
+    val segmentNrs = segments
+      .metaJournalSegmentNrs
+      .toSortedSet
+    val filter = {
+      if (partitions >= segments.value) { (a: Partition, b: SegmentNr) =>
+        a.value % segments.value.toLong === b.value
+      } else { (a: Partition, b: SegmentNr) =>
+        b.value % partitions === a.value.toLong
+      }
+    }
+
+    (partitions: Nes[Partition]) => {
+      for {
+        partition <- partitions.toSortedSet
+        segmentNr <- segmentNrs
+        if filter(partition, segmentNr)
+      } yield segmentNr
+    }
+  }
+}

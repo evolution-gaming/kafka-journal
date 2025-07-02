@@ -1,7 +1,7 @@
 package org.apache.pekko.persistence.kafka.journal
 
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.PayloadType
+import com.evolution.kafka.journal.PayloadType
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsSuccess, Json}

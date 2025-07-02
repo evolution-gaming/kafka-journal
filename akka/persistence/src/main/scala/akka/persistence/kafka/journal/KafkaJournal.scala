@@ -8,10 +8,8 @@ import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.CatsHelper.*
-import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.akkaext.OriginExtension
-import com.evolutiongaming.kafka.journal.util.CatsHelper.*
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
+import com.evolution.kafka.journal.*
+import com.evolution.kafka.journal.akkaext.OriginExtension
 import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf

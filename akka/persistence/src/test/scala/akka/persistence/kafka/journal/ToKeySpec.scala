@@ -1,7 +1,7 @@
 package akka.persistence.kafka.journal
 
 import cats.Id
-import com.evolutiongaming.kafka.journal.Key
+import com.evolution.kafka.journal.Key
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

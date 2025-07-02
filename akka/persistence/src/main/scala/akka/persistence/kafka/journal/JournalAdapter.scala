@@ -5,11 +5,11 @@ import cats.effect.*
 import cats.syntax.all.*
 import cats.{Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.*
-import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
-import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolution.kafka.journal.*
+import com.evolution.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
+import com.evolution.kafka.journal.eventual.cassandra.EventualCassandra
+import com.evolution.kafka.journal.eventual.{EventualJournal, EventualRead}
+import com.evolution.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics

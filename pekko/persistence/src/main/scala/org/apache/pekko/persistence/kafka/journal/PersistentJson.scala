@@ -1,6 +1,6 @@
 package org.apache.pekko.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.PayloadType
+import com.evolution.kafka.journal.PayloadType
 import play.api.libs.json.{Format, Json, OFormat}
 
 final case class PersistentJson[A](

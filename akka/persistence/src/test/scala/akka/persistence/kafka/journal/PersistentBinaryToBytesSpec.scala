@@ -1,7 +1,7 @@
 package akka.persistence.kafka.journal
 
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.SerdeTesting
+import com.evolution.kafka.journal.SerdeTesting
 import com.evolutiongaming.serialization.SerializedMsg
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
