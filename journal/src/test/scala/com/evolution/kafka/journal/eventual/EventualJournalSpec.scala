@@ -4,13 +4,13 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.Clock
 import cats.syntax.all.*
 import cats.{Applicative, FlatMap, Monad, Monoid}
-import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.util.CatsHelper.*
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers

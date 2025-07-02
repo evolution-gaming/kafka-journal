@@ -5,10 +5,10 @@ import cats.data.{NonEmptyMap, NonEmptySet}
 import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.catshelper.{Log, MonadThrowable}
 import com.evolution.kafka.journal.KafkaConsumer
 import com.evolution.kafka.journal.replicator.TopicCommit
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.{Log, MonadThrowable}
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.RebalanceCallback
 import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*

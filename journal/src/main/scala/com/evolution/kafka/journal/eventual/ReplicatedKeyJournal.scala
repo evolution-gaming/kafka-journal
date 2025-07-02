@@ -3,9 +3,9 @@ package com.evolution.kafka.journal.eventual
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import cats.{Applicative, FlatMap, ~>}
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log, MeasureDuration}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.eventual.ReplicatedKeyJournal.Changed
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log, MeasureDuration}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant

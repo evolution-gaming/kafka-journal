@@ -4,13 +4,13 @@ import cats.Parallel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 import com.evolution.kafka.journal.CassandraSuite.*
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.cassandra.{CassandraConsistencyConfig, SettingsCassandra as SettingsCassandra2}
 import com.evolution.kafka.journal.eventual.cassandra.*
 import com.evolution.kafka.journal.util.ActorSystemOf
 import com.evolution.kafka.journal.util.PureConfigHelper.*
+import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.ActorSystem

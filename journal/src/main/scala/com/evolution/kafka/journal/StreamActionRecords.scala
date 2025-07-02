@@ -2,9 +2,9 @@ package com.evolution.kafka.journal
 
 import cats.Applicative
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.sstream.Stream
 

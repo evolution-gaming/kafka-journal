@@ -1,8 +1,8 @@
 package com.evolution.kafka.journal.conversions
 
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolution.kafka.journal.{Action, JournalError}
+import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.producer.ProducerRecord
 import scodec.bits.ByteVector

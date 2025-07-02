@@ -5,7 +5,6 @@ import cats.data.{NonEmptyList as Nel, State}
 import cats.effect.Resource
 import cats.syntax.all.*
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}
-import com.evolutiongaming.catshelper.Log
 import com.evolution.kafka.journal.eventual.cassandra.{
   CassandraCluster,
   CassandraMetadata,
@@ -14,6 +13,7 @@ import com.evolution.kafka.journal.eventual.cassandra.{
   TableMetadata,
 }
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.scassandra
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite

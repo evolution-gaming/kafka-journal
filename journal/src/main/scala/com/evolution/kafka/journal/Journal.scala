@@ -4,10 +4,10 @@ import cats.*
 import cats.arrow.FunctionK
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.EventualRead
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.skafka.{Bytes as _, *}
 import com.evolutiongaming.sstream.Stream
 import pureconfig.ConfigReader

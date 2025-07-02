@@ -2,9 +2,9 @@ package com.evolution.kafka.journal.conversions
 
 import cats.data.OptionT
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.util.CatsHelper.*
+import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import scodec.bits.ByteVector

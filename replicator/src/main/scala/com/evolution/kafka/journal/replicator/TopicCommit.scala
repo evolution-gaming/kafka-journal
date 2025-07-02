@@ -4,10 +4,10 @@ import cats.Applicative
 import cats.data.{NonEmptyMap as Nem, NonEmptySet}
 import cats.effect.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.catshelper.Log
 import com.evolution.kafka.journal.KafkaConsumer
 import com.evolution.kafka.journal.replicator.commit.AsyncPeriodicTopicCommit
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.RebalanceCallback
 

@@ -2,9 +2,9 @@ package com.evolution.kafka.journal.conversions
 
 import cats.data.OptionT
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.util.CatsHelper.*
+import com.evolutiongaming.catshelper.MonadThrowable
 
 import java.time.Instant
 

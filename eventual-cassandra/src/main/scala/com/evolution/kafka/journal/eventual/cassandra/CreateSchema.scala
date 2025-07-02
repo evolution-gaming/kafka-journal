@@ -4,7 +4,6 @@ import cats.Monad
 import cats.data.NonEmptyList as Nel
 import cats.effect.Concurrent
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.LogOf
 import com.evolution.kafka.journal.cassandra.{
   CassandraSync,
   CreateKeyspace,
@@ -12,6 +11,7 @@ import com.evolution.kafka.journal.cassandra.{
   MigrateSchema,
   SettingStatements,
 }
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.scassandra.TableName
 
 private[journal] object CreateSchema {

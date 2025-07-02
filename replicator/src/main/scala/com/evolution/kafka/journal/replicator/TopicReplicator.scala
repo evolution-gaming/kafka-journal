@@ -5,14 +5,14 @@ import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.*
 import cats.effect.implicits.*
 import cats.implicits.*
-import com.evolutiongaming.catshelper.*
-import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
 import com.evolution.kafka.journal.eventual.*
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}

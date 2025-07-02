@@ -4,11 +4,11 @@ import cats.arrow.FunctionK
 import cats.data.State
 import cats.effect.Clock
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.catshelper.{Log, MeasureDuration}
 import com.evolution.kafka.journal.Setting.Key
 import com.evolution.kafka.journal.util.StreamHelper.*
 import com.evolution.kafka.journal.{Origin, Setting}
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.{Log, MeasureDuration}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 

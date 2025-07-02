@@ -4,9 +4,9 @@ import cats.data.NonEmptySet as Nes
 import cats.effect.Resource
 import cats.syntax.all.*
 import cats.~>
-import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolution.kafka.journal.conversions.ConsRecordToActionRecord
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 import com.evolutiongaming.sstream.Stream
 

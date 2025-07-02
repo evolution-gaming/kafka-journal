@@ -5,11 +5,11 @@ import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.*
-import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolution.kafka.journal.HeadCache.Eventual
 import com.evolution.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolution.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{Sleep, Strategy}

@@ -3,12 +3,12 @@ package org.apache.pekko.persistence.kafka.journal
 import cats.effect.Sync
 import cats.syntax.all.*
 import cats.{Applicative, ~>}
-import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.FromBytes.implicits.*
 import com.evolution.kafka.journal.ToBytes.implicits.*
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.Fail.implicits.*
+import com.evolutiongaming.catshelper.MonadThrowable
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.persistence.PersistentRepr
 import play.api.libs.json.{JsString, JsValue, Json}

@@ -5,12 +5,12 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.*
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig
 import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.cassandra.KeyspaceConfig
 import com.evolution.kafka.journal.eventual.cassandra.*
 import com.evolution.kafka.journal.util.Fail
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraClusterOf, CassandraConfig}
 import com.evolutiongaming.skafka.CommonConfig

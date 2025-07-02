@@ -4,7 +4,6 @@ import cats.Id
 import cats.data.NonEmptyList as Nel
 import cats.effect.Concurrent
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.Log
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig
 import com.evolution.kafka.journal.eventual.EventualPayloadAndType
@@ -13,6 +12,7 @@ import com.evolution.kafka.journal.util.ConcurrentOf
 import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolution.kafka.journal.util.StreamHelper.*
 import com.evolution.kafka.journal.util.TemporalHelper.*
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile.*
 import com.evolutiongaming.sstream.Stream

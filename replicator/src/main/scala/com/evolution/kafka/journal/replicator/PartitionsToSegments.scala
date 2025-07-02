@@ -2,8 +2,8 @@ package com.evolution.kafka.journal.replicator
 
 import cats.data.NonEmptySet as Nes
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolution.kafka.journal.eventual.cassandra.{SegmentNr, Segments}
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.skafka.Partition
 
 import scala.collection.immutable.SortedSet

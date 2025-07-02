@@ -2,10 +2,10 @@ package com.evolution.kafka.journal.conversions
 
 import cats.syntax.all.*
 import cats.{Monad, ~>}
-import com.evolutiongaming.catshelper.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.PayloadAndType.*
 import com.evolution.kafka.journal.util.Fail
+import com.evolutiongaming.catshelper.*
 import play.api.libs.json.JsValue
 
 /**

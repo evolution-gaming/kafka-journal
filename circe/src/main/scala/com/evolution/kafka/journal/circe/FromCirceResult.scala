@@ -1,8 +1,8 @@
 package com.evolution.kafka.journal.circe
 
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolution.kafka.journal.JournalError
+import com.evolutiongaming.catshelper.ApplicativeThrowable
 import io.circe.Error
 
 trait FromCirceResult[F[_]] {

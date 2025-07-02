@@ -5,9 +5,9 @@ import cats.arrow.FunctionK
 import cats.effect.Resource
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.*
 import com.evolutiongaming.smetrics.MetricsHelper.*

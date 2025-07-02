@@ -6,9 +6,6 @@ import cats.effect.syntax.resource.*
 import cats.effect.unsafe.implicits.global
 import cats.syntax.all.*
 import cats.{Applicative, Monoid, Parallel}
-import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.TestJsonCodec.instance
@@ -16,6 +13,9 @@ import com.evolution.kafka.journal.conversions.{ActionToProducerRecord, ConsReco
 import com.evolution.kafka.journal.eventual.*
 import com.evolution.kafka.journal.replicator.TopicReplicatorMetrics.Measurements
 import com.evolution.kafka.journal.util.{Fail, TestTemporal}
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener1, WithSize}
 import com.evolutiongaming.skafka.{Bytes as _, Header as _, Metadata as _, *}

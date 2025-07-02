@@ -1,9 +1,9 @@
 package com.evolution.kafka.journal.eventual
 
 import cats.data.NonEmptyList as Nel
-import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.eventual.ReplicatedKeyJournal.Changed
+import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant

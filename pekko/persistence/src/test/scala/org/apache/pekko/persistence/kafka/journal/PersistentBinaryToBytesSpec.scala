@@ -1,8 +1,8 @@
 package org.apache.pekko.persistence.kafka.journal
 
 import cats.syntax.all.*
-import com.evolution.serialization.SerializedMsg
 import com.evolution.kafka.journal.SerdeTesting
+import com.evolution.serialization.SerializedMsg
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 

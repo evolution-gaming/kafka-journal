@@ -3,12 +3,12 @@ package com.evolution.kafka.journal
 import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.CatsHelper.*
-import com.evolutiongaming.catshelper.Log
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.conversions.ActionToProducerRecord
 import com.evolution.kafka.journal.eventual.TopicPointers
+import com.evolutiongaming.catshelper.CatsHelper.*
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}

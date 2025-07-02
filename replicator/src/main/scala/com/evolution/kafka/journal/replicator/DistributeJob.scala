@@ -5,9 +5,9 @@ import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
 import cats.{Defer, Parallel}
+import com.evolution.kafka.journal.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{FromTry, LogOf}
-import com.evolution.kafka.journal.*
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Sleep, Strategy}

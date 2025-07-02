@@ -2,9 +2,9 @@ package com.evolution.kafka.journal.cassandra
 
 import cats.syntax.all.*
 import cats.{Applicative, Monad}
-import com.evolutiongaming.catshelper.LogOf
 import com.evolution.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolution.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession}
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.scassandra.CreateKeyspaceIfNotExists
 
 private[journal] trait CreateKeyspace[F[_]] {

@@ -4,7 +4,6 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.kernel.Temporal
 import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
-import com.evolutiongaming.catshelper.LogOf
 import com.evolution.kafka.journal.cassandra.MigrateSchema.Fresh
 import com.evolution.kafka.journal.cassandra.{
   CassandraConsistencyConfig,
@@ -13,6 +12,7 @@ import com.evolution.kafka.journal.cassandra.{
   SettingsCassandra,
 }
 import com.evolution.kafka.journal.{Origin, Settings}
+import com.evolutiongaming.catshelper.LogOf
 
 /**
  * Creates a new schema, or migrates to the latest schema version, if it already exists.

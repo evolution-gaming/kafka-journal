@@ -2,10 +2,10 @@ package com.evolution.kafka.journal.eventual
 
 import cats.syntax.all.*
 import cats.~>
-import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.Fail.implicits.*
 import com.evolution.kafka.journal.{JournalError, JsonCodec, Payload, PayloadType}
+import com.evolutiongaming.catshelper.MonadThrowable
 
 /**
  * Decode a payload loaded from an eventual storage.

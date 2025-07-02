@@ -6,10 +6,10 @@ import cats.effect.{Concurrent, Resource}
 import cats.syntax.all.*
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.datastax.driver.core.{ResultSet as _, *}
-import com.evolution.scache.Cache
-import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}
 import com.evolution.kafka.journal.JournalError
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolution.scache.Cache
+import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}
 import com.evolutiongaming.scassandra
 import com.evolutiongaming.scassandra.NextHostRetryPolicy
 import com.evolutiongaming.scassandra.syntax.*

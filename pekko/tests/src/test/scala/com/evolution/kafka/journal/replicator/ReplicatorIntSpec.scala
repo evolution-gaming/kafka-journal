@@ -5,7 +5,6 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.CassandraSuite.*
 import com.evolution.kafka.journal.ExpireAfter.implicits.*
@@ -15,6 +14,7 @@ import com.evolution.kafka.journal.eventual.cassandra.{EventualCassandra, Eventu
 import com.evolution.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolution.kafka.journal.util.{ActorSystemOf, Fail}
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.retry.{Retry, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.skafka.Offset

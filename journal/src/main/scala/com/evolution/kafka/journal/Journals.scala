@@ -5,7 +5,6 @@ import cats.data.{NonEmptyList as Nel, NonEmptySet as Nes}
 import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.*
 import com.evolution.kafka.journal.Journal.ConsumerPoolConfig
 import com.evolution.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.{EventualJournal, EventualRead}
@@ -13,6 +12,7 @@ import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.Fail.implicits.*
 import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}

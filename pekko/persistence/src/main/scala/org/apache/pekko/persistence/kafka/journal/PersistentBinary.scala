@@ -1,7 +1,7 @@
 package org.apache.pekko.persistence.kafka.journal
 
-import com.evolution.serialization.SerializedMsg
 import com.evolution.kafka.journal.{FromAttempt, FromBytes, ToBytes}
+import com.evolution.serialization.SerializedMsg
 import org.apache.pekko.persistence.PersistentRepr
 import scodec.*
 

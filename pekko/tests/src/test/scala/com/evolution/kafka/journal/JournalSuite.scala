@@ -4,7 +4,6 @@ import cats.Monad
 import cats.data.NonEmptyList as Nel
 import cats.effect.IO
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.{FromFuture, LogOf, RandomIdOf}
 import com.evolution.kafka.journal.CassandraSuite.*
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig
@@ -12,6 +11,7 @@ import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.EventualRead
 import com.evolution.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolution.kafka.journal.util.PureConfigHelper.*
+import com.evolutiongaming.catshelper.{FromFuture, LogOf, RandomIdOf}
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig

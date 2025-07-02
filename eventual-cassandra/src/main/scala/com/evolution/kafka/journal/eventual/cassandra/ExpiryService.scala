@@ -3,9 +3,9 @@ package com.evolution.kafka.journal.eventual.cassandra
 import cats.effect.Sync
 import cats.syntax.all.*
 import cats.{Monad, ~>}
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf, MeasureDuration}
 import com.evolution.kafka.journal.ExpireAfter
 import com.evolution.kafka.journal.util.TemporalHelper.*
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf, MeasureDuration}
 
 import java.time.{Instant, LocalDate, ZoneId}
 import java.util.TimeZone

@@ -3,9 +3,9 @@ package com.evolution.kafka.journal.cassandra
 import cats.effect.Clock
 import cats.syntax.all.*
 import cats.{Monad, Parallel}
-import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolution.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolution.kafka.journal.{Origin, Setting, Settings}
+import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
 

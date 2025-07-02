@@ -2,10 +2,10 @@ package com.evolution.kafka.journal.replicator.commit
 
 import cats.data.{NonEmptyMap, NonEmptySet}
 import cats.effect.{Ref, SyncIO}
-import com.evolutiongaming.catshelper.{Log, ToTry}
 import com.evolution.kafka.journal.KafkaConsumer
 import com.evolution.kafka.journal.replicator.EmptyRebalanceConsumer
 import com.evolution.kafka.journal.replicator.SKafkaTestUtils.*
+import com.evolutiongaming.catshelper.{Log, ToTry}
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{ConsumerRecords, RebalanceCallback, RebalanceConsumer, RebalanceListener1}
 import org.scalatest.freespec.AnyFreeSpec

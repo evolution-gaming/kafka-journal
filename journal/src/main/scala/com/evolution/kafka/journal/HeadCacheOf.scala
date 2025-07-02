@@ -5,8 +5,8 @@ import cats.effect.kernel.Async
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
 import cats.{Applicative, Parallel}
-import com.evolutiongaming.catshelper.{FromTry, LogOf, MeasureDuration, Runtime}
 import com.evolution.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.catshelper.{FromTry, LogOf, MeasureDuration, Runtime}
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 
 trait HeadCacheOf[F[_]] {

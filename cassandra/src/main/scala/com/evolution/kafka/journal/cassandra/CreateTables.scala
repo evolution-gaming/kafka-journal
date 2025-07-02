@@ -3,10 +3,10 @@ package com.evolution.kafka.journal.cassandra
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import cats.{Monad, Order}
-import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolution.kafka.journal.cassandra.CassandraSync
 import com.evolution.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolution.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, KeyspaceMetadata}
+import com.evolutiongaming.catshelper.{Log, LogOf}
 
 /**
  * Creates tables in a specific keyspace

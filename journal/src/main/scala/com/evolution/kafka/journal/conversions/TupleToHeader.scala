@@ -1,8 +1,8 @@
 package com.evolution.kafka.journal.conversions
 
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolution.kafka.journal.{JournalError, ToBytes}
+import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.skafka.Header
 
 trait TupleToHeader[F[_]] {

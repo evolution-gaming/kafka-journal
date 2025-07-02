@@ -2,13 +2,8 @@ package com.evolution.kafka.journal.util
 
 import cats.effect.syntax.resource.*
 import cats.effect.{Resource, Sync}
+import com.evolution.kafka.journal.execution.{ForkJoinPoolOf, ScheduledExecutorServiceOf, ThreadFactoryOf, ThreadPoolOf}
 import com.evolutiongaming.catshelper.Runtime
-import com.evolution.kafka.journal.execution.{
-  ForkJoinPoolOf,
-  ScheduledExecutorServiceOf,
-  ThreadFactoryOf,
-  ThreadPoolOf,
-}
 
 import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}

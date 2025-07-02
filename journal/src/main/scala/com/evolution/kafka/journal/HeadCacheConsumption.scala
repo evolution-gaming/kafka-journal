@@ -3,10 +3,10 @@ package com.evolution.kafka.journal
 import cats.data.{NonEmptyList as Nel, NonEmptySet as Nes}
 import cats.effect.Resource
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolution.kafka.journal.TopicCache.Consumer
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}

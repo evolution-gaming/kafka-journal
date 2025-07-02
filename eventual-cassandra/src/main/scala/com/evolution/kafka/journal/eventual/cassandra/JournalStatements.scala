@@ -4,7 +4,6 @@ import cats.Monad
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.datastax.driver.core.{BatchStatement, Row}
-import com.evolutiongaming.catshelper.ToTry
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.cassandra.KeyExtension.*
 import com.evolution.kafka.journal.cassandra.OriginExtension.*
@@ -17,6 +16,7 @@ import com.evolution.kafka.journal.cassandra.{CassandraConsistencyConfig, Record
 import com.evolution.kafka.journal.eventual.EventualPayloadAndType
 import com.evolution.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolution.kafka.journal.eventual.cassandra.HeadersHelper.*
+import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import com.evolutiongaming.sstream.Stream

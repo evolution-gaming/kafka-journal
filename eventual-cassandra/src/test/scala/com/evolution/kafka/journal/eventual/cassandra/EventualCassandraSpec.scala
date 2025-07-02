@@ -3,8 +3,6 @@ package com.evolution.kafka.journal.eventual.cassandra
 import cats.Parallel
 import cats.effect.IO
 import cats.implicits.*
-import com.evolutiongaming.catshelper.DataHelper.IterableOps1DataHelper
-import com.evolutiongaming.catshelper.Log
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig
 import com.evolution.kafka.journal.eventual.*
@@ -12,6 +10,8 @@ import com.evolution.kafka.journal.eventual.EventualJournalSpec.*
 import com.evolution.kafka.journal.eventual.cassandra.JournalStatements.JournalRecord
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.TestTemporal.*
+import com.evolutiongaming.catshelper.DataHelper.IterableOps1DataHelper
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.skafka.{Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile.*
 import com.evolutiongaming.sstream.Stream

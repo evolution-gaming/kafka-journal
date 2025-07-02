@@ -3,12 +3,12 @@ package com.evolution.kafka.journal.replicator
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
 import com.evolution.kafka.journal.eventual.*
 import com.evolution.kafka.journal.util.TemporalHelper.*
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.skafka.Offset
 
 import java.time.Instant

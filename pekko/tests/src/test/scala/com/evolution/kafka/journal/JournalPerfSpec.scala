@@ -3,13 +3,13 @@ package com.evolution.kafka.journal
 import cats.data.NonEmptyList as Nel
 import cats.effect.IO
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.catshelper.ParallelHelper.*
-import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration}
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.eventual.EventualJournal
 import com.evolution.kafka.journal.util.PureConfigHelper.*
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
+import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Instant

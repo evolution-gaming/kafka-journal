@@ -4,9 +4,9 @@ import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Deferred, IO, Ref, Resource, Sync}
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.{LogOf, ToTry}
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.{KafkaConsumer, KafkaConsumerOf}
+import com.evolutiongaming.catshelper.{LogOf, ToTry}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords, RebalanceListener1}
 import com.evolutiongaming.skafka.{Offset, OffsetAndMetadata, Partition, Topic, TopicPartition}

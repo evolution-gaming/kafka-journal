@@ -44,8 +44,8 @@ object JournalConfig {
    *   both Cassandra (or other long term storage) and Kafka otherwise.
    *
    * @see
-   *   [[com.evolution.kafka.journal.HeadCache]] for more details on what is head cache and
-   *   how it works.
+   *   [[com.evolution.kafka.journal.HeadCache]] for more details on what is head cache and how it
+   *   works.
    */
   final case class HeadCache(enabled: Boolean = true)
 

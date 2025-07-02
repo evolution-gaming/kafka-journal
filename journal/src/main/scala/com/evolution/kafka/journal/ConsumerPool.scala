@@ -4,10 +4,10 @@ import cats.effect.*
 import cats.effect.kernel.Resource.ExitCase
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
-import com.evolution.resourcepool.ResourcePool.implicits.*
-import com.evolutiongaming.catshelper.{MeasureDuration, Runtime}
 import com.evolution.kafka.journal.Journal.ConsumerPoolConfig
 import com.evolution.kafka.journal.Journals.Consumer
+import com.evolution.resourcepool.ResourcePool.implicits.*
+import com.evolutiongaming.catshelper.{MeasureDuration, Runtime}
 
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.{DurationInt, FiniteDuration}

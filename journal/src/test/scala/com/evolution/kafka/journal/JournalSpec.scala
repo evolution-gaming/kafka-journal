@@ -6,15 +6,15 @@ import cats.effect.kernel.Sync
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Clock, IO}
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration, RandomIdOf}
-import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.*
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration, RandomIdOf}
+import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers

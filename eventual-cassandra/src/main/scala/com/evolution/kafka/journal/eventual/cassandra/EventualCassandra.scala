@@ -5,7 +5,6 @@ import cats.effect.syntax.all.*
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
-import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration, ToTry}
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig
 import com.evolution.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolution.kafka.journal.eventual.*
@@ -13,6 +12,7 @@ import com.evolution.kafka.journal.eventual.cassandra.JournalStatements.JournalR
 import com.evolution.kafka.journal.util.CatsHelper.*
 import com.evolution.kafka.journal.util.StreamHelper.*
 import com.evolution.kafka.journal.{cassandra as _, *}
+import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}

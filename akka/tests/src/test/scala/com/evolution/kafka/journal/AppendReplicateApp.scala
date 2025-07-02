@@ -7,14 +7,14 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.*
-import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.conversions.KafkaWrite
 import com.evolution.kafka.journal.eventual.EventualJournal
 import com.evolution.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolution.kafka.journal.util.*
 import com.evolution.kafka.journal.util.PureConfigHelper.*
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture

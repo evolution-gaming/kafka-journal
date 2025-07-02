@@ -3,8 +3,8 @@ package com.evolution.kafka.journal.util
 import cats.Id
 import cats.effect.IO
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolution.kafka.journal.JournalError
+import com.evolutiongaming.catshelper.ApplicativeThrowable
 import play.api.libs.json.{JsError, JsResult}
 import scodec.*
 

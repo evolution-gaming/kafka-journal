@@ -1,19 +1,19 @@
 package com.evolution.kafka.journal.replicator
 
 import cats.data.NonEmptyList as Nel
-import cats.effect.syntax.resource.*
 import cats.effect.*
+import cats.effect.syntax.resource.*
 import cats.syntax.all.*
 import cats.{Applicative, Monad, Parallel, ~>}
-import com.evolution.scache.CacheMetrics
-import com.evolution.scache.CacheMetrics.Name
-import com.evolutiongaming.catshelper.*
-import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.eventual.ReplicatedJournal
 import com.evolution.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
 import com.evolution.kafka.journal.util.*
 import com.evolution.kafka.journal.util.SkafkaHelper.*
+import com.evolution.scache.CacheMetrics
+import com.evolution.scache.CacheMetrics.Name
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf

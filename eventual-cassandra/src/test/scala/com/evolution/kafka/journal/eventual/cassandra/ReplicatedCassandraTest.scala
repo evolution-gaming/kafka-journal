@@ -7,7 +7,6 @@ import cats.effect.{Poll, Sync}
 import cats.implicits.*
 import cats.syntax.all.none
 import cats.{Id, Parallel}
-import com.evolutiongaming.catshelper.DataHelper.IterableOps1DataHelper
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.eventual.EventualPayloadAndType
@@ -16,6 +15,7 @@ import com.evolution.kafka.journal.eventual.cassandra.JournalStatements.JournalR
 import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolution.kafka.journal.util.TemporalHelper.*
 import com.evolution.kafka.journal.util.{Fail, MonadCancelFromMonadError}
+import com.evolutiongaming.catshelper.DataHelper.IterableOps1DataHelper
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

@@ -4,8 +4,8 @@ import cats.data.IndexedStateT
 import cats.effect.kernel.{CancelScope, Poll}
 import cats.implicits.*
 import cats.syntax.all.none
-import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolution.kafka.journal.util.MonadCancelFromMonadError
+import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.skafka.{Offset, Partition}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite

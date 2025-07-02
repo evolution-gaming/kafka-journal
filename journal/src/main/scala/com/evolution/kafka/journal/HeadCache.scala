@@ -1,14 +1,14 @@
 package com.evolution.kafka.journal
 
 import cats.*
-import cats.effect.syntax.all.*
 import cats.effect.*
+import cats.effect.syntax.all.*
 import cats.syntax.all.*
-import com.evolution.scache.{Cache, ExpiringCache}
-import com.evolutiongaming.catshelper.*
 import com.evolution.kafka.journal.PartitionCache.Result
 import com.evolution.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolution.kafka.journal.eventual.{EventualJournal, TopicPointers}
+import com.evolution.scache.{Cache, ExpiringCache}
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.*

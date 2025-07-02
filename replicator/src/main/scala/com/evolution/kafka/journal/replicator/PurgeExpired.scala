@@ -5,18 +5,13 @@ import cats.effect.syntax.resource.*
 import cats.effect.{Clock, Resource}
 import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
-import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MeasureDuration, MonadThrowable}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.cassandra.CassandraConsistencyConfig
-import com.evolution.kafka.journal.eventual.cassandra.{
-  CassandraSession,
-  ExpireOn,
-  MetaJournalStatements,
-  SegmentNr,
-}
+import com.evolution.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.producer.ProducerConfig

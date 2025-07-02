@@ -1,12 +1,12 @@
 package com.evolution.kafka.journal.circe
 
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.PayloadAndType.*
 import com.evolution.kafka.journal.circe.Codecs.*
 import com.evolution.kafka.journal.conversions.*
 import com.evolution.kafka.journal.eventual.EventualRead
+import com.evolutiongaming.catshelper.*
 import io.circe.*
 import io.circe.jawn.*
 import io.circe.syntax.*

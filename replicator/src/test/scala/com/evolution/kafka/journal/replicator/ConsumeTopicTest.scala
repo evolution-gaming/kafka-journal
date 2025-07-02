@@ -4,10 +4,10 @@ import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Resource}
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.catshelper.{Log, ToTry}
 import com.evolution.kafka.journal.ConsRecord
 import com.evolution.kafka.journal.util.TestTemporal.temporalTry
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.{Log, ToTry}
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*

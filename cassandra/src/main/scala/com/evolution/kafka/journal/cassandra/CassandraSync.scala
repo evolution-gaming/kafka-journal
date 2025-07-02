@@ -5,10 +5,10 @@ import cats.effect.kernel.Temporal
 import cats.effect.std.Semaphore
 import cats.syntax.all.*
 import cats.~>
-import com.evolutiongaming.cassandra
-import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolution.kafka.journal.Origin
 import com.evolution.kafka.journal.eventual.cassandra.CassandraSession
+import com.evolutiongaming.cassandra
+import com.evolutiongaming.cassandra.sync.AutoCreate
 
 private[journal] trait CassandraSync[F[_]] {
   def apply[A](fa: F[A]): F[A]
