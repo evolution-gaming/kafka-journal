@@ -5,12 +5,12 @@ import akka.persistence.PersistentRepr
 import cats.effect.Sync
 import cats.syntax.all.*
 import cats.{Applicative, ~>}
+import com.evolution.kafka.journal.*
+import com.evolution.kafka.journal.FromBytes.implicits.*
+import com.evolution.kafka.journal.ToBytes.implicits.*
+import com.evolution.kafka.journal.util.Fail
+import com.evolution.kafka.journal.util.Fail.implicits.*
 import com.evolutiongaming.catshelper.MonadThrowable
-import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.FromBytes.implicits.*
-import com.evolutiongaming.kafka.journal.ToBytes.implicits.*
-import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 

@@ -5,9 +5,9 @@ import akka.persistence.journal.Tagged
 import akka.persistence.kafka.journal.EventSerializer
 import cats.effect.IO
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.IOSuite.*
-import com.evolutiongaming.kafka.journal.circe.*
+import com.evolution.kafka.journal.*
+import com.evolution.kafka.journal.IOSuite.*
+import com.evolution.kafka.journal.circe.*
 import io.circe.Json
 import io.circe.jawn.*
 import org.scalatest.EitherValues

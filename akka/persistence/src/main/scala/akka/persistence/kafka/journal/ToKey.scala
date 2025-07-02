@@ -2,7 +2,7 @@ package akka.persistence.kafka.journal
 
 import cats.Applicative
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.Key
+import com.evolution.kafka.journal.Key
 import com.evolutiongaming.skafka.Topic
 import com.typesafe.config.Config
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}

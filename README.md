@@ -2,7 +2,7 @@
 [![Build Status](https://github.com/evolution-gaming/kafka-journal/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/evolution-gaming/kafka-journal/actions?query=workflow%3ACI+branch%3Amaster)
 [![Coverage Status](https://coveralls.io/repos/github/evolution-gaming/kafka-journal/badge.svg?branch=master)](https://coveralls.io/github/evolution-gaming/kafka-journal?branch=master)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/a391e347e329454e8f992717113ec1ec)](https://app.codacy.com/gh/evolution-gaming/kafka-journal/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
-[![Version](https://img.shields.io/badge/version-click-blue)](https://evolution.jfrog.io/artifactory/api/search/latestVersion?g=com.evolutiongaming&a=kafka-journal_2.13&repos=public)
+[![Version](https://img.shields.io/badge/version-click-blue)](https://evolution.jfrog.io/artifactory/api/search/latestVersion?g=com.evolution&a=kafka-journal_2.13&repos=public)
 [![Chat](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/evolution-gaming/kafka-journal)
 
 > Stream data from two sources where one is eventually consistent and the other one loses its tail
@@ -92,18 +92,17 @@ Unfortunately pekko persistence `snapshot` plugin is not implemented, yet.
 ```scala
 addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "3.4.0"
+libraryDependencies += "com.evolution" %% "kafka-journal" % "5.0.0"
 
 // for akka persistence
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "3.4.0"
+//libraryDependencies += "com.evolution" %% "kafka-journal-persistence" % "5.0.0"
 
 // for pekko persistence
-// libraryDependencies += "com.evolutiongaming" %% "kafka-journal-pekko-persistence" % "3.4.0"
+libraryDependencies += "com.evolution" %% "kafka-journal-pekko-persistence" % "5.0.0"
 
+libraryDependencies += "com.evolution" %% "kafka-journal-replicator" % "5.0.0"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "3.4.0"
-
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "3.4.0"
+libraryDependencies += "com.evolution" %% "kafka-journal-eventual-cassandra" % "5.0.0"
 ```
 
 ## Presentations

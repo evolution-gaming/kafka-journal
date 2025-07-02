@@ -3,7 +3,7 @@ package org.apache.pekko.persistence.kafka.journal
 import cats.Applicative
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.{Event, Key}
+import com.evolution.kafka.journal.{Event, Key}
 import org.apache.pekko.persistence.PersistentRepr
 
 trait AppendMetadataOf[F[_]] {

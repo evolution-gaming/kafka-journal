@@ -3,7 +3,7 @@ import com.typesafe.tools.mima.core.*
 import sbt.Package.ManifestAttributes
 
 lazy val commonSettings = Seq(
-  organization := "com.evolutiongaming",
+  organization := "com.evolution",
   organizationName := "Evolution",
   organizationHomepage := Some(url("https://evolution.com")),
   homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
@@ -64,7 +64,7 @@ lazy val commonSettings = Seq(
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
   // add mima check exceptions here, like:
 //  ProblemFilters.exclude[IncompatibleMethTypeProblem](
-//    "com.evolutiongaming.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
+//    "com.evolution.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
 //  ),
 )
 

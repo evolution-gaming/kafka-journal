@@ -3,8 +3,8 @@ package org.apache.pekko.persistence.kafka.journal
 import cats.arrow.FunctionK
 import cats.effect.{IO, Outcome, Sync}
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.ActorSuite
-import com.evolutiongaming.kafka.journal.IOSuite.*
+import com.evolution.kafka.journal.ActorSuite
+import com.evolution.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 

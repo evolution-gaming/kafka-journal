@@ -1,7 +1,7 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.PersistentRepr
-import com.evolutiongaming.kafka.journal.{FromAttempt, FromBytes, ToBytes}
+import com.evolution.kafka.journal.{FromAttempt, FromBytes, ToBytes}
 import com.evolutiongaming.serialization.SerializedMsg
 import scodec.*
 

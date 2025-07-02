@@ -4,7 +4,7 @@ import akka.persistence.PersistentRepr
 import cats.Applicative
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.{Event, Key}
+import com.evolution.kafka.journal.{Event, Key}
 
 trait AppendMetadataOf[F[_]] {
 
