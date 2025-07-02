@@ -3,6 +3,7 @@ package org.apache.pekko.persistence.kafka.journal
 import cats.effect.IO
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.IOSuite.*
+import com.evolution.kafka.journal.util.CatsHelper.*
 import org.apache.pekko.persistence.PersistentRepr
 import org.apache.pekko.persistence.serialization.Snapshot
 import org.scalatest.funsuite.AsyncFunSuite

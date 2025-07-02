@@ -10,6 +10,8 @@ import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.akkaext.OriginExtension
+import com.evolution.kafka.journal.util.CatsHelper.*
+import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf

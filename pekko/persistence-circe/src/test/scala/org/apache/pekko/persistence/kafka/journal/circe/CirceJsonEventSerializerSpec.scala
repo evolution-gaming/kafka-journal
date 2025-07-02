@@ -4,6 +4,7 @@ import cats.effect.IO
 import cats.syntax.all.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.IOSuite.*
+import com.evolution.kafka.journal.circe.*
 import io.circe.Json
 import io.circe.jawn.*
 import org.apache.pekko.persistence.PersistentRepr

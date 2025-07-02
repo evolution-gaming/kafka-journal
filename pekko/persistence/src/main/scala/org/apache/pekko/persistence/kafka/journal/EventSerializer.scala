@@ -8,6 +8,7 @@ import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.FromBytes.implicits.*
 import com.evolution.kafka.journal.ToBytes.implicits.*
 import com.evolution.kafka.journal.util.Fail
+import com.evolution.kafka.journal.util.Fail.implicits.*
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.persistence.PersistentRepr
 import play.api.libs.json.{JsString, JsValue, Json}

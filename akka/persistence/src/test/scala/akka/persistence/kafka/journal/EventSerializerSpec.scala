@@ -5,6 +5,7 @@ import akka.persistence.serialization.Snapshot
 import cats.effect.IO
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.IOSuite.*
+import com.evolution.kafka.journal.util.CatsHelper.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsString

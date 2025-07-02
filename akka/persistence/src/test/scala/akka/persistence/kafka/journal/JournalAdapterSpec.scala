@@ -11,6 +11,7 @@ import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.{EventualPayloadAndType, EventualRead, EventualWrite}
 import com.evolution.kafka.journal.util.Fail
+import com.evolution.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

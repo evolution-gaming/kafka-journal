@@ -7,7 +7,9 @@ import cats.effect.{IO, Resource}
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolution.kafka.journal.*
+import com.evolution.kafka.journal.circe.Codecs.*
 import com.evolution.kafka.journal.circe.FromCirceResult
+import com.evolution.kafka.journal.circe.Instances.*
 import com.evolution.kafka.journal.util.Fail
 import com.typesafe.config.Config
 import io.circe.*

@@ -10,6 +10,7 @@ import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.FromBytes.implicits.*
 import com.evolution.kafka.journal.ToBytes.implicits.*
 import com.evolution.kafka.journal.util.Fail
+import com.evolution.kafka.journal.util.Fail.implicits.*
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 
