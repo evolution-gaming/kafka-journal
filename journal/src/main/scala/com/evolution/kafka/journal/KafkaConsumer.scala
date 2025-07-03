@@ -157,7 +157,8 @@ object KafkaConsumer {
 
       def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit] = f(self.commit(offsets), "commit")
 
-      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit] = f(self.commitLater(offsets), "commit_later")
+      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit] =
+        f(self.commitLater(offsets), "commit_later")
 
       def topics: F[Set[Topic]] = f(self.topics, "topics")
 

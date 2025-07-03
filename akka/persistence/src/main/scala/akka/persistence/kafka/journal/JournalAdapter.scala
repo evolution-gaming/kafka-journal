@@ -201,7 +201,8 @@ object JournalAdapter {
 
       def delete(persistenceId: PersistenceId, to: DeleteTo): G[Unit] = fg(self.delete(persistenceId, to))
 
-      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr): G[Option[SeqNr]] = fg(self.lastSeqNr(persistenceId, from))
+      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr): G[Option[SeqNr]] =
+        fg(self.lastSeqNr(persistenceId, from))
 
       def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => G[Unit]): G[Unit] = {
         fg(self.replay(persistenceId, range, max)(a => gf(f(a))))

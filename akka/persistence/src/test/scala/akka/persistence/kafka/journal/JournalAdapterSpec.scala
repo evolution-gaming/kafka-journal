@@ -187,7 +187,7 @@ object JournalAdapterSpec {
         )(implicit
           kafkaRead: KafkaRead[StateT, A],
           eventualRead: EventualRead[StateT, A],
-        ): Stream[StateT, EventRecord[A]]= {
+        ): Stream[StateT, EventRecord[A]] = {
           val stream = StateT { state =>
             val events = state.events.traverse(_.traverse(eventualRead.apply))
 

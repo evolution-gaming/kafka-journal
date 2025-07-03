@@ -3,8 +3,8 @@ package com.evolution.kafka.journal.execution
 import cats.effect.{Resource, Sync}
 import cats.syntax.all.*
 
-import java.util.concurrent.{ForkJoinPool, ForkJoinWorkerThread}
 import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory
+import java.util.concurrent.{ForkJoinPool, ForkJoinWorkerThread}
 
 private[journal] object ForkJoinPoolOf {
 

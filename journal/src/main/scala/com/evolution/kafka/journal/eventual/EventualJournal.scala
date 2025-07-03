@@ -92,7 +92,8 @@ object EventualJournal {
 
   def empty[F[_]: Applicative]: EventualJournal[F] = new Empty with EventualJournal[F] {
 
-    def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]] = Stream.empty[F, EventRecord[EventualPayloadAndType]]
+    def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]] =
+      Stream.empty[F, EventRecord[EventualPayloadAndType]]
 
     def pointer(key: Key): F[Option[JournalPointer]] = none[JournalPointer].pure[F]
 
@@ -211,7 +212,8 @@ object EventualJournal {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): EventualJournal[G] = new MapK with EventualJournal[G] {
 
-      def read(key: Key, from1: SeqNr): Stream[G, EventRecord[EventualPayloadAndType]] = self.read(key, from1).mapK(fg, gf)
+      def read(key: Key, from1: SeqNr): Stream[G, EventRecord[EventualPayloadAndType]] =
+        self.read(key, from1).mapK(fg, gf)
 
       def pointer(key: Key): G[Option[JournalPointer]] = fg(self.pointer(key))
 

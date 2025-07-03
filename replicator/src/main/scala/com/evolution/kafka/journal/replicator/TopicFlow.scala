@@ -23,7 +23,8 @@ private[journal] object TopicFlow {
 
     def assign(partitions: Nes[Partition]): F[Unit] = ().pure[F]
 
-    def apply(records: Nem[Partition, Nel[ConsRecord]]): F[Map[Partition, Offset]] = Map.empty[Partition, Offset].pure[F]
+    def apply(records: Nem[Partition, Nel[ConsRecord]]): F[Map[Partition, Offset]] =
+      Map.empty[Partition, Offset].pure[F]
 
     def revoke(partitions: Nes[Partition]): F[Unit] = ().pure[F]
 
