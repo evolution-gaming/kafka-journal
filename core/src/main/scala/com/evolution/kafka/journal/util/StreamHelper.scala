@@ -15,15 +15,15 @@ object StreamHelper {
 
     new MonadError[Stream[F, *], E] with StackSafeMonad[Stream[F, *]] {
 
-      def flatMap[A, B](fa: Stream[F, A])(f: A => Stream[F, B]) = StreamOps(fa).flatMap(f)
+      def flatMap[A, B](fa: Stream[F, A])(f: A => Stream[F, B]): Stream[F, B] = StreamOps(fa).flatMap(f)
 
-      def pure[A](a: A) = Stream.single[F, A](a)
+      def pure[A](a: A): Stream[F, A] = Stream.single[F, A](a)
 
-      override def map[A, B](fa: Stream[F, A])(f: A => B) = StreamOps(fa).map(f)
+      override def map[A, B](fa: Stream[F, A])(f: A => B): Stream[F, B] = StreamOps(fa).map(f)
 
-      def raiseError[A](a: E) = a.raiseError[F, A].toStream
+      def raiseError[A](a: E): Stream[F, A] = a.raiseError[F, A].toStream
 
-      def handleErrorWith[A](fa: Stream[F, A])(f: E => Stream[F, A]) = StreamOps(fa).handleErrorWith(f)
+      def handleErrorWith[A](fa: Stream[F, A])(f: E => Stream[F, A]): Stream[F, A] = StreamOps(fa).handleErrorWith(f)
     }
   }
 

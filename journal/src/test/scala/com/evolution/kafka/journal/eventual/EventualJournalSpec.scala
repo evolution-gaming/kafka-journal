@@ -505,17 +505,17 @@ object EventualJournalSpec {
 
     def apply[F[_]: Monad](journal: EventualJournal[F], key: Key): Eventual[F] = new Eventual[F] {
 
-      def events(from: SeqNr = SeqNr.min) = {
+      def events(from: SeqNr = SeqNr.min): F[List[EventRecord[EventualPayloadAndType]]] = {
         journal.read(key, from).toList
       }
 
-      def pointer = journal.pointer(key)
+      def pointer: F[Option[JournalPointer]] = journal.pointer(key)
 
       def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
         journal.offset(topic, partition)
       }
 
-      def ids(topic: Topic) = journal.ids(topic).toList.map { _.sorted }
+      def ids(topic: Topic): F[List[Topic]] = journal.ids(topic).toList.map { _.sorted }
     }
   }
 
@@ -546,22 +546,22 @@ object EventualJournalSpec {
     ): Replicated[F] = {
       new Replicated[F] {
 
-        def topics = journal.topics
+        def topics: F[SortedSet[Topic]] = journal.topics
 
-        def append(partitionOffset: PartitionOffset, events: Nel[EventRecord[EventualPayloadAndType]]) = {
+        def append(partitionOffset: PartitionOffset, events: Nel[EventRecord[EventualPayloadAndType]]): F[Unit] = {
           // TODO expiry: define expireAfter and test
           journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp, none, events).void
         }
 
-        def delete(deleteTo: DeleteTo, partitionOffset: PartitionOffset) = {
+        def delete(deleteTo: DeleteTo, partitionOffset: PartitionOffset): F[Unit] = {
           journal.delete(key, partitionOffset.partition, partitionOffset.offset, timestamp, deleteTo, None).void
         }
 
-        def offset(topic: Topic, partition: Partition) = {
+        def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
           journal.offset(topic, partition)
         }
 
-        def offsetSave(topic: Topic, partition: Partition, offset: Offset) = {
+        def offsetSave(topic: Topic, partition: Partition, offset: Offset): F[Unit] = {
           journal.offsetUpdate(topic, partition, offset, timestamp)
         }
       }

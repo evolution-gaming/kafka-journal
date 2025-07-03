@@ -72,7 +72,7 @@ object ReplicatedJournalFlat {
     class Main
     new Main with ReplicatedJournalFlat[F] {
 
-      def topics = replicatedJournal.topics
+      def topics: F[SortedSet[Topic]] = replicatedJournal.topics
 
       def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
         replicatedJournal
@@ -93,7 +93,7 @@ object ReplicatedJournalFlat {
         partition: Partition,
         offset: Offset,
         timestamp: Instant,
-      ) = {
+      ): F[Unit] = {
         replicatedJournal
           .journal(topic)
           .use { journal =>
@@ -112,7 +112,7 @@ object ReplicatedJournalFlat {
         partition: Partition,
         offset: Offset,
         timestamp: Instant,
-      ) = {
+      ): F[Unit] = {
         replicatedJournal
           .journal(topic)
           .use { journal =>
@@ -133,7 +133,7 @@ object ReplicatedJournalFlat {
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
         events: Nel[EventRecord[EventualPayloadAndType]],
-      ) = {
+      ): F[Changed] = {
         replicatedJournal
           .journal(key.topic)
           .use { journal =>
@@ -154,7 +154,7 @@ object ReplicatedJournalFlat {
         timestamp: Instant,
         deleteTo: DeleteTo,
         origin: Option[Origin],
-      ) = {
+      ): F[Changed] = {
         replicatedJournal
           .journal(key.topic)
           .use { journal =>
@@ -173,7 +173,7 @@ object ReplicatedJournalFlat {
         partition: Partition,
         offset: Offset,
         timestamp: Instant,
-      ) = {
+      ): F[Changed] = {
         replicatedJournal
           .journal(key.topic)
           .use { journal =>

@@ -87,9 +87,9 @@ object EventSerializer {
   def const[F[_]: Applicative, A](event: Event[A], persistentRepr: PersistentRepr): EventSerializer[F, A] = {
     new EventSerializer[F, A] {
 
-      def toEvent(persistentRepr: PersistentRepr) = event.pure[F]
+      def toEvent(persistentRepr: PersistentRepr): F[Event[A]] = event.pure[F]
 
-      def toPersistentRepr(persistenceId: PersistenceId, event: Event[A]) = persistentRepr.pure[F]
+      def toPersistentRepr(persistenceId: PersistenceId, event: Event[A]): F[PersistentRepr] = persistentRepr.pure[F]
     }
   }
 
@@ -275,11 +275,11 @@ object EventSerializer {
 
     def mapK[G[_]](f: F ~> G): EventSerializer[G, A] = new EventSerializer[G, A] {
 
-      def toEvent(persistentRepr: PersistentRepr) = {
+      def toEvent(persistentRepr: PersistentRepr): G[Event[A]] = {
         f(self.toEvent(persistentRepr))
       }
 
-      def toPersistentRepr(persistenceId: PersistenceId, event: Event[A]) = {
+      def toPersistentRepr(persistenceId: PersistenceId, event: Event[A]): G[PersistentRepr] = {
         f(self.toPersistentRepr(persistenceId, event))
       }
     }

@@ -1,5 +1,6 @@
 package com.evolution.kafka.journal
 
+import cats.MonadError
 import cats.data.IndexedStateT
 import cats.effect.kernel.{CancelScope, Poll}
 import cats.implicits.*
@@ -51,7 +52,7 @@ object StreamActionRecordsSpec {
 
   implicit val bracket: BracketThrowable[StateT] = new MonadCancelFromMonadError[StateT, Throwable] {
 
-    val F = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
+    val F: MonadError[StateT, Throwable] = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
 
     override def rootCancelScope: CancelScope = CancelScope.Uncancelable
 

@@ -47,19 +47,19 @@ object ReplicatedKeyJournal {
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
         events: Nel[EventRecord[EventualPayloadAndType]],
-      ) = value
+      ): F[Changed] = value
 
       def delete(
         offset: Offset,
         timestamp: Instant,
         deleteTo: DeleteTo,
         origin: Option[Origin],
-      ) = value
+      ): F[Changed] = value
 
       def purge(
         offset: Offset,
         timestamp: Instant,
-      ) = value
+      ): F[Changed] = value
     }
   }
 
@@ -79,7 +79,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]],
-        ) = {
+        ): G[Changed] = {
           f(self.append(offset, timestamp, expireAfter, events))
         }
 
@@ -88,14 +88,14 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin],
-        ) = {
+        ): G[Changed] = {
           f(self.delete(offset, timestamp, deleteTo, origin))
         }
 
         def purge(
           offset: Offset,
           timestamp: Instant,
-        ) = {
+        ): G[Changed] = {
           f(self.purge(offset, timestamp))
         }
       }
@@ -117,7 +117,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]],
-        ) = {
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(offset, timestamp, expireAfter, events)
@@ -138,7 +138,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin],
-        ) = {
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.delete(offset, timestamp, deleteTo, origin)
@@ -153,7 +153,7 @@ object ReplicatedKeyJournal {
         def purge(
           offset: Offset,
           timestamp: Instant,
-        ) = {
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.purge(offset, timestamp)
@@ -178,7 +178,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]],
-        ) = {
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(offset, timestamp, expireAfter, events)
@@ -192,7 +192,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin],
-        ) = {
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.delete(offset, timestamp, deleteTo, origin)
@@ -204,7 +204,7 @@ object ReplicatedKeyJournal {
         def purge(
           offset: Offset,
           timestamp: Instant,
-        ) = {
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.purge(offset, timestamp)
@@ -233,7 +233,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]],
-        ) = {
+        ): F[Changed] = {
           self
             .append(offset, timestamp, expireAfter, events)
             .handleErrorWith { a =>
@@ -254,7 +254,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin],
-        ) = {
+        ): F[Changed] = {
           self
             .delete(offset, timestamp, deleteTo, origin)
             .handleErrorWith { a =>
@@ -273,7 +273,7 @@ object ReplicatedKeyJournal {
         def purge(
           offset: Offset,
           timestamp: Instant,
-        ) = {
+        ): F[Changed] = {
           self
             .purge(offset, timestamp)
             .handleErrorWith { a =>

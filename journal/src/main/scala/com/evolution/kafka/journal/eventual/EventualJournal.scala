@@ -92,11 +92,11 @@ object EventualJournal {
 
   def empty[F[_]: Applicative]: EventualJournal[F] = new Empty with EventualJournal[F] {
 
-    def read(key: Key, from: SeqNr) = Stream.empty[F, EventRecord[EventualPayloadAndType]]
+    def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]] = Stream.empty[F, EventRecord[EventualPayloadAndType]]
 
-    def pointer(key: Key) = none[JournalPointer].pure[F]
+    def pointer(key: Key): F[Option[JournalPointer]] = none[JournalPointer].pure[F]
 
-    def ids(topic: Topic) = Stream.empty[F, String]
+    def ids(topic: Topic): Stream[F, Topic] = Stream.empty[F, String]
 
     def offset(topic: Topic, partition: Partition): F[Option[Offset]] = none[Offset].pure[F]
   }
@@ -122,13 +122,13 @@ object EventualJournal {
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Const with Metrics[F] {
 
-      def read(topic: Topic, latency: FiniteDuration) = unit
+      def read(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
-      def read(topic: Topic) = unit
+      def read(topic: Topic): F[Unit] = unit
 
-      def pointer(topic: Topic, latency: FiniteDuration) = unit
+      def pointer(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
-      def ids(topic: Topic, latency: FiniteDuration) = unit
+      def ids(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
       def offset(topic: Topic, latency: FiniteDuration): F[Unit] = unit
     }
@@ -175,19 +175,19 @@ object EventualJournal {
 
         new Main with Metrics[F] {
 
-          def read(topic: Topic, latency: FiniteDuration) = {
+          def read(topic: Topic, latency: FiniteDuration): F[Unit] = {
             observeLatency(name = "read", topic = topic, latency = latency)
           }
 
-          def read(topic: Topic) = {
+          def read(topic: Topic): F[Unit] = {
             eventsSummary.labels(topic).observe(1.0)
           }
 
-          def pointer(topic: Topic, latency: FiniteDuration) = {
+          def pointer(topic: Topic, latency: FiniteDuration): F[Unit] = {
             observeLatency(name = "pointer", topic = topic, latency = latency)
           }
 
-          def ids(topic: Topic, latency: FiniteDuration) = {
+          def ids(topic: Topic, latency: FiniteDuration): F[Unit] = {
             observeLatency(name = "ids", topic = topic, latency = latency)
           }
 
@@ -211,11 +211,11 @@ object EventualJournal {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): EventualJournal[G] = new MapK with EventualJournal[G] {
 
-      def read(key: Key, from1: SeqNr) = self.read(key, from1).mapK(fg, gf)
+      def read(key: Key, from1: SeqNr): Stream[G, EventRecord[EventualPayloadAndType]] = self.read(key, from1).mapK(fg, gf)
 
-      def pointer(key: Key) = fg(self.pointer(key))
+      def pointer(key: Key): G[Option[JournalPointer]] = fg(self.pointer(key))
 
-      def ids(topic: Topic) = self.ids(topic).mapK(fg, gf)
+      def ids(topic: Topic): Stream[G, Topic] = self.ids(topic).mapK(fg, gf)
 
       def offset(topic: Topic, partition: Partition): G[Option[Offset]] = fg(self.offset(topic, partition))
     }
@@ -231,9 +231,9 @@ object EventualJournal {
 
       new WithLog with EventualJournal[F] {
 
-        def read(key: Key, from: SeqNr) = {
+        def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]] = {
           val logging = new (F ~> F) {
-            def apply[A](fa: F[A]) = {
+            def apply[A](fa: F[A]): F[A] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
@@ -245,7 +245,7 @@ object EventualJournal {
           self.read(key, from).mapK(logging, functionKId)
         }
 
-        def pointer(key: Key) = {
+        def pointer(key: Key): F[Option[JournalPointer]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.pointer(key)
@@ -254,9 +254,9 @@ object EventualJournal {
           } yield r
         }
 
-        def ids(topic: Topic) = {
+        def ids(topic: Topic): Stream[F, Topic] = {
           val logging = new (F ~> F) {
-            def apply[A](fa: F[A]) = {
+            def apply[A](fa: F[A]): F[A] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
@@ -291,9 +291,9 @@ object EventualJournal {
 
       new WithMetrics with EventualJournal[F] {
 
-        def read(key: Key, from: SeqNr) = {
+        def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]] = {
           val measure = new (F ~> F) {
-            def apply[A](fa: F[A]) = {
+            def apply[A](fa: F[A]): F[A] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
@@ -309,7 +309,7 @@ object EventualJournal {
           } yield a
         }
 
-        def pointer(key: Key) = {
+        def pointer(key: Key): F[Option[JournalPointer]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.pointer(key)
@@ -318,9 +318,9 @@ object EventualJournal {
           } yield r
         }
 
-        def ids(topic: Topic) = {
+        def ids(topic: Topic): Stream[F, Topic] = {
           val measure = new (F ~> F) {
-            def apply[A](fa: F[A]) = {
+            def apply[A](fa: F[A]): F[A] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
@@ -355,7 +355,7 @@ object EventualJournal {
 
       new EnhanceError with EventualJournal[F] {
 
-        def read(key: Key, from: SeqNr) = {
+        def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]] = {
           self
             .read(key, from)
             .handleErrorWith { (a: Throwable) =>
@@ -363,13 +363,13 @@ object EventualJournal {
             }
         }
 
-        def pointer(key: Key) = {
+        def pointer(key: Key): F[Option[JournalPointer]] = {
           self
             .pointer(key)
             .handleErrorWith { a => error(s"pointer key: $key", a) }
         }
 
-        def ids(topic: Topic) = {
+        def ids(topic: Topic): Stream[F, Topic] = {
           self
             .ids(topic)
             .handleErrorWith { a => error[String](s"ids topic: $topic", a).toStream }

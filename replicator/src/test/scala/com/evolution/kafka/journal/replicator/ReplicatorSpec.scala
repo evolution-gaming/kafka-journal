@@ -24,7 +24,7 @@ class ReplicatorSpec extends AsyncWordSpec with Matchers {
       val error = new RuntimeException with NoStackTrace
 
       val consumer = new Consumer[IO] {
-        def topics = Set("journal").pure[IO]
+        def topics: IO[Set[Topic]] = Set("journal").pure[IO]
       }
 
       val start =

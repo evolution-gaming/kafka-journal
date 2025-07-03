@@ -12,7 +12,7 @@ import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Sleep, Strategy}
 import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*
-import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceListener1}
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceCallback, RebalanceListener1}
 import com.evolutiongaming.skafka.{Partition, Topic, TopicPartition}
 
 import scala.concurrent.duration.*
@@ -197,7 +197,7 @@ object DistributeJob {
           (S.Active(partitions, jobs1), effect.void)
         }
         listener = new RebalanceListener1[F] {
-          def onPartitionsAssigned(topicPartitions: Nes[TopicPartition]) = {
+          def onPartitionsAssigned(topicPartitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] = {
             val partitionsAssigned = topicPartitions.map { _.partition }
             val effect = for {
               d <- Deferred[F, String => F[Unit]]
@@ -221,7 +221,7 @@ object DistributeJob {
             effect.lift
           }
 
-          def onPartitionsRevoked(topicPartitions: Nes[TopicPartition]) = {
+          def onPartitionsRevoked(topicPartitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] = {
             val partitionsRevoked = topicPartitions.map { _.partition }
             val effect = for {
               d <- Deferred[F, String => F[Unit]]
@@ -252,7 +252,7 @@ object DistributeJob {
             effect.lift
           }
 
-          def onPartitionsLost(topicPartitions: Nes[TopicPartition]) = {
+          def onPartitionsLost(topicPartitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] = {
             onPartitionsRevoked(topicPartitions)
           }
         }
@@ -281,7 +281,7 @@ object DistributeJob {
     } yield {
       new DistributeJob[F] {
 
-        def apply(name: String)(job: Map[Partition, Assigned] => Option[Resource[F, Unit]]) = {
+        def apply(name: String)(job: Map[Partition, Assigned] => Option[Resource[F, Unit]]): Resource[F, Unit] = {
           Resource.make {
             for {
               d <- Deferred[F, F[Unit]]
@@ -339,7 +339,7 @@ object DistributeJob {
           }
         }
 
-        def single(name: String)(job: Resource[F, Unit]) = {
+        def single(name: String)(job: Resource[F, Unit]): Resource[F, Unit] = {
           apply(name) { partitions =>
             if (partitions.getOrElse(Partition.min, false)) {
               job.some

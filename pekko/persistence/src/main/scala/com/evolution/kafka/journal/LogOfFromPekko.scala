@@ -2,7 +2,7 @@ package com.evolution.kafka.journal
 
 import cats.effect.Sync
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.LogOf
+import com.evolutiongaming.catshelper.{Log, LogOf}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.event.LogSource
 
@@ -22,9 +22,9 @@ object LogOfFromPekko {
 
     new LogOf[F] {
 
-      def apply(source: String) = log(source)
+      def apply(source: String): F[Log[F]] = log(source)
 
-      def apply(source: Class[?]) = log(source)
+      def apply(source: Class[?]): F[Log[F]] = log(source)
     }
   }
 }

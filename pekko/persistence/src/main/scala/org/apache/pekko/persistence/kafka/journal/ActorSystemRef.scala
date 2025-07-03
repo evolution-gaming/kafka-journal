@@ -24,9 +24,9 @@ object ActorSystemRef {
 
       new ActorSystemRef[Future, A] {
 
-        def get = promise.future
+        def get: Future[A] = promise.future
 
-        def set(a: A) = Future.fromTry { Try { promise.success(a) } }
+        def set(a: A): Future[Unit] = Future.fromTry { Try { promise.success(a) } }
       }
     }
   }
@@ -35,9 +35,9 @@ object ActorSystemRef {
 
     def mapK[G[_]](f: F ~> G): ActorSystemRef[G, A] = new ActorSystemRef[G, A] {
 
-      def get = f(self.get)
+      def get: G[A] = f(self.get)
 
-      def set(a: A) = f(self.set(a))
+      def set(a: A): G[Unit] = f(self.set(a))
     }
   }
 
@@ -45,9 +45,9 @@ object ActorSystemRef {
 
     def fromFuture[F[_]: FromFuture]: ActorSystemRef[F, A] = new ActorSystemRef[F, A] {
 
-      def get = FromFuture[F].apply { self.get }
+      def get: F[A] = FromFuture[F].apply { self.get }
 
-      def set(a: A) = FromFuture[F].apply { self.set(a) }
+      def set(a: A): F[Unit] = FromFuture[F].apply { self.set(a) }
     }
   }
 }

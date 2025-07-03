@@ -16,7 +16,7 @@ private[journal] object ThreadFactoryOf {
       factory <- Sync[F].delay { ExecutorsJ.defaultThreadFactory() }
     } yield {
       new ThreadFactory {
-        def newThread(runnable: Runnable) = {
+        def newThread(runnable: Runnable): Thread = {
           val thread = factory.newThread(runnable)
           val threadId = thread.getId
           thread.setName(s"$prefix-$threadId")

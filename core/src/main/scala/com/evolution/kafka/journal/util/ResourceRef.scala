@@ -36,7 +36,7 @@ private[journal] object ResourceRef {
       .map { ref =>
         new ResourceRef[F, A] {
 
-          def get = {
+          def get: F[A] = {
             ref
               .get
               .flatMap {
@@ -45,7 +45,7 @@ private[journal] object ResourceRef {
               }
           }
 
-          def set(a: A, release: F[Unit]) = {
+          def set(a: A, release: F[Unit]): F[Unit] = {
             ref
               .modify {
                 case Some(state) => (State(a, release).some, state.release)
@@ -55,7 +55,7 @@ private[journal] object ResourceRef {
               .uncancelable
           }
 
-          def set(a: Resource[F, A]) = {
+          def set(a: Resource[F, A]): F[Unit] = {
             a
               .allocated
               .flatMap { case (a, release) => set(a, release) }

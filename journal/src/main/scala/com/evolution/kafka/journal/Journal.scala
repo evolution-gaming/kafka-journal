@@ -61,7 +61,7 @@ object Journal {
         headers: Headers,
       )(implicit
         kafkaWrite: KafkaWrite[F, A],
-      ) =
+      ): F[PartitionOffset] =
         PartitionOffset.empty.pure[F]
 
       def read[A](
@@ -69,13 +69,13 @@ object Journal {
       )(implicit
         kafkaRead: KafkaRead[F, A],
         eventualRead: EventualRead[F, A],
-      ) = Stream.empty
+      ): Stream[F, EventRecord[A]] = Stream.empty
 
-      def pointer = none[SeqNr].pure[F]
+      def pointer: F[Option[SeqNr]] = none[SeqNr].pure[F]
 
-      def delete(to: DeleteTo) = none[PartitionOffset].pure[F]
+      def delete(to: DeleteTo): F[Option[PartitionOffset]] = none[PartitionOffset].pure[F]
 
-      def purge = none[PartitionOffset].pure[F]
+      def purge: F[Option[PartitionOffset]] = none[PartitionOffset].pure[F]
     }
   }
 
@@ -112,7 +112,7 @@ object Journal {
           headers: Headers,
         )(implicit
           kafkaWrite: KafkaWrite[F, A],
-        ) = {
+        ): F[PartitionOffset] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(events, metadata, headers)
@@ -134,9 +134,9 @@ object Journal {
         )(implicit
           kafkaRead: KafkaRead[F, A],
           eventualRead: EventualRead[F, A],
-        ) = {
-          val logging = new (F ~> F) {
-            def apply[B](fa: F[B]) = {
+        ): Stream[F, EventRecord[A]] = {
+          val logging: F ~> F = new (F ~> F) {
+            def apply[B](fa: F[B]): F[B] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
@@ -148,7 +148,7 @@ object Journal {
           self.read[A](from).mapK(logging, functionKId)
         }
 
-        def pointer = {
+        def pointer: F[Option[SeqNr]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.pointer
@@ -157,7 +157,7 @@ object Journal {
           } yield r
         }
 
-        def delete(to: DeleteTo) = {
+        def delete(to: DeleteTo): F[Option[PartitionOffset]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.delete(to)
@@ -166,7 +166,7 @@ object Journal {
           } yield r
         }
 
-        def purge = {
+        def purge: F[Option[PartitionOffset]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.purge
@@ -208,7 +208,7 @@ object Journal {
           headers: Headers,
         )(implicit
           kafkaWrite: KafkaWrite[F, A],
-        ) = {
+        ): F[PartitionOffset] = {
           logError {
             self.append(events, metadata, headers)
           } { (error, latency) =>
@@ -221,9 +221,9 @@ object Journal {
         )(implicit
           kafkaRead: KafkaRead[F, A],
           eventualRead: EventualRead[F, A],
-        ) = {
-          val logging = new (F ~> F) {
-            def apply[B](fa: F[B]) = {
+        ): Stream[F, EventRecord[A]] = {
+          val logging: F ~> F = new (F ~> F) {
+            def apply[B](fa: F[B]): F[B] = {
               logError(fa) { (error, latency) =>
                 s"$key read failed in ${ latency.toMillis }ms, from: $from, error: $error"
               }
@@ -232,7 +232,7 @@ object Journal {
           self.read[A](from).mapK(logging, functionKId)
         }
 
-        def pointer = {
+        def pointer: F[Option[SeqNr]] = {
           logError {
             self.pointer
           } { (error, latency) =>
@@ -240,7 +240,7 @@ object Journal {
           }
         }
 
-        def delete(to: DeleteTo) = {
+        def delete(to: DeleteTo): F[Option[PartitionOffset]] = {
           logError {
             self.delete(to)
           } { (error, latency) =>
@@ -248,7 +248,7 @@ object Journal {
           }
         }
 
-        def purge = {
+        def purge: F[Option[PartitionOffset]] = {
           logError {
             self.purge
           } { (error, latency) =>
@@ -284,7 +284,7 @@ object Journal {
           headers: Headers,
         )(implicit
           kafkaWrite: KafkaWrite[F, A],
-        ) = {
+        ): F[PartitionOffset] = {
           def append = self.append(events, metadata, headers)
           for {
             d <- MeasureDuration[F].start
@@ -299,9 +299,9 @@ object Journal {
         )(implicit
           kafkaRead: KafkaRead[F, A],
           eventualRead: EventualRead[F, A],
-        ) = {
-          val measure = new (F ~> F) {
-            def apply[B](fa: F[B]) = {
+        ): Stream[F, EventRecord[A]] = {
+          val measure: F ~> F = new (F ~> F) {
+            def apply[B](fa: F[B]): F[B] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- handleError("read", topic) { fa }
@@ -317,7 +317,7 @@ object Journal {
           } yield a
         }
 
-        def pointer = {
+        def pointer: F[Option[SeqNr]] = {
           for {
             d <- MeasureDuration[F].start
             r <- handleError("pointer", topic) { self.pointer }
@@ -326,7 +326,7 @@ object Journal {
           } yield r
         }
 
-        def delete(to: DeleteTo) = {
+        def delete(to: DeleteTo): F[Option[PartitionOffset]] = {
           for {
             d <- MeasureDuration[F].start
             r <- handleError("delete", topic) { self.delete(to) }
@@ -335,7 +335,7 @@ object Journal {
           } yield r
         }
 
-        def purge = {
+        def purge: F[Option[PartitionOffset]] = {
           for {
             d <- MeasureDuration[F].start
             r <- handleError("purge", topic) { self.purge }
@@ -355,7 +355,7 @@ object Journal {
           headers: Headers,
         )(implicit
           kafkaWrite: KafkaWrite[G, A],
-        ) = {
+        ): G[PartitionOffset] = {
           fg(self.append(events, metadata, headers)(kafkaWrite.mapK(gf)))
         }
 
@@ -364,14 +364,14 @@ object Journal {
         )(implicit
           kafkaRead: KafkaRead[G, A],
           eventualRead: EventualRead[G, A],
-        ) =
+        ): Stream[G, EventRecord[A]] =
           self.read[A](from)(kafkaRead.mapK(gf), eventualRead.mapK(gf)).mapK(fg, gf)
 
-        def pointer = fg(self.pointer)
+        def pointer: G[Option[SeqNr]] = fg(self.pointer)
 
-        def delete(to: DeleteTo) = fg(self.delete(to))
+        def delete(to: DeleteTo): G[Option[PartitionOffset]] = fg(self.delete(to))
 
-        def purge = fg(self.purge)
+        def purge: G[Option[PartitionOffset]] = fg(self.purge)
       }
     }
   }

@@ -234,7 +234,7 @@ object Damper {
         class Main
         new Main with Damper[F] {
 
-          def acquire = {
+          def acquire: F[Unit] = {
             Deferred[F, Unit].flatMap { deferred =>
               val entry = deferred.complete(()).void
 
@@ -305,7 +305,7 @@ object Damper {
             }
           }
 
-          def release = {
+          def release: F[Unit] = {
             ref
               .modify {
                 case State.Idle(acquired) =>

@@ -17,7 +17,7 @@ private[journal] trait CassandraSync[F[_]] {
 private[journal] object CassandraSync {
 
   def empty[F[_]]: CassandraSync[F] = new CassandraSync[F] {
-    def apply[A](fa: F[A]) = fa
+    def apply[A](fa: F[A]): F[A] = fa
   }
 
   def apply[F[_]](
@@ -44,7 +44,7 @@ private[journal] object CassandraSync {
 
     new CassandraSync[F] {
 
-      def apply[A](fa: F[A]) = {
+      def apply[A](fa: F[A]): F[A] = {
 
         val cassandraSync = cassandra
           .sync
@@ -88,7 +88,7 @@ private[journal] object CassandraSync {
     } yield {
       val cassandraSync = apply[F](keyspace, table, origin)
       val serial = new (F ~> F) {
-        def apply[A](fa: F[A]) = semaphore.permit.use(_ => fa)
+        def apply[A](fa: F[A]): F[A] = semaphore.permit.use(_ => fa)
       }
       cassandraSync.mapK(serial, FunctionK.id)
     }
@@ -98,7 +98,7 @@ private[journal] object CassandraSync {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): CassandraSync[G] = new CassandraSync[G] {
 
-      def apply[A](fa: G[A]) = fg(self(gf(fa)))
+      def apply[A](fa: G[A]): G[A] = fg(self(gf(fa)))
     }
   }
 }

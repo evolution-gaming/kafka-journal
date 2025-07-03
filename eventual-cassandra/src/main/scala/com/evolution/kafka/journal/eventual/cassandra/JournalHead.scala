@@ -66,7 +66,7 @@ private[journal] object JournalHead {
     encode: EncodeRow[Option[Expiry]],
   ): EncodeRow[JournalHead] = {
     new EncodeRow[JournalHead] {
-      def apply[B <: SettableData[B]](data: B, value: JournalHead) = {
+      def apply[B <: SettableData[B]](data: B, value: JournalHead): B = {
         data
           .encode(value.partitionOffset)
           .encode(value.segmentSize)

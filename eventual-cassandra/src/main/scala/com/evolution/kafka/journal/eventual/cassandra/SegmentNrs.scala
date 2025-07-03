@@ -28,11 +28,11 @@ private[journal] object SegmentNrs {
   object Of {
 
     def const[F[_]: Applicative](nrs: SegmentNrs): Of[F] = new Of[F] {
-      def metaJournal(key: Key) = nrs.pure[F]
+      def metaJournal(key: Key): F[SegmentNrs] = nrs.pure[F]
     }
 
     def apply[F[_]: Applicative](first: Segments, second: Segments): Of[F] = new Of[F] {
-      def metaJournal(key: Key) =
+      def metaJournal(key: Key): F[SegmentNrs] =
         SegmentNrs(
           first = SegmentNr.metaJournal(key, first),
           second = SegmentNr.metaJournal(key, second),

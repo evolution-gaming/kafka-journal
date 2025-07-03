@@ -34,19 +34,19 @@ object JournalMetrics {
     class Const
     new Const with JournalMetrics[F] {
 
-      def append(topic: Topic, latency: FiniteDuration, events: Int) = unit
+      def append(topic: Topic, latency: FiniteDuration, events: Int): F[Unit] = unit
 
-      def read(topic: Topic, latency: FiniteDuration) = unit
+      def read(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
-      def read(topic: Topic) = unit
+      def read(topic: Topic): F[Unit] = unit
 
-      def pointer(topic: Topic, latency: FiniteDuration) = unit
+      def pointer(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
-      def delete(topic: Topic, latency: FiniteDuration) = unit
+      def delete(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
-      def purge(topic: Topic, latency: FiniteDuration) = unit
+      def purge(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
-      def failure(topic: Topic, name: String) = unit
+      def failure(topic: Topic, name: String): F[Unit] = unit
     }
   }
 
@@ -95,34 +95,34 @@ object JournalMetrics {
       class Main
       new Main with JournalMetrics[F] {
 
-        def append(topic: Topic, latency: FiniteDuration, events: Int) = {
+        def append(topic: Topic, latency: FiniteDuration, events: Int): F[Unit] = {
           for {
             _ <- observeEvents(name = "append", topic = topic, events = events)
             _ <- observeLatency(name = "append", topic = topic, latency = latency)
           } yield {}
         }
 
-        def read(topic: Topic, latency: FiniteDuration) = {
+        def read(topic: Topic, latency: FiniteDuration): F[Unit] = {
           observeLatency(name = "read", topic = topic, latency = latency)
         }
 
-        def read(topic: Topic) = {
+        def read(topic: Topic): F[Unit] = {
           observeEvents(name = "read", topic = topic, events = 1)
         }
 
-        def pointer(topic: Topic, latency: FiniteDuration) = {
+        def pointer(topic: Topic, latency: FiniteDuration): F[Unit] = {
           observeLatency(name = "pointer", topic = topic, latency = latency)
         }
 
-        def delete(topic: Topic, latency: FiniteDuration) = {
+        def delete(topic: Topic, latency: FiniteDuration): F[Unit] = {
           observeLatency(name = "delete", topic = topic, latency = latency)
         }
 
-        def purge(topic: Topic, latency: FiniteDuration) = {
+        def purge(topic: Topic, latency: FiniteDuration): F[Unit] = {
           observeLatency(name = "purge", topic = topic, latency = latency)
         }
 
-        def failure(topic: Topic, name: String) = {
+        def failure(topic: Topic, name: String): F[Unit] = {
           resultCounter.labels(topic, name, "failure").inc()
         }
       }

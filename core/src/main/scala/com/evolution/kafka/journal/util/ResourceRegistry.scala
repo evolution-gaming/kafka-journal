@@ -29,7 +29,7 @@ private[journal] object ResourceRegistry {
 
   def apply[F[_]: Concurrent](releases: Ref[F, List[F[Unit]]]): ResourceRegistry[F] = {
     new ResourceRegistry[F] {
-      def allocate[B](resource: Resource[F, B]) = {
+      def allocate[B](resource: Resource[F, B]): F[B] = {
         resource
           .allocated
           .bracketCase {

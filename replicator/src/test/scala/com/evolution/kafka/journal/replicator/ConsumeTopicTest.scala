@@ -171,7 +171,7 @@ object ConsumeTopicTest {
 
         implicit val toTryStateT: ToTry[StateT] = new ToTry[StateT] {
 
-          val ioToTry = ToTry.ioToTry
+          val ioToTry: ToTry[IO] = ToTry.ioToTry
 
           def apply[B](stateT: StateT[B]): Try[B] = {
             val io = stateT.run(result)
@@ -202,26 +202,26 @@ object ConsumeTopicTest {
         }
         val topicFlow: TopicFlow[StateT] = new TopicFlow[StateT] {
 
-          def assign(partitions: Nes[Partition]) = {
+          def assign(partitions: Nes[Partition]): StateT[Unit] = {
             StateT.unit {
               _ + Action.FlowAssignPartitions(partitions)
             }
           }
 
-          def apply(records: Nem[Partition, Nel[ConsRecord]]) = {
+          def apply(records: Nem[Partition, Nel[ConsRecord]]): StateT[Map[Partition, Offset]] = {
             StateT.pure { state =>
               val state1 = state + Action.Poll(records)
               (state1, Map((Partition.min, Offset.min)))
             }
           }
 
-          def revoke(partitions: Nes[Partition]) = {
+          def revoke(partitions: Nes[Partition]): StateT[Unit] = {
             StateT.unit {
               _ + Action.FlowRevokePartitions(partitions)
             }
           }
 
-          def lose(partitions: Nes[Partition]) = {
+          def lose(partitions: Nes[Partition]): StateT[Unit] = {
             StateT.unit {
               _ + Action.FlowLosePartitions(partitions)
             }
@@ -237,13 +237,13 @@ object ConsumeTopicTest {
 
     val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
-      def subscribe(listener: RebalanceListener1[StateT]) = {
+      def subscribe(listener: RebalanceListener1[StateT]): StateT[Unit] = {
         StateT.unit {
           _ + Action.Subscribe()(listener)
         }
       }
 
-      val poll = {
+      val poll: Stream[StateT, Map[Partition, Nel[ConsRecord]]] = {
 
         def apply(state: State, command: Command) = {
           command match {
@@ -338,7 +338,7 @@ object ConsumeTopicTest {
   val retry: Retry[StateT] = {
     val strategy = Strategy.const(1.millis)
     val onError = new OnError[StateT, Throwable] {
-      def apply(error: Throwable, status: Retry.Status, decision: OnError.Decision) = {
+      def apply(error: Throwable, status: Retry.Status, decision: OnError.Decision): StateT[Unit] = {
         StateT.unit {
           _ + Action.RetryOnError(error, decision)
         }

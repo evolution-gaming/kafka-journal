@@ -32,7 +32,7 @@ object ExpireOn {
   implicit val decodeByNameExpireOn: DecodeByName[ExpireOn] = DecodeByName[LocalDate].map { a => ExpireOn(a) }
 
   implicit val encodeRowExpireOn: EncodeRow[ExpireOn] = new EncodeRow[ExpireOn] {
-    def apply[B <: SettableData[B]](data: B, a: ExpireOn) = {
+    def apply[B <: SettableData[B]](data: B, a: ExpireOn): B = {
       data.encode("expire_on", a)
     }
   }

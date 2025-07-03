@@ -314,7 +314,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         s"kafka and eventual journals are consistent, however eventual offset is $n behind, $name" should {
           val produceAction = new ProduceAction[StateT] {
 
-            def apply(action: Action) = {
+            def apply(action: Action): StateT[PartitionOffset] = {
               StateT { state =>
                 val offset = Offset.unsafe(state.records.size)
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
@@ -340,7 +340,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
           val produceAction = new ProduceAction[StateT] {
 
-            def apply(action: Action) = {
+            def apply(action: Action): StateT[PartitionOffset] = {
               StateT { state =>
                 val offset = Offset.unsafe(state.records.size)
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
@@ -370,7 +370,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
           val produceAction = new ProduceAction[StateT] {
 
-            def apply(action: Action) = {
+            def apply(action: Action): StateT[PartitionOffset] = {
               StateT { state =>
                 val offset = Offset.unsafe(state.records.size)
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
@@ -439,7 +439,7 @@ object JournalSpec {
 
       new SeqNrJournal[F] {
 
-        def append(seqNr: SeqNr, seqNrs: SeqNr*) = {
+        def append(seqNr: SeqNr, seqNrs: SeqNr*): F[Offset] = {
           val events = for {
             seqNr <- Nel.of(seqNr, seqNrs*)
           } yield {
@@ -452,7 +452,7 @@ object JournalSpec {
           }
         }
 
-        def read(range: SeqRange) = {
+        def read(range: SeqRange): F[List[SeqNr]] = {
           journal
             .read(range.from)
             .dropWhile { _.seqNr < range.from }
@@ -461,9 +461,9 @@ object JournalSpec {
             .toList
         }
 
-        def pointer = journal.pointer
+        def pointer: F[Option[SeqNr]] = journal.pointer
 
-        def delete(to: DeleteTo) = {
+        def delete(to: DeleteTo): F[Option[Offset]] = {
           for {
             partitionOffset <- journal.delete(to)
           } yield for {
@@ -473,7 +473,7 @@ object JournalSpec {
           }
         }
 
-        def purge = {
+        def purge: F[Option[Offset]] = {
           for {
             partitionOffset <- journal.purge
           } yield for {
@@ -536,7 +536,7 @@ object JournalSpec {
         }
       }
 
-      def read(key: Key, from: SeqNr) = {
+      def read(key: Key, from: SeqNr): Stream[StateT, EventRecord[EventualPayloadAndType]] = {
         val events = StateT { state =>
           val events = state.replicatedState.events.toList.filter(_.seqNr >= from)
           (state, events)
@@ -550,7 +550,7 @@ object JournalSpec {
         }
       }
 
-      def pointer(key: Key) = {
+      def pointer(key: Key): StateT[Option[JournalPointer]] = {
         StateT { state =>
           val seqNr = state.replicatedState.events.lastOption.map(_.event.seqNr)
           val pointer = for {
@@ -565,7 +565,7 @@ object JournalSpec {
         }
       }
 
-      def ids(topic: Topic) = {
+      def ids(topic: Topic): Stream[StateT, Tag] = {
         Stream[StateT].single(key.id)
       }
     }
@@ -715,7 +715,7 @@ object JournalSpec {
       implicit
       F: Monad[F],
     ): ConsumeActionRecords[F] = new ConsumeActionRecords[F] {
-      def apply(key: Key, partition: Partition, from: Offset) = {
+      def apply(key: Key, partition: Partition, from: Offset): Stream[F, ActionRecord[Action]] = {
         self
           .apply(key, partition, from)
           .withDuplicates

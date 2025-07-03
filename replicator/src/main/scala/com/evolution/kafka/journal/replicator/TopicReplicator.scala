@@ -112,11 +112,11 @@ private[journal] object TopicReplicator {
 
           new TopicFlow[F] {
 
-            def assign(partitions: Nes[Partition]) = {
+            def assign(partitions: Nes[Partition]): F[Unit] = {
               log.info(s"assign ${ partitions.mkString_(",") }")
             }
 
-            def apply(records: Nem[Partition, Nel[ConsRecord]]) = {
+            def apply(records: Nem[Partition, Nel[ConsRecord]]): F[Map[Partition, Offset]] = {
               for {
                 duration <- MeasureDuration[F].start
                 timestamp <- Clock[F].instant
@@ -216,14 +216,14 @@ private[journal] object TopicReplicator {
               }
             }
 
-            def revoke(partitions: Nes[Partition]) = {
+            def revoke(partitions: Nes[Partition]): F[Unit] = {
               for {
                 _ <- log.info(s"revoke ${ partitions.mkString_(",") }")
                 a <- remove(partitions)
               } yield a
             }
 
-            def lose(partitions: Nes[Partition]) = {
+            def lose(partitions: Nes[Partition]): F[Unit] = {
               for {
                 _ <- log.info(s"lose ${ partitions.mkString_(",") }")
                 a <- remove(partitions)

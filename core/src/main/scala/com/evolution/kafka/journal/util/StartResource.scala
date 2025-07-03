@@ -27,8 +27,8 @@ private[journal] object StartResource {
             }
           } yield {
             new Fiber[F, Throwable, B] {
-              def cancel = fiber.cancel *> released.get
-              def join = fiber.join
+              def cancel: F[Unit] = fiber.cancel *> released.get
+              def join: F[Outcome[F, Throwable, B]] = fiber.join
             }
           }
       } {

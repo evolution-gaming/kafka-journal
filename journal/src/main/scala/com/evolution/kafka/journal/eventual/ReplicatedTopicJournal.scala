@@ -18,7 +18,7 @@ object ReplicatedTopicJournal {
   def empty[F[_]: Applicative]: ReplicatedTopicJournal[F] = {
     class Empty
     new Empty with ReplicatedTopicJournal[F] {
-      def apply(partition: Partition) = {
+      def apply(partition: Partition): Resource[F, ReplicatedPartitionJournal[F]] = {
         ReplicatedPartitionJournal
           .empty[F]
           .pure[F]
@@ -64,7 +64,7 @@ object ReplicatedTopicJournal {
     ): ReplicatedTopicJournal[G] = {
       new MapK with ReplicatedTopicJournal[G] {
 
-        def apply(partition: Partition) = {
+        def apply(partition: Partition): Resource[G, ReplicatedPartitionJournal[G]] = {
           self
             .apply(partition)
             .map(_.mapK(f))
@@ -82,7 +82,7 @@ object ReplicatedTopicJournal {
     ): ReplicatedTopicJournal[F] = {
       new WithLog with ReplicatedTopicJournal[F] {
 
-        def apply(partition: Partition) = {
+        def apply(partition: Partition): Resource[F, ReplicatedPartitionJournal[F]] = {
           self
             .apply(partition)
             .map { _.withLog(topic, partition, log) }
@@ -99,7 +99,7 @@ object ReplicatedTopicJournal {
     ): ReplicatedTopicJournal[F] = {
       new WithMetrics with ReplicatedTopicJournal[F] {
 
-        def apply(partition: Partition) = {
+        def apply(partition: Partition): Resource[F, ReplicatedPartitionJournal[F]] = {
           self
             .apply(partition)
             .map { _.withMetrics(topic, metrics) }
@@ -119,7 +119,7 @@ object ReplicatedTopicJournal {
 
       new EnhanceError with ReplicatedTopicJournal[F] {
 
-        def apply(partition: Partition) = {
+        def apply(partition: Partition): Resource[F, ReplicatedPartitionJournal[F]] = {
           self
             .apply(partition)
             .map { _.enhanceError(topic, partition) }

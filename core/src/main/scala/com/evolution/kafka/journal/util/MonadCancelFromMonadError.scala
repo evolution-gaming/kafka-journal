@@ -6,7 +6,7 @@ private[journal] trait MonadCancelFromMonadError[F[_], E] extends MonadCancelFro
 
   def F: MonadError[F, E]
 
-  def raiseError[A](e: E) = F.raiseError(e)
+  def raiseError[A](e: E): F[A] = F.raiseError(e)
 
-  def handleErrorWith[A](fa: F[A])(f: E => F[A]) = F.handleErrorWith(fa)(f)
+  def handleErrorWith[A](fa: F[A])(f: E => F[A]): F[A] = F.handleErrorWith(fa)(f)
 }

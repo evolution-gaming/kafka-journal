@@ -45,7 +45,7 @@ object TestTemporal {
 
     // We don't allow parallelism as parallel fibers will all have their own state and it will become inconsistent
     override def start[A](fa: StateT[S, A]): StateT[S, Fiber[StateT[S, *], Throwable, A]] = of { s =>
-      val stateFiber = new Fiber[StateT[S, *], Throwable, A] {
+      val stateFiber: Fiber[StateT[S, *], Throwable, A] = new Fiber[StateT[S, *], Throwable, A] {
         val cancelled = new AtomicBoolean(false)
 
         override def cancel: StateT[S, Unit] = St.liftF(IO.delay(cancelled.set(true)))

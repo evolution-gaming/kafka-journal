@@ -46,7 +46,7 @@ object Expiry {
   }
 
   implicit val encodeRowExpiry: EncodeRow[Expiry] = new EncodeRow[Expiry] {
-    def apply[B <: SettableData[B]](data: B, a: Expiry) = {
+    def apply[B <: SettableData[B]](data: B, a: Expiry): B = {
       data
         .encode("expire_after", a.after)
         .encode(a.on)

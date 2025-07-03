@@ -33,9 +33,9 @@ private[journal] object CreateTables { self =>
     log: Log[F],
   ): CreateTables[F] = new CreateTables[F] {
 
-    def apply(keyspace: String, tables: Nel[Table]) = {
+    def apply(keyspace: String, tables: Nel[Table]): F[Fresh] = {
 
-      def missing(keyspace: KeyspaceMetadata[F]) = {
+      def missing(keyspace: KeyspaceMetadata[F]): F[List[Table]] = {
         for {
           tables <- tables.foldLeftM(List.empty[Table]) { (create, table) =>
             for {
@@ -49,7 +49,7 @@ private[journal] object CreateTables { self =>
         }
       }
 
-      def create(tables1: Nel[Table]) = {
+      def create(tables1: Nel[Table]): F[Fresh] = {
         val fresh = tables1.length === tables.length
         for {
           _ <- log.info(s"tables: ${ tables1.map(_.name).mkString_(",") }, fresh: $fresh")

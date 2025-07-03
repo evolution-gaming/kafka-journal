@@ -31,7 +31,7 @@ object KafkaProducer {
       )(implicit
         toBytesK: skafka.ToBytes[F, K],
         toBytesV: skafka.ToBytes[F, V],
-      ) = {
+      ): F[RecordMetadata] = {
         producer.send(record).flatten
       }
     }

@@ -38,25 +38,25 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
         )(implicit
           fromBytesK: skafka.FromBytes[IO, K],
           fromBytesV: skafka.FromBytes[IO, V],
-        ) = {
+        ): Resource[IO, KafkaConsumer[IO, K, V]] = {
           val consumer: KafkaConsumer[IO, K, V] = new KafkaConsumer[IO, K, V] {
-            def assign(partitions: Nes[TopicPartition]) = ().pure[IO]
-            def seek(partition: TopicPartition, offset: Offset) = ().pure[IO]
-            def subscribe(topic: Topic, listener: RebalanceListener1[IO]) = {
+            def assign(partitions: Nes[TopicPartition]): IO[Unit] = ().pure[IO]
+            def seek(partition: TopicPartition, offset: Offset): IO[Unit] = ().pure[IO]
+            def subscribe(topic: Topic, listener: RebalanceListener1[IO]): IO[Unit] = {
               deferred.complete(listener).void
             }
-            def poll(timeout: FiniteDuration) = {
+            def poll(timeout: FiniteDuration): IO[ConsumerRecords[K, V]] = {
               IO
                 .sleep(timeout)
                 .as(ConsumerRecords.empty[K, V])
             }
-            def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = ().pure[IO]
-            def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = ().pure[IO]
-            def topics = Set.empty[Topic].pure[IO]
-            def partitions(topic: Topic) = {
+            def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): IO[Unit] = ().pure[IO]
+            def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]): IO[Unit] = ().pure[IO]
+            def topics: IO[Set[Topic]] = Set.empty[Topic].pure[IO]
+            def partitions(topic: Topic): IO[Set[Partition]] = {
               Set(partition0, partition1, partition2).pure[IO]
             }
-            def assignment = Set.empty[TopicPartition].pure[IO]
+            def assignment: IO[Set[TopicPartition]] = Set.empty[TopicPartition].pure[IO]
           }
           consumer.pure[Resource[IO, *]]
         }
@@ -171,7 +171,7 @@ object DistributeJobTest {
         .map { ref =>
           new Actions[F] {
 
-            def add(action: Action) = ref.update { action :: _ }
+            def add(action: Action): F[Unit] = ref.update { action :: _ }
 
             def get: F[List[Action]] = ref.get.map { _.reverse }
           }

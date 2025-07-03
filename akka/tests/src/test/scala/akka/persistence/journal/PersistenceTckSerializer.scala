@@ -31,9 +31,9 @@ class PersistenceTckSerializer extends SerializerWithStringManifest {
     }
   }
 
-  private def notSerializable(msg: String) = throw new NotSerializableException(msg)
+  private def notSerializable(msg: String): Nothing = throw new NotSerializableException(msg)
 
-  private def illegalArgument(msg: String) = throw new IllegalArgumentException(msg)
+  private def illegalArgument(msg: String): Nothing = throw new IllegalArgumentException(msg)
 }
 
 object PersistenceTckSerializer {

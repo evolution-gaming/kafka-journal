@@ -11,6 +11,7 @@ import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaRead}
 import com.evolution.kafka.journal.eventual.*
+import com.evolution.kafka.journal.eventual.ReplicatedKeyJournal.Changed
 import com.evolution.kafka.journal.replicator.TopicReplicatorMetrics.Measurements
 import com.evolution.kafka.journal.util.{Fail, TestTemporal}
 import com.evolutiongaming.catshelper.ClockHelper.*
@@ -831,7 +832,7 @@ object TopicReplicatorSpec {
 
   def topicPartitionOf(partition: Int): TopicPartition = TopicPartition(topic, Partition.unsafe(partition))
 
-  def keyOf(id: String) = Key(id = id, topic = topic)
+  def keyOf(id: String): Key = Key(id = id, topic = topic)
 
   def metaJournalOf(
     id: String,
@@ -870,18 +871,18 @@ object TopicReplicatorSpec {
 
   implicit val replicatedJournal: ReplicatedJournal[StateT] = new ReplicatedJournal[StateT] {
 
-    def journal(topic: Topic) = {
+    def journal(topic: Topic): Resource[StateT, ReplicatedTopicJournal[StateT]] = {
 
       val journal: ReplicatedTopicJournal[StateT] = new ReplicatedTopicJournal[StateT] {
 
-        def apply(partition: Partition) = {
+        def apply(partition: Partition): Resource[StateT, ReplicatedPartitionJournal[StateT]] = {
 
           val result = new ReplicatedPartitionJournal[StateT] {
 
-            def offsets = {
+            def offsets: ReplicatedPartitionJournal.Offsets[StateT] = {
               new ReplicatedPartitionJournal.Offsets[StateT] {
 
-                def get = {
+                def get: StateT[Option[Offset]] = {
                   StateT { state =>
                     val offset = state
                       .pointers
@@ -892,11 +893,11 @@ object TopicReplicatorSpec {
                   }
                 }
 
-                def create(offset: Offset, timestamp: Instant) = {
+                def create(offset: Offset, timestamp: Instant): StateT[Unit] = {
                   update(offset, timestamp)
                 }
 
-                def update(offset: Offset, timestamp: Instant) = {
+                def update(offset: Offset, timestamp: Instant): StateT[Unit] = {
                   StateT { state =>
                     val pointers1 = state
                       .pointers
@@ -909,7 +910,7 @@ object TopicReplicatorSpec {
               }
             }
 
-            def journal(id: ClientId) = {
+            def journal(id: ClientId): Resource[StateT, ReplicatedKeyJournal[StateT]] = {
               val result = new ReplicatedKeyJournal[StateT] {
 
                 def append(
@@ -917,7 +918,7 @@ object TopicReplicatorSpec {
                   timestamp: Instant,
                   expireAfter: Option[ExpireAfter],
                   events: Nel[EventRecord[EventualPayloadAndType]],
-                ) = {
+                ): StateT[Changed] = {
                   StateT { state =>
                     val records = events.toList ++ state.journal.getOrElse(id, Nil)
 
@@ -946,7 +947,7 @@ object TopicReplicatorSpec {
                   timestamp: Instant,
                   deleteTo: DeleteTo,
                   origin: Option[Origin],
-                ) = {
+                ): StateT[Changed] = {
                   StateT { state =>
                     val deleted = state.metaJournal.get(id).fold(true) { journalHead =>
                       offset > journalHead.offset.offset
@@ -956,7 +957,7 @@ object TopicReplicatorSpec {
                   }
                 }
 
-                def purge(offset: Offset, timestamp: Instant) = {
+                def purge(offset: Offset, timestamp: Instant): StateT[Changed] = {
                   StateT { state =>
                     val state1 = state.copy(journal = state.journal - id, metaJournal = state.metaJournal - id)
 
@@ -979,7 +980,7 @@ object TopicReplicatorSpec {
       journal.pure[StateT].toResource
     }
 
-    def topics = SortedSet.empty[Topic].pure[StateT]
+    def topics: StateT[SortedSet[Topic]] = SortedSet.empty[Topic].pure[StateT]
   }
 
   val replicatedOffsetNotifier: ReplicatedOffsetNotifier[StateT] =
@@ -991,20 +992,20 @@ object TopicReplicatorSpec {
 
   implicit val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
-    def subscribe(listener: RebalanceListener1[StateT]) = {
+    def subscribe(listener: RebalanceListener1[StateT]): StateT[Unit] = {
       StateT { s =>
         (s.subscribe(topic), ())
       }
     }
 
-    val commit = offsets => {
+    val commit: TopicCommit[StateT] = offsets => {
       StateT.unit { state =>
         val offsets1 = offsets.mapKV { case (partition, offset) => ((partition.value, offset.value)) }
         state.copy(commits = offsets1 :: state.commits)
       }
     }
 
-    def poll = {
+    def poll: Stream[StateT, Map[Partition, Nel[ConsRecord]]] = {
       val records = StateT { state =>
         state.records match {
           case head :: tail =>
@@ -1032,25 +1033,25 @@ object TopicReplicatorSpec {
       clientVersion: String,
       expiration: String,
       measurements: Measurements,
-    ) = {
+    ): StateT[Unit] = {
       StateT { s =>
         s + Metrics.Append(latency = measurements.replicationLatency, events = events, records = measurements.records)
       }
     }
 
-    def delete(measurements: Measurements) = {
+    def delete(measurements: Measurements): StateT[Unit] = {
       StateT { s =>
         s + Metrics.Delete(latency = measurements.replicationLatency, actions = measurements.records)
       }
     }
 
-    def purge(measurements: Measurements) = {
+    def purge(measurements: Measurements): StateT[Unit] = {
       StateT { s =>
         s + Metrics.Purge(latency = measurements.replicationLatency, actions = measurements.records)
       }
     }
 
-    def round(duration: FiniteDuration, records: Int) = {
+    def round(duration: FiniteDuration, records: Int): StateT[Unit] = {
       StateT { s =>
         s + Metrics.Round(duration = duration, records = records)
       }

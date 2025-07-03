@@ -26,7 +26,7 @@ object SkafkaHelperExtension {
 
   implicit val encodeRowPartition: EncodeRow[Partition] = new EncodeRow[Partition] {
 
-    def apply[B <: SettableData[B]](data: B, partition: Partition) = {
+    def apply[B <: SettableData[B]](data: B, partition: Partition): B = {
       data.encode("partition", partition.value)
     }
   }
@@ -37,7 +37,7 @@ object SkafkaHelperExtension {
 
   implicit val encodeRowOffset: EncodeRow[Offset] = new EncodeRow[Offset] {
 
-    def apply[B <: SettableData[B]](data: B, offset: Offset) = {
+    def apply[B <: SettableData[B]](data: B, offset: Offset): B = {
       data.encode("offset", offset.value)
     }
   }

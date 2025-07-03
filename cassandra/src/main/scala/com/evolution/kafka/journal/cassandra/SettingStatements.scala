@@ -19,7 +19,7 @@ private[journal] object SettingStatements {
 
   implicit val encodeRowSetting: EncodeRow[Setting] = new EncodeRow[Setting] {
 
-    def apply[B <: SettableData[B]](data: B, value: Setting) = {
+    def apply[B <: SettableData[B]](data: B, value: Setting): B = {
       data
         .encode("key", value.key)
         .encode("value", value.value)

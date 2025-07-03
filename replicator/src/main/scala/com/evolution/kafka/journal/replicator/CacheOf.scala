@@ -23,13 +23,13 @@ private[journal] object CacheOf {
     class Empty
     new Empty with CacheOf[F] {
 
-      def apply[K, V](topic: Topic) = {
+      def apply[K, V](topic: Topic): Resource[F, Cache[F, K, V]] = {
 
         val cache = new Cache[F, K, V] {
 
-          def getOrUpdate(key: K)(value: => Resource[F, V]) = value.use(_.pure[F])
+          def getOrUpdate(key: K)(value: => Resource[F, V]): F[V] = value.use(_.pure[F])
 
-          def remove(key: K) = ().pure[F]
+          def remove(key: K): F[Unit] = ().pure[F]
         }
 
         cache
@@ -45,7 +45,7 @@ private[journal] object CacheOf {
   ): CacheOf[F] = {
     class Main
     new Main with CacheOf[F] {
-      def apply[K, V](topic: Topic) = {
+      def apply[K, V](topic: Topic): Resource[F, Cache[F, K, V]] = {
         val config = ExpiringCache.Config[F, K, V](expireAfter)
         for {
           cache <- scache.Cache.expiring(config)
@@ -55,11 +55,11 @@ private[journal] object CacheOf {
         } yield {
           new Cache[F, K, V] {
 
-            def getOrUpdate(key: K)(value: => Resource[F, V]) = {
+            def getOrUpdate(key: K)(value: => Resource[F, V]): F[V] = {
               cache.getOrUpdateResource(key) { value }
             }
 
-            def remove(key: K) = cache.remove(key).flatten.void
+            def remove(key: K): F[Unit] = cache.remove(key).flatten.void
           }
         }
       }

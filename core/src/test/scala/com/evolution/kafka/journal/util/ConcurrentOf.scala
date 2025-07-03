@@ -27,8 +27,8 @@ object ConcurrentOf {
       def start[A](fa: F[A]): F[Fiber[F, Throwable, A]] =
         F.map(fa) { a =>
           new Fiber[F, Throwable, A] {
-            def cancel = pure(())
-            def join = pure(Outcome.succeeded(pure(a)))
+            def cancel: F[Unit] = pure(())
+            def join: F[Outcome[F, Throwable, A]] = pure(Outcome.succeeded(pure(a)))
           }
         }
 
@@ -46,7 +46,7 @@ object ConcurrentOf {
 
       def uncancelable[A](body: Poll[F] => F[A]): F[A] = body {
         new Poll[F] {
-          def apply[X](fa: F[X]) = fa
+          def apply[X](fa: F[X]): F[X] = fa
         }
       }
 
@@ -68,7 +68,7 @@ object ConcurrentOf {
 
       def pure[A](x: A): F[A] = F.pure(x)
 
-      def unique = F.pure(new Unique.Token())
+      def unique: F[Unique.Token] = F.pure(new Unique.Token())
     }
   }
 }

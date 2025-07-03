@@ -10,7 +10,7 @@ import com.evolutiongaming.skafka.{Offset, Partition}
 object PartitionOffsetExtension {
   implicit val encodeRowPartitionOffset: EncodeRow[PartitionOffset] = new EncodeRow[PartitionOffset] {
 
-    def apply[B <: SettableData[B]](data: B, value: PartitionOffset) = {
+    def apply[B <: SettableData[B]](data: B, value: PartitionOffset): B = {
       data
         .encode("partition", value.partition)
         .encode("offset", value.offset)

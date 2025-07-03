@@ -2,7 +2,7 @@ package org.apache.pekko.persistence.kafka.journal
 
 import cats.data.NonEmptyList as Nel
 import com.typesafe.config.ConfigFactory
-import org.apache.pekko.actor.{ActorRef, ActorSystem, Props}
+import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.persistence.*
 import org.apache.pekko.persistence.journal.JournalSpec
 
@@ -121,19 +121,19 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       val ref = system.actorOf(props)
 
       new PersistenceRef {
-        def persist(events: Nel[String]) = {
+        def persist(events: Nel[String]): Unit = {
           val cmd = Cmd(events)
           ref.tell(cmd, testActor)
           val _ = expectMsg(events.last)
         }
 
-        def delete(seqNr: Long) = {
+        def delete(seqNr: Long): Unit = {
           val delete = Delete(seqNr)
           ref.tell(delete, testActor)
           val _ = expectMsg(DeleteMessagesSuccess(seqNr))
         }
 
-        def stop() = {
+        def stop(): Unit = {
           val _ = ConsistencySpec.this.stop(ref)
         }
       }
@@ -173,7 +173,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     events.reverse
   }
 
-  def stop(ref: ActorRef) = {
+  def stop(ref: ActorRef): Terminated = {
     watch(ref)
     ref.tell(Stop, testActor)
     expectTerminated(ref)

@@ -27,7 +27,7 @@ object CassandraCluster {
     retries: Int,
   ): CassandraCluster[F] = new CassandraCluster[F] {
 
-    def session = {
+    def session: Resource[F, CassandraSession[F]] = {
       for {
         session <- cluster.connect
         session <- CassandraSession.make[F](session)
@@ -36,7 +36,7 @@ object CassandraCluster {
       }
     }
 
-    def metadata = {
+    def metadata: F[CassandraMetadata[F]] = {
       for {
         metadata <- cluster.metadata
       } yield {

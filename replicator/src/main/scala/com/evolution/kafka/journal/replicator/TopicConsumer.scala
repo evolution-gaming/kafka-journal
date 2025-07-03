@@ -33,11 +33,11 @@ private[journal] object TopicConsumer {
 
     new TopicConsumer[F] {
 
-      def subscribe(listener: RebalanceListener1[F]) = {
+      def subscribe(listener: RebalanceListener1[F]): F[Unit] = {
         consumer.subscribe(topic, listener)
       }
 
-      val poll = {
+      val poll: Stream[F, Map[Partition, Nel[ConsRecord]]] = {
         val records = for {
           records <- consumer.poll(pollTimeout)
         } yield for {
@@ -48,7 +48,7 @@ private[journal] object TopicConsumer {
         Stream.repeat(records)
       }
 
-      def commit = commit1
+      def commit: TopicCommit[F] = commit1
     }
   }
 }

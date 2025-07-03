@@ -47,7 +47,7 @@ object ConsRecordToActionHeader {
   ): ConsRecordToActionHeader[F] =
     new ConsRecordToActionHeader[F] {
 
-      def apply[A](record: ConsumerRecord[String, A]) = {
+      def apply[A](record: ConsumerRecord[String, A]): OptionT[F, ActionHeader] = {
         def header = record
           .headers
           .find { _.key === ActionHeader.key }

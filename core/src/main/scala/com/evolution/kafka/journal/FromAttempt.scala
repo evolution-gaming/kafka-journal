@@ -23,7 +23,7 @@ object FromAttempt {
 
   def lift[F[_]: Applicative: Fail]: FromAttempt[F] = new FromAttempt[F] {
 
-    def apply[A](fa: Attempt[A]) = {
+    def apply[A](fa: Attempt[A]): F[A] = {
       fa.fold(a => s"scodec error ${ a.messageWithContext }".fail[F, A], a => a.pure[F])
     }
   }

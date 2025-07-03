@@ -196,7 +196,7 @@ private[journal] object JournalStatements {
       } yield {
         new SelectRecords[F] {
 
-          def apply(key: Key, segment: SegmentNr, range: SeqRange) = {
+          def apply(key: Key, segment: SegmentNr, range: SeqRange): Stream[F, JournalRecord] = {
 
             def readPayload(row: Row): Option[EventualPayloadAndType] = {
               val payloadType = row.decode[Option[PayloadType]]("payload_type")

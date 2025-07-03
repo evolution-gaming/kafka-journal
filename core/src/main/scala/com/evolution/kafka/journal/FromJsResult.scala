@@ -21,7 +21,7 @@ object FromJsResult {
 
   def lift[F[_]: ApplicativeThrowable]: FromJsResult[F] = new FromJsResult[F] {
 
-    def apply[A](fa: JsResult[A]) = {
+    def apply[A](fa: JsResult[A]): F[A] = {
       fa.fold(a => JournalError(s"FromJsResult failed: $a", JsResultException(a)).raiseError[F, A], a => a.pure[F])
     }
   }
