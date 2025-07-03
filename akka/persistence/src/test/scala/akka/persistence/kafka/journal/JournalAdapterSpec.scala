@@ -76,7 +76,7 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
 
   test("withBatching") {
     val grouping = new Batching[StateT] {
-      def apply(aws: List[AtomicWrite]) = aws.map(aw => List(aw)).pure[StateT]
+      def apply(aws: List[AtomicWrite]): StateT[List[List[AtomicWrite]]] = aws.map(aw => List(aw)).pure[StateT]
     }
     val (data, result) = journalAdapter
       .withBatching(grouping)
@@ -164,7 +164,7 @@ object JournalAdapterSpec {
 
     implicit val JournalsStateF: Journals[StateT] = new Journals[StateT] {
 
-      def apply(key: Key) = new Journal[StateT] {
+      def apply(key: Key): Journal[StateT] = new Journal[StateT] {
 
         def append[A](
           events: Nel[Event[A]],
@@ -172,7 +172,7 @@ object JournalAdapterSpec {
           headers: Headers,
         )(implicit
           kafkaWrite: KafkaWrite[StateT, A],
-        ) =
+        ): StateT[PartitionOffset] =
           for {
             payloadAndType <- kafkaWrite(Events(events, metadata.payload))
             append = Append(key, payloadAndType, metadata, headers)
@@ -187,7 +187,7 @@ object JournalAdapterSpec {
         )(implicit
           kafkaRead: KafkaRead[StateT, A],
           eventualRead: EventualRead[StateT, A],
-        ) = {
+        ): Stream[StateT, EventRecord[A]] = {
           val stream = StateT { state =>
             val events = state.events.traverse(_.traverse(eventualRead.apply))
 
@@ -202,14 +202,14 @@ object JournalAdapterSpec {
           stream.toStream.flatten
         }
 
-        def pointer = {
+        def pointer: StateT[Option[SeqNr]] = {
           StateT { state =>
             val state1 = state.copy(pointers = Pointer(key) :: state.pointers)
             (state1, none[SeqNr])
           }
         }
 
-        def delete(to: DeleteTo) = {
+        def delete(to: DeleteTo): StateT[Option[PartitionOffset]] = {
           StateT { state =>
             val delete = Delete(key, to, timestamp)
             val state1 = state.copy(deletes = delete :: state.deletes)
@@ -217,7 +217,7 @@ object JournalAdapterSpec {
           }
         }
 
-        def purge = {
+        def purge: StateT[Option[PartitionOffset]] = {
           StateT { state =>
             val state1 = state.append(Action.Purge(key))
             (state1, none[PartitionOffset])

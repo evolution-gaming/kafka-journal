@@ -81,7 +81,7 @@ private[journal] object Bounds {
   }
 
   private sealed abstract case class One[A](value: A) extends Bounds[A] {
-    override def toString = value.toString
+    override def toString: String = value.toString
   }
 
   private sealed abstract case class Two[A](min: A, max: A) extends Bounds[A] {

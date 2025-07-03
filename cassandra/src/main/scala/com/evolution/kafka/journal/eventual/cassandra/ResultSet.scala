@@ -30,10 +30,10 @@ object ResultSet {
     next: F[List[A]],
   ): Stream[F, A] = new Stream[F, A] {
 
-    def foldWhileM[L, R](l: L)(f: (L, A) => F[Either[L, R]]) = {
+    def foldWhileM[L, R](l: L)(f: (L, A) => F[Either[L, R]]): F[Either[L, R]] = {
 
       l.tailRecM[F, Either[L, R]] { l =>
-        def apply(rows: List[A]) = {
+        def apply(rows: List[A]): F[Either[L, Either[L, R]]] = {
           for {
             result <- rows.foldWhileM(l)(f)
           } yield {

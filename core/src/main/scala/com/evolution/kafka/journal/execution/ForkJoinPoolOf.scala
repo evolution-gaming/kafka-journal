@@ -3,8 +3,8 @@ package com.evolution.kafka.journal.execution
 import cats.effect.{Resource, Sync}
 import cats.syntax.all.*
 
-import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory
+import java.util.concurrent.{ForkJoinPool, ForkJoinWorkerThread}
 
 private[journal] object ForkJoinPoolOf {
 
@@ -33,7 +33,7 @@ private[journal] object ForkJoinPoolOf {
 
     def withPrefix(prefix: String): ForkJoinWorkerThreadFactory = new ForkJoinWorkerThreadFactory {
 
-      def newThread(pool: ForkJoinPool) = {
+      def newThread(pool: ForkJoinPool): ForkJoinWorkerThread = {
         val thread = self.newThread(pool)
         val threadId = thread.getId
         thread.setName(s"$prefix-$threadId")

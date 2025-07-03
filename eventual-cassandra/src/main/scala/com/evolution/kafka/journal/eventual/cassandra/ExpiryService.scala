@@ -28,9 +28,9 @@ private[journal] object ExpiryService {
 
     new ExpiryService[F] {
 
-      def expireOn(expireAfter: ExpireAfter, timestamp: Instant) = expireOn1
+      def expireOn(expireAfter: ExpireAfter, timestamp: Instant): F[ExpireOn] = expireOn1
 
-      def action(expiry: Option[Expiry], expireAfter: Option[ExpireAfter], timestamp: Instant) = action1
+      def action(expiry: Option[Expiry], expireAfter: Option[ExpireAfter], timestamp: Instant): F[Action] = action1
     }
   }
 
@@ -50,14 +50,14 @@ private[journal] object ExpiryService {
 
     new ExpiryService[F] {
 
-      def expireOn(expireAfter: ExpireAfter, timestamp: Instant) = {
+      def expireOn(expireAfter: ExpireAfter, timestamp: Instant): F[ExpireOn] = {
         val expireOn = timestamp + expireAfter.value
         BracketThrowable[F]
           .catchNonFatal { LocalDate.ofInstant(expireOn, zoneId) }
           .map { a => ExpireOn(a) }
       }
 
-      def action(expiry: Option[Expiry], expireAfter: Option[ExpireAfter], timestamp: Instant) = {
+      def action(expiry: Option[Expiry], expireAfter: Option[ExpireAfter], timestamp: Instant): F[Action] = {
 
         def apply(expiry0: Option[Expiry], expireAfter: ExpireAfter) = {
           expireOn(expireAfter, timestamp).map { expireOn =>
@@ -97,11 +97,11 @@ private[journal] object ExpiryService {
 
     def mapK[G[_]](f: F ~> G): ExpiryService[G] = new ExpiryService[G] {
 
-      def expireOn(expireAfter: ExpireAfter, timestamp: Instant) = {
+      def expireOn(expireAfter: ExpireAfter, timestamp: Instant): G[ExpireOn] = {
         f(self.expireOn(expireAfter, timestamp))
       }
 
-      def action(expiry: Option[Expiry], expireAfter: Option[ExpireAfter], timestamp: Instant) = {
+      def action(expiry: Option[Expiry], expireAfter: Option[ExpireAfter], timestamp: Instant): G[Action] = {
         f(self.action(expiry, expireAfter, timestamp))
       }
     }
@@ -113,7 +113,7 @@ private[journal] object ExpiryService {
       measureDuration: MeasureDuration[F],
     ): ExpiryService[F] = new ExpiryService[F] {
 
-      def expireOn(expireAfter: ExpireAfter, timestamp: Instant) = {
+      def expireOn(expireAfter: ExpireAfter, timestamp: Instant): F[ExpireOn] = {
         for {
           d <- MeasureDuration[F].start
           r <- self.expireOn(expireAfter, timestamp)
@@ -122,9 +122,9 @@ private[journal] object ExpiryService {
         } yield r
       }
 
-      def action(expiry: Option[Expiry], expireAfter: Option[ExpireAfter], timestamp: Instant) = {
+      def action(expiry: Option[Expiry], expireAfter: Option[ExpireAfter], timestamp: Instant): F[Action] = {
 
-        def logDebug(duration: FiniteDuration, action: Action) = {
+        def logDebug(duration: FiniteDuration, action: Action): F[Unit] = {
           (expiry, expireAfter) match {
             case (None, None) => ().pure[F]
             case _ =>

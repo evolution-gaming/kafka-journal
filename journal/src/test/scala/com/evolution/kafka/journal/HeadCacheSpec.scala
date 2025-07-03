@@ -274,11 +274,11 @@ object HeadCacheSpec {
 
   implicit val LogIO: Log[IO] = Log.empty[IO]
 
-  val consumerEmpty = new TopicCache.Consumer[IO] {
-    def assign(topic: Topic, partitions: Nes[Partition]) = IO.unit
-    def seek(topic: Topic, offsets: Nem[Partition, Offset]) = IO.unit
-    def poll = ConsumerRecords.empty[String, Unit].pure[IO]
-    def partitions(topic: Topic) = Set(partition).pure[IO]
+  val consumerEmpty: TopicCache.Consumer[IO] = new TopicCache.Consumer[IO] {
+    def assign(topic: Topic, partitions: Nes[Partition]): IO[Unit] = IO.unit
+    def seek(topic: Topic, offsets: Nem[Partition, Offset]): IO[Unit] = IO.unit
+    def poll: IO[ConsumerRecords[Tag, Unit]] = ConsumerRecords.empty[String, Unit].pure[IO]
+    def partitions(topic: Topic): IO[Set[Partition]] = Set(partition).pure[IO]
   }
 
   def headCacheOf(
@@ -305,15 +305,15 @@ object HeadCacheSpec {
     def apply(stateRef: Ref[IO, State]): TopicCache.Consumer[IO] = {
       new TopicCache.Consumer[IO] {
 
-        def assign(topic: Topic, partitions: Nes[Partition]) = {
+        def assign(topic: Topic, partitions: Nes[Partition]): IO[Unit] = {
           stateRef.update { _.append(Action.Assign(topic, partitions)) }
         }
 
-        def seek(topic: Topic, offsets: Nem[Partition, Offset]) = {
+        def seek(topic: Topic, offsets: Nem[Partition, Offset]): IO[Unit] = {
           stateRef.update { _.append(Action.Seek(topic, offsets)) }
         }
 
-        val poll = {
+        val poll: IO[ConsumerRecords[Tag, Unit]] = {
           for {
             _ <- Sleep[IO].sleep(1.milli)
             records <- stateRef.modify { state =>
@@ -328,7 +328,7 @@ object HeadCacheSpec {
           } yield records
         }
 
-        def partitions(topic: Topic) = {
+        def partitions(topic: Topic): IO[Set[Partition]] = {
           for {
             state <- stateRef.get
           } yield {

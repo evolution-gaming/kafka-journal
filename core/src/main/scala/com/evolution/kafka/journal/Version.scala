@@ -8,7 +8,7 @@ import play.api.libs.json.{Reads, Writes}
  * Version of Kafka Journal library used to persist an event or a snapshot
  */
 final case class Version(value: String) {
-  override def toString = value
+  override def toString: String = value
 }
 
 object Version {

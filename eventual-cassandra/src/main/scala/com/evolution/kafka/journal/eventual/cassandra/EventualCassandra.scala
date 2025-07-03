@@ -100,13 +100,13 @@ object EventualCassandra {
 
     new Main with EventualJournal[F] {
 
-      def pointer(key: Key) = {
+      def pointer(key: Key): F[Option[JournalPointer]] = {
         statements
           .metaJournal
           .journalPointer(key)
       }
 
-      def read(key: Key, from: SeqNr) = {
+      def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]] = {
 
         def read(statement: JournalStatements.SelectRecords[F], head: JournalHead) = {
 
@@ -214,7 +214,7 @@ object EventualCassandra {
         } yield result
       }
 
-      def ids(topic: Topic) = {
+      def ids(topic: Topic): Stream[F, Topic] = {
         statements.metaJournal.ids(topic)
       }
 
@@ -317,15 +317,15 @@ object EventualCassandra {
 
       new Main with MetaJournalStatements[F] {
 
-        def journalHead(key: Key) = {
+        def journalHead(key: Key): F[Option[JournalHead]] = {
           firstOrSecond(key) { segmentNr => journalHead1(key, segmentNr) }
         }
 
-        def journalPointer(key: Key) = {
+        def journalPointer(key: Key): F[Option[JournalPointer]] = {
           firstOrSecond(key) { segmentNr => journalPointer1(key, segmentNr) }
         }
 
-        def ids(topic: Topic) = {
+        def ids(topic: Topic): Stream[F, Topic] = {
           for {
             segmentNr <- segments.metaJournalSegmentNrs.toStream1[F]
             id <- ids1(topic, segmentNr)

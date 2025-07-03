@@ -33,15 +33,15 @@ object ConsumerPoolMetrics {
         class Main
         new Main with ConsumerPoolMetrics[F] {
 
-          def observe(name: String, latency: FiniteDuration) =
+          def observe(name: String, latency: FiniteDuration): F[Unit] =
             timeSummary
               .labels(name)
               .observe(latency.toNanos.nanosToSeconds)
 
-          def acquire(latency: FiniteDuration) =
+          def acquire(latency: FiniteDuration): F[Unit] =
             observe("acquire", latency)
 
-          def use(latency: FiniteDuration) =
+          def use(latency: FiniteDuration): F[Unit] =
             observe("use", latency)
         }
       }
@@ -53,9 +53,9 @@ object ConsumerPoolMetrics {
     class Const
     new Const with ConsumerPoolMetrics[F] {
 
-      def acquire(latency: FiniteDuration) = unit
+      def acquire(latency: FiniteDuration): F[Unit] = unit
 
-      def use(latency: FiniteDuration) = unit
+      def use(latency: FiniteDuration): F[Unit] = unit
     }
   }
 }

@@ -26,15 +26,15 @@ object ReplicatedPartitionJournal {
       def offsets: Offsets[F] = {
         new Empty with Offsets[F] {
 
-          def get = none[Offset].pure[F]
+          def get: F[Option[Offset]] = none[Offset].pure[F]
 
-          def create(offset: Offset, timestamp: Instant) = ().pure[F]
+          def create(offset: Offset, timestamp: Instant): F[Unit] = ().pure[F]
 
-          def update(offset: Offset, timestamp: Instant) = ().pure[F]
+          def update(offset: Offset, timestamp: Instant): F[Unit] = ().pure[F]
         }
       }
 
-      def journal(id: String) = {
+      def journal(id: String): Resource[F, ReplicatedKeyJournal[F]] = {
         ReplicatedKeyJournal
           .empty[F]
           .pure[F]
@@ -72,15 +72,15 @@ object ReplicatedPartitionJournal {
         def offsets: Offsets[G] = {
           new MapK with Offsets[G] {
 
-            def get = f(self.offsets.get)
+            def get: G[Option[Offset]] = f(self.offsets.get)
 
-            def create(offset: Offset, timestamp: Instant) = f(self.offsets.create(offset, timestamp))
+            def create(offset: Offset, timestamp: Instant): G[Unit] = f(self.offsets.create(offset, timestamp))
 
-            def update(offset: Offset, timestamp: Instant) = f(self.offsets.update(offset, timestamp))
+            def update(offset: Offset, timestamp: Instant): G[Unit] = f(self.offsets.update(offset, timestamp))
           }
         }
 
-        def journal(id: String) = {
+        def journal(id: String): Resource[G, ReplicatedKeyJournal[G]] = {
           self
             .journal(id)
             .map(_.mapK(f))
@@ -102,7 +102,7 @@ object ReplicatedPartitionJournal {
         def offsets: Offsets[F] = {
           new WithLog with Offsets[F] {
 
-            def get = {
+            def get: F[Option[Offset]] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.get
@@ -111,7 +111,7 @@ object ReplicatedPartitionJournal {
               } yield r
             }
 
-            def create(offset: Offset, timestamp: Instant) = {
+            def create(offset: Offset, timestamp: Instant): F[Unit] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.create(offset, timestamp)
@@ -122,7 +122,7 @@ object ReplicatedPartitionJournal {
               } yield r
             }
 
-            def update(offset: Offset, timestamp: Instant) = {
+            def update(offset: Offset, timestamp: Instant): F[Unit] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.update(offset, timestamp)
@@ -135,7 +135,7 @@ object ReplicatedPartitionJournal {
           }
         }
 
-        def journal(id: String) = {
+        def journal(id: String): Resource[F, ReplicatedKeyJournal[F]] = {
           self
             .journal(id)
             .map { _.withLog(Key(id = id, topic = topic), partition, log) }
@@ -164,7 +164,7 @@ object ReplicatedPartitionJournal {
               } yield r
             }
 
-            def create(offset: Offset, timestamp: Instant) = {
+            def create(offset: Offset, timestamp: Instant): F[Unit] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.create(offset, timestamp)
@@ -173,7 +173,7 @@ object ReplicatedPartitionJournal {
               } yield r
             }
 
-            def update(offset: Offset, timestamp: Instant) = {
+            def update(offset: Offset, timestamp: Instant): F[Unit] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.update(offset, timestamp)
@@ -184,7 +184,7 @@ object ReplicatedPartitionJournal {
           }
         }
 
-        def journal(id: String) = {
+        def journal(id: String): Resource[F, ReplicatedKeyJournal[F]] = {
           self
             .journal(id)
             .map { _.withMetrics(topic, metrics) }
@@ -215,7 +215,7 @@ object ReplicatedPartitionJournal {
                 .adaptError { case a => journalError(s"offsets.get topic: $topic, partition: $partition", a) }
             }
 
-            def create(offset: Offset, timestamp: Instant) = {
+            def create(offset: Offset, timestamp: Instant): F[Unit] = {
               self
                 .offsets
                 .create(offset, timestamp)
@@ -232,7 +232,7 @@ object ReplicatedPartitionJournal {
                 }
             }
 
-            def update(offset: Offset, timestamp: Instant) = {
+            def update(offset: Offset, timestamp: Instant): F[Unit] = {
               self
                 .offsets
                 .update(offset, timestamp)
@@ -251,7 +251,7 @@ object ReplicatedPartitionJournal {
           }
         }
 
-        def journal(id: String) = {
+        def journal(id: String): Resource[F, ReplicatedKeyJournal[F]] = {
           val key = Key(id = id, topic = topic)
           self
             .journal(id)

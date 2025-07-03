@@ -24,7 +24,7 @@ object ConsumeActionRecords {
   ): ConsumeActionRecords[F] = {
     class Main
     new Main with ConsumeActionRecords[F] {
-      def apply(key: Key, partition: Partition, from: Offset) = {
+      def apply(key: Key, partition: Partition, from: Offset): Stream[F, ActionRecord[Action]] = {
         for {
           consumer <- consumer.toStream
           _ <- Stream.lift {
@@ -63,7 +63,7 @@ object ConsumeActionRecords {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): ConsumeActionRecords[G] = {
       new MapK with ConsumeActionRecords[G] {
-        def apply(key: Key, partition: Partition, from: Offset) = {
+        def apply(key: Key, partition: Partition, from: Offset): Stream[G, ActionRecord[Action]] = {
           self(key, partition, from).mapK[G](fg, gf)
         }
       }

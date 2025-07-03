@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.event.LogSource
 import cats.effect.Sync
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.LogOf
+import com.evolutiongaming.catshelper.{Log, LogOf}
 
 object LogOfFromAkka {
   // Scala 3 compiler couldn't construct this one implicitly
@@ -22,9 +22,9 @@ object LogOfFromAkka {
 
     new LogOf[F] {
 
-      def apply(source: String) = log(source)
+      def apply(source: String): F[Log[F]] = log(source)
 
-      def apply(source: Class[?]) = log(source)
+      def apply(source: Class[?]): F[Log[F]] = log(source)
     }
   }
 }

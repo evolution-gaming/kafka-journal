@@ -129,7 +129,7 @@ object JournalAdapter {
 
     new JournalAdapter[F] {
 
-      def write(aws: Seq[AtomicWrite]) = {
+      def write(aws: Seq[AtomicWrite]): F[List[Try[Unit]]] = {
         val prs = aws.flatMap(_.payload)
         prs.toList.toNel.foldMapM { prs =>
           val persistenceId = prs.head.persistenceId
@@ -145,14 +145,14 @@ object JournalAdapter {
         }
       }
 
-      def delete(persistenceId: PersistenceId, to: DeleteTo) = {
+      def delete(persistenceId: PersistenceId, to: DeleteTo): F[Unit] = {
         for {
           key <- toKey(persistenceId)
           _ <- journals(key).delete(to)
         } yield {}
       }
 
-      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]) = {
+      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]): F[Unit] = {
 
         def replay(key: Key): F[Unit] = {
           journals(key)
@@ -181,7 +181,7 @@ object JournalAdapter {
         } yield result
       }
 
-      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
+      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr): F[Option[SeqNr]] = {
         for {
           key <- toKey(persistenceId)
           pointer <- journals(key).pointer
@@ -197,13 +197,14 @@ object JournalAdapter {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): JournalAdapter[G] = new JournalAdapter[G] {
 
-      def write(aws: Seq[AtomicWrite]) = fg(self.write(aws))
+      def write(aws: Seq[AtomicWrite]): G[List[Try[Unit]]] = fg(self.write(aws))
 
-      def delete(persistenceId: PersistenceId, to: DeleteTo) = fg(self.delete(persistenceId, to))
+      def delete(persistenceId: PersistenceId, to: DeleteTo): G[Unit] = fg(self.delete(persistenceId, to))
 
-      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = fg(self.lastSeqNr(persistenceId, from))
+      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr): G[Option[SeqNr]] =
+        fg(self.lastSeqNr(persistenceId, from))
 
-      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => G[Unit]) = {
+      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => G[Unit]): G[Unit] = {
         fg(self.replay(persistenceId, range, max)(a => gf(f(a))))
       }
     }
@@ -214,7 +215,7 @@ object JournalAdapter {
       F: Monad[F],
     ): JournalAdapter[F] = new JournalAdapter[F] {
 
-      def write(aws: Seq[AtomicWrite]) = {
+      def write(aws: Seq[AtomicWrite]): F[List[Try[Unit]]] = {
         if (aws.size <= 1) self.write(aws)
         else
           for {
@@ -231,11 +232,11 @@ object JournalAdapter {
           }
       }
 
-      def delete(persistenceId: PersistenceId, to: DeleteTo) = self.delete(persistenceId, to)
+      def delete(persistenceId: PersistenceId, to: DeleteTo): F[Unit] = self.delete(persistenceId, to)
 
-      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = self.lastSeqNr(persistenceId, from)
+      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr): F[Option[SeqNr]] = self.lastSeqNr(persistenceId, from)
 
-      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]) = {
+      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]): F[Unit] = {
         self.replay(persistenceId, range, max)(f)
       }
     }

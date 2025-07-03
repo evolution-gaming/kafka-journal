@@ -13,7 +13,7 @@ object CassandraMetadata {
 
   def apply[F[_]: FlatMap](metadata: scassandra.Metadata[F]): CassandraMetadata[F] = new CassandraMetadata[F] {
 
-    def keyspace(name: String) = {
+    def keyspace(name: String): F[Option[KeyspaceMetadata[F]]] = {
       for {
         keyspace <- metadata.keyspace(name)
       } yield for {
@@ -34,7 +34,7 @@ object KeyspaceMetadata {
 
   def apply[F[_]: FlatMap](metadata: scassandra.KeyspaceMetadata[F]): KeyspaceMetadata[F] = new KeyspaceMetadata[F] {
 
-    def table(name: String) = {
+    def table(name: String): F[Option[TableMetadata]] = {
       for {
         table <- metadata.table(name)
       } yield for {

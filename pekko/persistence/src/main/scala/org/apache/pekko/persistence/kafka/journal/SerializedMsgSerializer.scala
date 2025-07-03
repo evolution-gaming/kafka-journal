@@ -35,11 +35,11 @@ object SerializedMsgSerializer {
 
     new SerializedMsgSerializer[F] {
 
-      def toMsg(a: AnyRef) = {
+      def toMsg(a: AnyRef): F[SerializedMsg] = {
         Sync[F].delay { converter.toMsg(a) }
       }
 
-      def fromMsg(a: SerializedMsg) = {
+      def fromMsg(a: SerializedMsg): F[AnyRef] = {
         for {
           a <- Sync[F].delay { converter.fromMsg(a) }
           a <- Sync[F].fromTry(a)
@@ -52,9 +52,9 @@ object SerializedMsgSerializer {
 
     def mapK[G[_]](f: F ~> G): SerializedMsgSerializer[G] = new SerializedMsgSerializer[G] {
 
-      def toMsg(a: AnyRef) = f(self.toMsg(a))
+      def toMsg(a: AnyRef): G[SerializedMsg] = f(self.toMsg(a))
 
-      def fromMsg(a: SerializedMsg) = f(self.fromMsg(a))
+      def fromMsg(a: SerializedMsg): G[AnyRef] = f(self.fromMsg(a))
     }
   }
 }

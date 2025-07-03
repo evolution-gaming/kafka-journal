@@ -6,7 +6,7 @@ import cats.effect.std.UUIDGen
 import cats.effect.{Poll, Sync}
 import cats.implicits.*
 import cats.syntax.all.none
-import cats.{Id, Parallel}
+import cats.{Id, MonadError, Parallel}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.eventual.EventualPayloadAndType
@@ -64,7 +64,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     val journal = {
       implicit val parallel: Parallel.Aux[StateT, StateT] = Parallel.identity[StateT]
       implicit val uuidGen: UUIDGen[StateT] = new UUIDGen[StateT] {
-        override def randomUUID = uuid.pure[StateT]
+        override def randomUUID: StateT[UUID] = uuid.pure[StateT]
       }
       ReplicatedCassandra(
         segmentSize,
@@ -2320,7 +2320,7 @@ object ReplicatedCassandraTest {
 
   implicit val syncStateT: Sync[StateT] = new Sync[StateT] with MonadCancelFromMonadError[StateT, Throwable] {
 
-    val F = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
+    val F: MonadError[StateT, Throwable] = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
 
     override def rootCancelScope: CancelScope = CancelScope.Uncancelable
 

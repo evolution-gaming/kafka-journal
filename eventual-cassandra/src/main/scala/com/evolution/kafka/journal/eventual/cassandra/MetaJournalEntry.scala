@@ -37,7 +37,7 @@ private[journal] object MetaJournalEntry {
     encode: EncodeRow[JournalHead],
   ): EncodeRow[MetaJournalEntry] = {
     new EncodeRow[MetaJournalEntry] {
-      def apply[B <: SettableData[B]](data: B, value: MetaJournalEntry) = {
+      def apply[B <: SettableData[B]](data: B, value: MetaJournalEntry): B = {
         data
           .encode(value.journalHead)
           .encode("created", value.created)

@@ -85,7 +85,7 @@ object Group {
 
         class Main
         new Main with Group[F, A, B] {
-          def apply(a: A) = {
+          def apply(a: A): F[B] = {
             ref
               .modify {
                 case S.Idle =>

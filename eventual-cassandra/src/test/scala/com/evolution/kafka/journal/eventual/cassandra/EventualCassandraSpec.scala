@@ -112,20 +112,21 @@ object EventualCassandraSpec {
 
     val selectRecords = new JournalStatements.SelectRecords[StateT] {
 
-      def apply(key: Key, segment: SegmentNr, range: SeqRange) = new Stream[StateT, JournalRecord] {
+      def apply(key: Key, segment: SegmentNr, range: SeqRange): Stream[StateT, JournalRecord] =
+        new Stream[StateT, JournalRecord] {
 
-        def foldWhileM[L, R](l: L)(f: (L, JournalRecord) => StateT[Either[L, R]]) = {
-          StateT { state =>
-            val records = state.journal.records(key, segment)
-            val result = records.foldWhileM[StateT, L, R](l) { (l, record) =>
-              val seqNr = record.event.event.seqNr
-              if (range contains seqNr) f(l, record)
-              else l.asLeft[R].pure[StateT]
-            }
-            (state, result)
-          }.flatten
+          def foldWhileM[L, R](l: L)(f: (L, JournalRecord) => StateT[Either[L, R]]): StateT[Either[L, R]] = {
+            StateT { state =>
+              val records = state.journal.records(key, segment)
+              val result = records.foldWhileM[StateT, L, R](l) { (l, record) =>
+                val seqNr = record.event.event.seqNr
+                if (range contains seqNr) f(l, record)
+                else l.asLeft[R].pure[StateT]
+              }
+              (state, result)
+            }.flatten
+          }
         }
-      }
     }
 
     val metaJournalStatements = EventualCassandra

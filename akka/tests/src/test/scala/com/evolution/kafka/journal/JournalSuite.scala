@@ -65,7 +65,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
   private val await = Promise[Unit]()
   val awaitResources: IO[Unit] = FromFuture[IO].apply(await.future)
 
-  override def beforeAll() = {
+  override def beforeAll(): Unit = {
     super.beforeAll()
     IntegrationSuite.start()
     await.success {}
@@ -73,7 +73,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
     //    producer
   }
 
-  override def afterAll() = {
+  override def afterAll(): Unit = {
     release.unsafeRunSync()
     super.afterAll()
   }
@@ -123,7 +123,7 @@ object JournalSuite {
         headers: Headers,
       )(implicit
         kafkaWrite: KafkaWrite[F, A],
-      ) = {
+      ): F[PartitionOffset] = {
         journal.append(events, metadata, headers)
       }
 
@@ -131,7 +131,7 @@ object JournalSuite {
         implicit
         kafkaRead: KafkaRead[F, A],
         eventualRead: EventualRead[F, A],
-      ) = {
+      ): F[List[EventRecord[A]]] = {
         for {
           records <- journal.read().toList
         } yield for {
@@ -141,17 +141,17 @@ object JournalSuite {
         }
       }
 
-      def pointer = journal.pointer
+      def pointer: F[Option[SeqNr]] = journal.pointer
 
-      def delete(to: DeleteTo) = journal.delete(to)
+      def delete(to: DeleteTo): F[Option[PartitionOffset]] = journal.delete(to)
 
-      def purge = journal.purge
+      def purge: F[Option[PartitionOffset]] = journal.purge
 
       def size[A](
         implicit
         kafkaRead: KafkaRead[F, A],
         eventualRead: EventualRead[F, A],
-      ) = journal.read().length
+      ): F[Long] = journal.read().length
     }
   }
 }

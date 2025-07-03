@@ -21,7 +21,7 @@ object ActionHeader {
     val appendFormat = {
       val format = Json.format[Append]
       val reads = format orElse new Reads[Append] {
-        def reads(json: JsValue) = {
+        def reads(json: JsValue): JsResult[Append] = {
 
           def metadata = {
             (json \ "metadata").validate[JsObject] match {

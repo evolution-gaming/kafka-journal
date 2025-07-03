@@ -57,7 +57,7 @@ object PurgeExpired {
 
     new PurgeExpired[F] {
 
-      def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
+      def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]): F[Long] = {
         val result = for {
           segment <- segments.toNel.toStream1[F]
           id <- selectExpired(topic, segment, expireOn)
@@ -73,7 +73,7 @@ object PurgeExpired {
 
     def mapK[G[_]](f: F ~> G): PurgeExpired[G] = new PurgeExpired[G] {
 
-      def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
+      def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]): G[Long] = {
         f(self(topic, expireOn, segments))
       }
     }
@@ -85,7 +85,7 @@ object PurgeExpired {
       measureDuration: MeasureDuration[F],
     ): PurgeExpired[F] = new PurgeExpired[F] {
 
-      def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
+      def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]): F[Long] = {
         for {
           d <- MeasureDuration[F].start
           r <- self(topic, expireOn, segments)
@@ -105,7 +105,7 @@ object PurgeExpired {
     ): PurgeExpired[F] =
       new PurgeExpired[F] {
 
-        def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
+        def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]): F[Long] = {
           for {
             d <- MeasureDuration[F].start
             r <- self(topic, expireOn, segments)
@@ -169,7 +169,7 @@ object PurgeExpired {
 
         new Metrics[F] {
 
-          def apply(topic: Topic, latency: FiniteDuration, count: Long) = {
+          def apply(topic: Topic, latency: FiniteDuration, count: Long): F[Unit] = {
             for {
               _ <- latencySummary.labels(topic).observe(latency.toNanos.nanosToSeconds)
               _ <- journalsCounter.labels(topic).observe(count.toDouble)

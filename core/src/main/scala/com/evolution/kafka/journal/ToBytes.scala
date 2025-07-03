@@ -24,7 +24,7 @@ object ToBytes {
 
   implicit def contravariantToBytes[F[_]]: Contravariant[ToBytes[F, *]] = new Contravariant[ToBytes[F, *]] {
 
-    def contramap[A, B](fa: ToBytes[F, A])(f: B => A) = (a: B) => fa(f(a))
+    def contramap[A, B](fa: ToBytes[F, A])(f: B => A): ToBytes[F, B] = (a: B) => fa(f(a))
   }
 
   def mapK[F[_], G[_], A](f: F ~> G)(toBytes: ToBytes[F, A]): ToBytes[G, A] = a => f(toBytes(a))

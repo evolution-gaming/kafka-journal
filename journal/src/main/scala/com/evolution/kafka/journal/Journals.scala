@@ -35,7 +35,7 @@ object Journals {
   def const[F[_]](journal: Journal[F]): Journals[F] = {
     class Const
     new Const with Journals[F] {
-      def apply(key: Key) = journal
+      def apply(key: Key): Journal[F] = journal
     }
   }
 
@@ -187,7 +187,7 @@ object Journals {
             headers: Headers,
           )(implicit
             kafkaWrite: KafkaWrite[F, A],
-          ) = {
+          ): F[PartitionOffset] = {
             appendEvents(key, events, metadata, headers)(kafkaWriteWithMetrics)
           }
 
@@ -196,7 +196,7 @@ object Journals {
           )(implicit
             kafkaRead: KafkaRead[F, A],
             eventualRead: EventualRead[F, A],
-          ) = {
+          ): Stream[F, EventRecord[A]] = {
 
             def readEventual(from: SeqNr) = {
               eventual
@@ -300,7 +300,7 @@ object Journals {
             } yield eventRecord
           }
 
-          def pointer = {
+          def pointer: F[Option[SeqNr]] = {
 
             // TODO refactor, we don't need to call `eventual.pointer` without using it's offset
             def pointerEventual = {
@@ -323,7 +323,7 @@ object Journals {
           }
 
           // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
-          def delete(to: DeleteTo) = {
+          def delete(to: DeleteTo): F[Option[PartitionOffset]] = {
             pointer.flatMap { seqNr =>
               seqNr.traverse { seqNr =>
                 produce.delete(key, seqNr.toDeleteTo min to)
@@ -433,15 +433,15 @@ object Journals {
       class Main
       new Main with Consumer[F] {
 
-        def assign(partitions: Nes[TopicPartition]) = {
+        def assign(partitions: Nes[TopicPartition]): F[Unit] = {
           consumer.assign(partitions)
         }
 
-        def seek(partition: TopicPartition, offset: Offset) = {
+        def seek(partition: TopicPartition, offset: Offset): F[Unit] = {
           consumer.seek(partition, offset)
         }
 
-        def poll = {
+        def poll: F[ConsRecords] = {
           consumer.poll(pollTimeout)
         }
       }

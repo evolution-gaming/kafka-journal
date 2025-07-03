@@ -108,7 +108,7 @@ object Replicator {
         .jitter(random)
         .limit(1.minute)
       new Named[F] {
-        def apply[A](fa: F[A], name: String) = {
+        def apply[A](fa: F[A], name: String): F[A] = {
           val onError = OnError.fromLog(log.prefixed(s"consumer.$name"))
           val retry = Retry(strategy, onError)
           retry(fa)
@@ -226,7 +226,7 @@ object Replicator {
     ): Consumer[F] = F
 
     def apply[F[_]](consumer: KafkaConsumer[F, String, ByteVector]): Consumer[F] = new Consumer[F] {
-      def topics = consumer.topics
+      def topics: F[Set[Topic]] = consumer.topics
     }
 
     def make[F[_]: Applicative: KafkaConsumerOf: FromTry](config: ConsumerConfig): Resource[F, Consumer[F]] = {
@@ -240,11 +240,11 @@ object Replicator {
     implicit class ConsumerOps[F[_]](val self: Consumer[F]) extends AnyVal {
 
       def mapK[G[_]](f: F ~> G): Consumer[G] = new Consumer[G] {
-        def topics = f(self.topics)
+        def topics: G[Set[Topic]] = f(self.topics)
       }
 
       def mapMethod(f: Named[F]): Consumer[F] = new Consumer[F] {
-        def topics = f(self.topics, "topics")
+        def topics: F[Set[Topic]] = f(self.topics, "topics")
       }
     }
   }
@@ -282,13 +282,13 @@ object Replicator {
       } yield {
         new Metrics[F] {
 
-          val journal = journal1.some
+          val journal: Option[ReplicatedJournal.Metrics[F]] = journal1.some
 
-          val replicator = replicator1.some
+          val replicator: Option[Topic => TopicReplicatorMetrics[F]] = replicator1.some
 
-          val consumer = consumer1(clientId).some
+          val consumer: Option[ConsumerMetrics[F]] = consumer1(clientId).some
 
-          val cache = cache1.some
+          val cache: Option[Name => CacheMetrics[F]] = cache1.some
         }
       }
     }

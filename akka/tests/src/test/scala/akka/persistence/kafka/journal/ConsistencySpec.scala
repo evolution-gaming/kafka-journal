@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.persistence.*
 import akka.persistence.journal.JournalSpec
 import cats.data.NonEmptyList as Nel
@@ -121,19 +121,19 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       val ref = system.actorOf(props)
 
       new PersistenceRef {
-        def persist(events: Nel[String]) = {
+        def persist(events: Nel[String]): Unit = {
           val cmd = Cmd(events)
           ref.tell(cmd, testActor)
           val _ = expectMsg(events.last)
         }
 
-        def delete(seqNr: Long) = {
+        def delete(seqNr: Long): Unit = {
           val delete = Delete(seqNr)
           ref.tell(delete, testActor)
           val _ = expectMsg(DeleteMessagesSuccess(seqNr))
         }
 
-        def stop() = {
+        def stop(): Unit = {
           val _ = ConsistencySpec.this.stop(ref)
         }
       }
@@ -173,7 +173,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     events.reverse
   }
 
-  def stop(ref: ActorRef) = {
+  def stop(ref: ActorRef): Terminated = {
     watch(ref)
     ref.tell(Stop, testActor)
     expectTerminated(ref)

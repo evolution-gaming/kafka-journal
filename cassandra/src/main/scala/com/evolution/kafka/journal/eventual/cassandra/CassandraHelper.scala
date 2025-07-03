@@ -49,7 +49,7 @@ object CassandraHelper {
 
     def empty[A]: EncodeRow[A] = new EncodeRow[A] {
 
-      def apply[B <: SettableData[B]](data: B, value: A) = data
+      def apply[B <: SettableData[B]](data: B, value: A): B = data
     }
 
     def noneAsUnset[A](
@@ -57,7 +57,7 @@ object CassandraHelper {
       encode: EncodeRow[A],
     ): EncodeRow[Option[A]] = new EncodeRow[Option[A]] {
 
-      def apply[B <: SettableData[B]](data: B, value: Option[A]) = {
+      def apply[B <: SettableData[B]](data: B, value: Option[A]): B = {
         value.fold(data) { encode(data, _) }
       }
     }
@@ -71,7 +71,7 @@ object CassandraHelper {
   implicit val mapTextEncodeByName: EncodeByName[Map[String, String]] = {
     val text = classOf[String]
     new EncodeByName[Map[String, String]] {
-      def apply[B <: SettableData[B]](data: B, name: String, value: Map[String, String]) = {
+      def apply[B <: SettableData[B]](data: B, name: String, value: Map[String, String]): B = {
         data.setMap(name, value.asJava, text, text)
       }
     }
@@ -87,7 +87,7 @@ object CassandraHelper {
   implicit val nelIntEncodeByName: EncodeByName[Nel[Int]] = {
     val integer = classOf[Integer]
     new EncodeByName[Nel[Int]] {
-      def apply[B <: SettableData[B]](data: B, name: String, value: Nel[Int]) = {
+      def apply[B <: SettableData[B]](data: B, name: String, value: Nel[Int]): B = {
         val values = value.distinct.toList.map(a => a: Integer).asJava
         data.setList(name, values, integer)
       }

@@ -49,7 +49,7 @@ object KafkaConsumer {
       val (consumer, close0) = result
 
       val toError = new Named[F] {
-        def apply[A](fa: F[A], method: String) = {
+        def apply[A](fa: F[A], method: String): F[A] = {
           fa.adaptError { case e => KafkaConsumerError(s"consumer.$method", e) }
         }
       }
@@ -67,27 +67,27 @@ object KafkaConsumer {
     class Main
     new Main with KafkaConsumer[F, K, V] {
 
-      def assign(partitions: Nes[TopicPartition]) = {
+      def assign(partitions: Nes[TopicPartition]): F[Unit] = {
         consumer.assign(partitions)
       }
 
-      def seek(partition: TopicPartition, offset: Offset) = {
+      def seek(partition: TopicPartition, offset: Offset): F[Unit] = {
         consumer.seek(partition, offset)
       }
 
-      def subscribe(topic: Topic, listener: RebalanceListener1[F]) = {
+      def subscribe(topic: Topic, listener: RebalanceListener1[F]): F[Unit] = {
         consumer.subscribe(Nes.of(topic), listener)
       }
 
-      def poll(timeout: FiniteDuration) = {
+      def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]] = {
         consumer.poll(timeout)
       }
 
-      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = {
+      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit] = {
         consumer.commit(offsets)
       }
 
-      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = {
+      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit] = {
         consumer.commitLater(offsets)
       }
 
@@ -97,7 +97,7 @@ object KafkaConsumer {
           .map { _.keySet }
       }
 
-      def partitions(topic: Topic) = {
+      def partitions(topic: Topic): F[Set[Partition]] = {
         consumer
           .partitions(topic)
           .map { infos =>
@@ -105,7 +105,7 @@ object KafkaConsumer {
           }
       }
 
-      def assignment = {
+      def assignment: F[Set[TopicPartition]] = {
         consumer.assignment
       }
     }
@@ -121,49 +121,50 @@ object KafkaConsumer {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): KafkaConsumer[G, K, V] = new MapK with KafkaConsumer[G, K, V] {
 
-      def assign(partitions: Nes[TopicPartition]) = fg(self.assign(partitions))
+      def assign(partitions: Nes[TopicPartition]): G[Unit] = fg(self.assign(partitions))
 
-      def seek(partition: TopicPartition, offset: Offset) = fg(self.seek(partition, offset))
+      def seek(partition: TopicPartition, offset: Offset): G[Unit] = fg(self.seek(partition, offset))
 
-      def subscribe(topic: Topic, listener: RebalanceListener1[G]) = {
+      def subscribe(topic: Topic, listener: RebalanceListener1[G]): G[Unit] = {
         val listener1 = listener.mapK(gf)
         fg(self.subscribe(topic, listener1))
       }
 
-      def poll(timeout: FiniteDuration) = fg(self.poll(timeout))
+      def poll(timeout: FiniteDuration): G[ConsumerRecords[K, V]] = fg(self.poll(timeout))
 
-      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = fg(self.commit(offsets))
+      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): G[Unit] = fg(self.commit(offsets))
 
-      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = fg(self.commitLater(offsets))
+      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]): G[Unit] = fg(self.commitLater(offsets))
 
-      def topics = fg(self.topics)
+      def topics: G[Set[Topic]] = fg(self.topics)
 
-      def partitions(topic: Topic) = fg(self.partitions(topic))
+      def partitions(topic: Topic): G[Set[Partition]] = fg(self.partitions(topic))
 
-      def assignment = fg(self.assignment)
+      def assignment: G[Set[TopicPartition]] = fg(self.assignment)
     }
 
     def mapMethod(f: Named[F]): KafkaConsumer[F, K, V] = new MapMethod with KafkaConsumer[F, K, V] {
 
-      def assign(partitions: Nes[TopicPartition]) = f(self.assign(partitions), "assign")
+      def assign(partitions: Nes[TopicPartition]): F[Unit] = f(self.assign(partitions), "assign")
 
-      def seek(partition: TopicPartition, offset: Offset) = f(self.seek(partition, offset), "seek")
+      def seek(partition: TopicPartition, offset: Offset): F[Unit] = f(self.seek(partition, offset), "seek")
 
-      def subscribe(topic: Topic, listener: RebalanceListener1[F]) = {
+      def subscribe(topic: Topic, listener: RebalanceListener1[F]): F[Unit] = {
         f(self.subscribe(topic, listener), "subscribe")
       }
 
-      def poll(timeout: FiniteDuration) = f(self.poll(timeout), "poll")
+      def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]] = f(self.poll(timeout), "poll")
 
-      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets), "commit")
+      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit] = f(self.commit(offsets), "commit")
 
-      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = f(self.commitLater(offsets), "commit_later")
+      def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit] =
+        f(self.commitLater(offsets), "commit_later")
 
-      def topics = f(self.topics, "topics")
+      def topics: F[Set[Topic]] = f(self.topics, "topics")
 
-      def partitions(topic: Topic) = f(self.partitions(topic), "partitions")
+      def partitions(topic: Topic): F[Set[Partition]] = f(self.partitions(topic), "partitions")
 
-      def assignment = f(self.assignment, "assignment")
+      def assignment: F[Set[TopicPartition]] = f(self.assignment, "assignment")
     }
 
     def shiftPoll(
@@ -173,30 +174,30 @@ object KafkaConsumer {
 
       new ShiftPoll with KafkaConsumer[F, K, V] {
 
-        def assign(partitions: Nes[TopicPartition]) = self.assign(partitions)
+        def assign(partitions: Nes[TopicPartition]): F[Unit] = self.assign(partitions)
 
-        def seek(partition: TopicPartition, offset: Offset) = self.seek(partition, offset)
+        def seek(partition: TopicPartition, offset: Offset): F[Unit] = self.seek(partition, offset)
 
-        def subscribe(topic: Topic, listener: RebalanceListener1[F]) = {
+        def subscribe(topic: Topic, listener: RebalanceListener1[F]): F[Unit] = {
           self.subscribe(topic, listener)
         }
 
-        def poll(timeout: FiniteDuration) = {
+        def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]] = {
           for {
             a <- self.poll(timeout)
             _ <- F.cede
           } yield a
         }
 
-        def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = self.commit(offsets)
+        def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit] = self.commit(offsets)
 
-        def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]) = self.commitLater(offsets)
+        def commitLater(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit] = self.commitLater(offsets)
 
-        def topics = self.topics
+        def topics: F[Set[Topic]] = self.topics
 
-        def partitions(topic: Topic) = self.partitions(topic)
+        def partitions(topic: Topic): F[Set[Partition]] = self.partitions(topic)
 
-        def assignment = self.assignment
+        def assignment: F[Set[TopicPartition]] = self.assignment
       }
     }
   }

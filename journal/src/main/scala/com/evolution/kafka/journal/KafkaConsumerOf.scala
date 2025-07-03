@@ -39,7 +39,7 @@ object KafkaConsumerOf {
       )(implicit
         fromBytesK: skafka.FromBytes[F, K],
         fromBytesV: skafka.FromBytes[F, V],
-      ) = {
+      ): Resource[F, KafkaConsumer[F, K, V]] = {
         val consumer = consumerOf[K, V](config)
         KafkaConsumer.make(consumer)
       }

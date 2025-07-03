@@ -79,14 +79,14 @@ class CreateTablesSpec extends AnyFunSuite {
   }
 
   private val keyspaceMetadata = new KeyspaceMetadata[F] {
-    def table(name: String) =
+    def table(name: String): F[Option[TableMetadata]] =
       Database.tableExists(name).map { exists =>
         Option.when(exists)(TableMetadata(name))
       }
   }
 
   private val cassandraMetadata = new CassandraMetadata[F] {
-    def keyspace(name: String) =
+    def keyspace(name: String): F[Option[KeyspaceMetadata[F]]] =
       Database.keyspaceExists(name).map { exists =>
         Option.when(exists)(keyspaceMetadata)
       }
@@ -118,14 +118,14 @@ class CreateTablesSpec extends AnyFunSuite {
 
   private val log = new Log[F] {
 
-    def info(msg: => String, mdc: Log.Mdc) = Database.log(msg)
+    def info(msg: => String, mdc: Log.Mdc): F[Unit] = Database.log(msg)
 
-    def trace(msg: => String, mdc: Log.Mdc) = ().pure[F]
-    def debug(msg: => String, mdc: Log.Mdc) = ().pure[F]
-    def warn(msg: => String, mdc: Log.Mdc) = ().pure[F]
-    def warn(msg: => String, cause: Throwable, mdc: Log.Mdc) = ().pure[F]
-    def error(msg: => String, mdc: Log.Mdc) = ().pure[F]
-    def error(msg: => String, cause: Throwable, mdc: Log.Mdc) = ().pure[F]
+    def trace(msg: => String, mdc: Log.Mdc): F[Unit] = ().pure[F]
+    def debug(msg: => String, mdc: Log.Mdc): F[Unit] = ().pure[F]
+    def warn(msg: => String, mdc: Log.Mdc): F[Unit] = ().pure[F]
+    def warn(msg: => String, cause: Throwable, mdc: Log.Mdc): F[Unit] = ().pure[F]
+    def error(msg: => String, mdc: Log.Mdc): F[Unit] = ().pure[F]
+    def error(msg: => String, cause: Throwable, mdc: Log.Mdc): F[Unit] = ().pure[F]
   }
 
   private val createTables = CreateTables[F](log)
