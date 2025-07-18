@@ -63,7 +63,7 @@ object Dependencies {
   }
 
   object Scodec {
-    val Bits = "org.scodec" %% "scodec-bits" % "1.2.2"
+    val Bits = "org.scodec" %% "scodec-bits" % "1.2.4"
     object Scala2 {
       val Core = "org.scodec" %% "scodec-core" % "1.11.11" // the last scodec-core version built for 2.13
     }
