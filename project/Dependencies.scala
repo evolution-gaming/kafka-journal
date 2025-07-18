@@ -11,7 +11,7 @@ object Dependencies {
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.1.1"
   val ExecutorTools = "com.evolutiongaming" %% "executor-tools" % "1.0.5"
   val AkkaSerialization = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
-  val PekkoSerialization = "com.evolution" %% "pekko-extension-serialization" % "0.0.3"
+  val PekkoSerialization = "com.evolution" %% "pekko-extension-serialization" % "0.0.4"
   val Hostname = "com.evolutiongaming" %% "hostname" % "1.0.0"
   val SCassandra = "com.evolutiongaming" %% "scassandra" % "5.3.0"
   val CassandraSync = "com.evolutiongaming" %% "cassandra-sync" % "3.1.1"
@@ -53,7 +53,7 @@ object Dependencies {
   }
 
   object Pekko {
-    private val version = "1.1.4"
+    private val version = "1.1.5"
     val Actor = "org.apache.pekko" %% "pekko-actor" % version
     val Testkit = "org.apache.pekko" %% "pekko-testkit" % version
     val Stream = "org.apache.pekko" %% "pekko-stream" % version
