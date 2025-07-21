@@ -21,7 +21,7 @@ object Dependencies {
   val SStream = "com.evolutiongaming" %% "sstream" % "1.1.0"
   val SKafka = "com.evolutiongaming" %% "skafka" % "17.2.2"
   val AkkaTestActor = "com.evolutiongaming" %% "akka-test-actor" % "0.3.0"
-  val PekkoTestActor = "com.evolution" %% "pekko-extension-test-actor" % "0.0.3"
+  val PekkoTestActor = "com.evolution" %% "pekko-extension-test-actor" % "0.0.4"
   val SCache = "com.evolution" %% "scache" % "5.1.4"
   val ResourcePool = "com.evolution" %% "resource-pool" % "1.0.5"
 
