@@ -69,7 +69,7 @@ object Dependencies {
     }
 
     object Scala3 {
-      val Core = "org.scodec" %% "scodec-core" % "2.3.2"
+      val Core = "org.scodec" %% "scodec-core" % "2.3.3"
     }
   }
 
