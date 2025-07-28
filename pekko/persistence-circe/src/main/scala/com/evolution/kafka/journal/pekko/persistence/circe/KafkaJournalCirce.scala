@@ -6,15 +6,15 @@ import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.circe.Codecs.*
 import com.evolution.kafka.journal.circe.FromCirceResult
 import com.evolution.kafka.journal.circe.Instances.*
+import com.evolution.kafka.journal.pekko.persistence.*
+import com.evolution.kafka.journal.pekko.persistence.EventSerializer.PersistentRepresentation
+import com.evolution.kafka.journal.pekko.persistence.circe.KafkaJournalCirce.*
 import com.evolution.kafka.journal.util.Fail
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.typesafe.config.Config
 import io.circe.*
 import io.circe.generic.semiauto.*
 import io.circe.syntax.*
-import com.evolution.kafka.journal.pekko.persistence.*
-import com.evolution.kafka.journal.pekko.persistence.EventSerializer.PersistentRepresentation
-import com.evolution.kafka.journal.pekko.persistence.circe.KafkaJournalCirce.*
 
 class KafkaJournalCirce(config: Config) extends KafkaJournal(config) {
 
