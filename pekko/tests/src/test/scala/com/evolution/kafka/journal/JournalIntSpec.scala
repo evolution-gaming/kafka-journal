@@ -9,11 +9,11 @@ import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.{EventualJournal, EventualRead}
+import com.evolution.kafka.journal.pekko.persistence.KafkaJournalConfig
 import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.retry.{Retry, Strategy}
-import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import org.scalatest.Succeeded
 import org.scalatest.wordspec.AsyncWordSpec
 import play.api.libs.json.Json
