@@ -47,10 +47,7 @@ object Replicator {
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
-    // TODO: [5.0.0 release] replace default value with just None
-    // none doesn't compile with Scala 3.3.5
-    // None and none[<concrete type from the left>] breaks bincompat
-    metrics: Option[Metrics[F]] = none[Nothing],
+    metrics: Option[Metrics[F]] = None,
   ): Resource[F, F[Unit]] = {
 
     def replicatedJournal(implicit
