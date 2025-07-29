@@ -243,16 +243,13 @@ object JournalAdapter {
   }
 
   final case class Metrics[F[_]](
-    // TODO: [5.0.0 release] replace default values with just None
-    // none doesn't compile with Scala 3.3.5
-    // None and none[<concrete type from the left>] breaks bincompat
-    journal: Option[JournalMetrics[F]] = none[Nothing],
-    eventual: Option[EventualJournal.Metrics[F]] = none[Nothing],
-    headCache: Option[HeadCacheMetrics[F]] = none[Nothing],
-    producer: Option[ClientId => ProducerMetrics[F]] = none[Nothing],
-    consumer: Option[ClientId => ConsumerMetrics[F]] = none[Nothing],
-    conversion: Option[ConversionMetrics[F]] = none[Nothing],
-    consumerPool: Option[ConsumerPoolMetrics[F]] = none[Nothing],
+    journal: Option[JournalMetrics[F]] = None,
+    eventual: Option[EventualJournal.Metrics[F]] = None,
+    headCache: Option[HeadCacheMetrics[F]] = None,
+    producer: Option[ClientId => ProducerMetrics[F]] = None,
+    consumer: Option[ClientId => ConsumerMetrics[F]] = None,
+    conversion: Option[ConversionMetrics[F]] = None,
+    consumerPool: Option[ConsumerPoolMetrics[F]] = None,
   )
 
   object Metrics {
