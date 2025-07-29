@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.eventual
 
-import cats.effect.{MonadCancel, Resource}
 import cats.effect.syntax.all.*
+import cats.effect.{MonadCancel, Resource}
 import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
 import com.evolution.kafka.journal.*
