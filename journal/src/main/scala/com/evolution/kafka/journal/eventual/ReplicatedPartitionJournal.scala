@@ -1,11 +1,11 @@
 package com.evolution.kafka.journal.eventual
 
-import cats.effect.Resource
 import cats.effect.syntax.all.*
+import cats.effect.{MonadCancel, Resource}
 import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
 import com.evolution.kafka.journal.*
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
@@ -196,7 +196,7 @@ object ReplicatedPartitionJournal {
       topic: Topic,
       partition: Partition,
     )(implicit
-      F: MonadThrowable[F],
+      F: MonadCancel[F, Throwable],
     ): ReplicatedPartitionJournal[F] = {
 
       def journalError(msg: String, cause: Throwable) = {
