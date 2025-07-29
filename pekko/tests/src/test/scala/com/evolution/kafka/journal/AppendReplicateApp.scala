@@ -8,6 +8,7 @@ import cats.syntax.all.*
 import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.conversions.KafkaWrite
 import com.evolution.kafka.journal.eventual.EventualJournal
+import com.evolution.kafka.journal.pekko.persistence.KafkaJournalConfig
 import com.evolution.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolution.kafka.journal.util.*
 import com.evolution.kafka.journal.util.PureConfigHelper.*
@@ -19,7 +20,6 @@ import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.persistence.kafka.journal.KafkaJournalConfig
 import pureconfig.ConfigSource
 
 import scala.concurrent.duration.*
