@@ -1,5 +1,5 @@
 package com.evolution.kafka.journal.pekko.persistence
 
-import com.evolution.pekkotest.PekkoActorSuite
+import com.evolution.pekko.test.actor.PekkoActorSuite
 
 class PekkoActorTest extends PekkoActorSuite

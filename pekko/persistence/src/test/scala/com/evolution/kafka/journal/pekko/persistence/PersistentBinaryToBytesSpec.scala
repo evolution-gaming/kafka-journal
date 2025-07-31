@@ -2,7 +2,7 @@ package com.evolution.kafka.journal.pekko.persistence
 
 import cats.syntax.all.*
 import com.evolution.kafka.journal.SerdeTesting
-import com.evolution.serialization.SerializedMsg
+import com.evolution.pekko.serialization.SerializedMsg
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 

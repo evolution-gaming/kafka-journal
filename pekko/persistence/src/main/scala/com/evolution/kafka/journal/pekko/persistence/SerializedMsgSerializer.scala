@@ -3,7 +3,7 @@ package com.evolution.kafka.journal.pekko.persistence
 import cats.effect.Sync
 import cats.syntax.all.*
 import cats.~>
-import com.evolution.serialization.{SerializedMsg, SerializedMsgConverter, SerializedMsgExt}
+import com.evolution.pekko.serialization.{SerializedMsg, SerializedMsgConverter, SerializedMsgExt}
 import org.apache.pekko.actor.ActorSystem
 
 /**
