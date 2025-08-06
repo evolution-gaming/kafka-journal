@@ -8,10 +8,11 @@ object Dependencies {
   val KafkaClients = "org.apache.kafka" % "kafka-clients" % "3.4.0"
   val PlayJson = "com.typesafe.play" %% "play-json" % "2.10.7"
 
+  private val PekkoExtensionVersion = "0.0.6"
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.2.3"
   val ExecutorTools = "com.evolutiongaming" %% "executor-tools" % "1.0.5"
   val AkkaSerialization = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
-  val PekkoSerialization = "com.evolution" %% "pekko-extension-serialization" % "0.0.5"
+  val PekkoSerialization = "com.evolution" %% "pekko-extension-serialization" % PekkoExtensionVersion
   val Hostname = "com.evolutiongaming" %% "hostname" % "1.0.0"
   val SCassandra = "com.evolutiongaming" %% "scassandra" % "5.3.0"
   val CassandraSync = "com.evolutiongaming" %% "cassandra-sync" % "3.1.1"
@@ -21,7 +22,7 @@ object Dependencies {
   val SStream = "com.evolutiongaming" %% "sstream" % "1.1.0"
   val SKafka = "com.evolutiongaming" %% "skafka" % "17.2.2"
   val AkkaTestActor = "com.evolutiongaming" %% "akka-test-actor" % "0.3.0"
-  val PekkoTestActor = "com.evolution" %% "pekko-extension-test-actor" % "0.0.5"
+  val PekkoTestActor = "com.evolution" %% "pekko-extension-test-actor" % PekkoExtensionVersion
   val SCache = "com.evolution" %% "scache" % "5.1.4"
   val ResourcePool = "com.evolution" %% "resource-pool" % "1.0.5"
 
