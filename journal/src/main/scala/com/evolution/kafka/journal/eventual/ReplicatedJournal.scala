@@ -1,11 +1,11 @@
 package com.evolution.kafka.journal.eventual
 
-import cats.effect.Resource
 import cats.effect.syntax.all.*
+import cats.effect.{MonadCancel, Resource}
 import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
 import com.evolution.kafka.journal.*
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.*
 import com.evolutiongaming.smetrics.MetricsHelper.*
@@ -131,7 +131,7 @@ object ReplicatedJournal {
 
     def enhanceError(
       implicit
-      F: MonadThrowable[F],
+      F: MonadCancel[F, Throwable],
     ): ReplicatedJournal[F] = {
 
       def journalError[A](msg: String, cause: Throwable) = {
