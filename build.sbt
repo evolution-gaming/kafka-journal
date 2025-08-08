@@ -170,7 +170,7 @@ lazy val snapshot = project
 
 lazy val akkaPersistence = project
   .in(file("akka/persistence"))
-  .settings(name := "kafka-journal-persistence")
+  .settings(name := "kafka-journal-akka-persistence")
   .settings(commonSettings)
   .dependsOn(journal % "test->test;compile->compile", eventualCassandra, snapshotCassandra)
   .settings(
@@ -200,7 +200,7 @@ lazy val pekkoPersistence = project
 
 lazy val akkaTests = project
   .in(file("akka/tests"))
-  .settings(name := "kafka-journal-tests")
+  .settings(name := "kafka-journal-akka-tests")
   .settings(commonSettings)
   .settings(
     Seq(
@@ -309,7 +309,7 @@ lazy val circe = project
 
 lazy val akkaPersistenceCirce = project
   .in(file("akka/persistence-circe"))
-  .settings(name := "kafka-journal-persistence-circe")
+  .settings(name := "kafka-journal-akka-persistence-circe")
   .settings(commonSettings)
   .dependsOn(circe, akkaPersistence % "test->test;compile->compile")
 

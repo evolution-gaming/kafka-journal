@@ -95,7 +95,7 @@ addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 libraryDependencies += "com.evolution" %% "kafka-journal" % "5.0.0"
 
 // for akka persistence
-//libraryDependencies += "com.evolution" %% "kafka-journal-persistence" % "5.0.0"
+//libraryDependencies += "com.evolution" %% "kafka-journal-akka-persistence" % "5.0.0"
 
 // for pekko persistence
 libraryDependencies += "com.evolution" %% "kafka-journal-pekko-persistence" % "5.0.0"
