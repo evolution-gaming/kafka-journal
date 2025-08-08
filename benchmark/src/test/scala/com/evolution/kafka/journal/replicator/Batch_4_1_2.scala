@@ -13,8 +13,9 @@ import com.evolutiongaming.skafka.Offset
  *     - aggregate effective actions by processing them from the _youngest_ record down to oldest
  *     - ignore/drop all actions, which are before last `Purge`
  *     - ignore all `Mark` actions
- *     - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped Our goal
- *       is to minimize load on Cassandra while preserving original offset ordering.
+ *     - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped
+ *
+ * Our goal is to minimize load on Cassandra while preserving original offset ordering.
  */
 private[journal] sealed abstract class Batch_4_1_2 extends Product {
 

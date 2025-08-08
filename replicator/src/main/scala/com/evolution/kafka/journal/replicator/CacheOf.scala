@@ -1,9 +1,8 @@
 package com.evolution.kafka.journal.replicator
 
 import cats.Parallel
-import cats.effect.Resource
-import cats.effect.kernel.Temporal
 import cats.effect.syntax.resource.*
+import cats.effect.{Resource, Temporal}
 import cats.syntax.all.*
 import com.evolution.scache
 import com.evolution.scache.{CacheMetrics, ExpiringCache}

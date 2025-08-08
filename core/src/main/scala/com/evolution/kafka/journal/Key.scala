@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal
 
-import cats.kernel.Eq
 import cats.syntax.all.*
-import cats.{Functor, Order, Show}
+import cats.{Eq, Functor, Order, Show}
 import com.evolutiongaming.catshelper.RandomIdOf
 import com.evolutiongaming.skafka.Topic
 

@@ -1,7 +1,6 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
-import cats.Show
-import cats.kernel.Eq
+import cats.{Eq, Show}
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolution.kafka.journal.ExpireAfter
 import com.evolution.kafka.journal.ExpireAfter.implicits.*

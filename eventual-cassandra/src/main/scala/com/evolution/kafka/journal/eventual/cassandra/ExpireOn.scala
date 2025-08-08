@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
-import cats.Show
-import cats.kernel.{Eq, Order}
 import cats.syntax.all.*
+import cats.{Eq, Order, Show}
 import com.datastax.driver.core.SettableData
 import com.evolution.kafka.journal.util.TemporalHelper.*
 import com.evolutiongaming.scassandra.syntax.*

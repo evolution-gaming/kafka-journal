@@ -1,7 +1,6 @@
 package com.evolution.kafka.journal.replicator
 
-import cats.effect.kernel.Outcome
-import cats.effect.{IO, Resource}
+import cats.effect.{IO, Outcome, Resource}
 import cats.syntax.all.*
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.replicator.Replicator.Consumer

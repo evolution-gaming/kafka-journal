@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.Parallel
-import cats.effect.Resource
-import cats.effect.kernel.Async
+import cats.effect.{Async, Resource}
 import cats.syntax.all.*
 import com.evolutiongaming.scassandra
 import com.evolutiongaming.scassandra.util.FromGFuture

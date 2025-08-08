@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
-import cats.effect.Sync
-import cats.effect.implicits.*
-import cats.effect.kernel.{Async, Spawn}
+import cats.effect.syntax.all.*
+import cats.effect.{Async, Spawn, Sync}
 import cats.syntax.all.*
 import com.datastax.driver.core.{ResultSet as ResultSetJ, Row}
 import com.evolutiongaming.scassandra.util.FromGFuture

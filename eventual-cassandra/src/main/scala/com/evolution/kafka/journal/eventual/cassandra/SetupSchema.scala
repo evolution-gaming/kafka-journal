@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.data.NonEmptyList as Nel
-import cats.effect.kernel.Temporal
+import cats.effect.Temporal
 import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolution.kafka.journal.cassandra.MigrateSchema.Fresh

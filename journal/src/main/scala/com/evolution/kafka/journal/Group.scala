@@ -2,10 +2,9 @@ package com.evolution.kafka.journal
 
 import cats.Defer
 import cats.data.NonEmptyList as Nel
-import cats.effect.kernel.{Async, Ref}
 import cats.effect.syntax.all.*
-import cats.effect.{Deferred, Resource}
-import cats.implicits.*
+import cats.effect.{Async, Deferred, Ref, Resource}
+import cats.syntax.all.*
 
 import scala.util.control.NoStackTrace
 

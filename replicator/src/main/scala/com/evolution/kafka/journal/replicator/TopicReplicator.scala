@@ -4,7 +4,7 @@ import cats.Monad
 import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.*
 import cats.effect.implicits.*
-import cats.implicits.*
+import cats.syntax.all.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
 import com.evolution.kafka.journal.eventual.*

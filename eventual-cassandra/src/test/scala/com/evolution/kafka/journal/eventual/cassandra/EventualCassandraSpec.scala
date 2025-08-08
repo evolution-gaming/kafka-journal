@@ -2,7 +2,7 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.Parallel
 import cats.effect.IO
-import cats.implicits.*
+import cats.syntax.all.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig
 import com.evolution.kafka.journal.eventual.*

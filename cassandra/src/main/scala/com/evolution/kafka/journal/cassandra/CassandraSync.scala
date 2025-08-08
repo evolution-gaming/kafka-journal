@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.cassandra
 
 import cats.arrow.FunctionK
-import cats.effect.kernel.Temporal
+import cats.effect.Temporal
 import cats.effect.std.Semaphore
 import cats.syntax.all.*
 import cats.~>

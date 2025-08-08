@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
-import cats.kernel.Eq
 import cats.syntax.all.*
-import cats.{Applicative, Id, Monad, Order, Show}
+import cats.{Applicative, Eq, Id, Monad, Order, Show}
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.Fail.implicits.*
 import com.evolution.kafka.journal.{Key, SeqNr}

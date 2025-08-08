@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.Parallel
-import cats.effect.kernel.Async
-import cats.effect.{Concurrent, Resource}
+import cats.effect.{Async, Concurrent, Resource}
 import cats.syntax.all.*
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.datastax.driver.core.{ResultSet as _, *}

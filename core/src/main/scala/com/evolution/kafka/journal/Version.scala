@@ -1,7 +1,6 @@
 package com.evolution.kafka.journal
 
-import cats.Show
-import cats.kernel.{Eq, Order}
+import cats.{Eq, Order, Show}
 import play.api.libs.json.{Reads, Writes}
 
 /**
