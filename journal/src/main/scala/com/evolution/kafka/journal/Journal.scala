@@ -35,12 +35,13 @@ trait Journal[F[_]] {
   def pointer: F[Option[SeqNr]]
 
   /**
-   * Deletes events up to provided SeqNr Using default value `DeleteTo.max` is not recommended:
-   * `Delete` action is valid for starting new journal and the `DeleteTo.max` would produce dead-en
-   * journal - there will be no way to add new events.
+   * Deletes events up to provided SeqNr
+   *
+   * Using value `DeleteTo.max` is not recommended as `Delete` action is valid for starting new
+   * journal and the `DeleteTo.max` would produce dead-end journal - there will be no way to add new
+   * events.
    */
-  // TODO next major release - remove default value
-  def delete(to: DeleteTo = DeleteTo.max): F[Option[PartitionOffset]]
+  def delete(to: DeleteTo): F[Option[PartitionOffset]]
 
   /**
    * Deletes all data (resets storage, removes all events and all traces of this journal) for the
