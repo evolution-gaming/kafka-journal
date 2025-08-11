@@ -1,10 +1,13 @@
-package com.evolution.kafka.journal.pekko.persistence
+package com.evolution.kafka.journal.akka.persistence
 
+import akka.actor.ActorSystem
+import akka.persistence.journal.AsyncWriteJournal
+import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect.*
 import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
 import cats.syntax.all.*
 import com.evolution.kafka.journal.*
-import com.evolution.kafka.journal.pekko.OriginExtension
+import com.evolution.kafka.journal.akka.OriginExtension
 import com.evolution.kafka.journal.util.CatsHelper.*
 import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.catshelper.*
@@ -13,9 +16,6 @@ import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.typesafe.config.Config
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.persistence.journal.AsyncWriteJournal
-import org.apache.pekko.persistence.{AtomicWrite, PersistentRepr}
 import pureconfig.ConfigSource
 
 import scala.concurrent.duration.*
@@ -28,11 +28,11 @@ import scala.util.Try
  * The users are not expected to instantiate it directly, but should enable the plugin in respective
  * `application.conf` instead like this:
  * {{{
- * pekko.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
+ * akka.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
  * }}}
  *
  * This is achieved by having a special `reference.conf` file inside of the library JAR, which
- * contains the required configuration understandable by Pekko Persistence.
+ * contains the required configuration understandable by Akka Persistence.
  *
  * This is also possible to override the setting for specific persistence actors by overriding
  * [[PersistentActor#journalPluginId]].
@@ -51,7 +51,7 @@ import scala.util.Try
  * following to `application.conf`:
  * {{{
  * evolutiongaming.kafka-journal.persistence.journal {
- *   class = "com.evolution.kafka.journal.pekko.persistence.circe.KafkaJournalCirce"
+ *   class = "com.evolution.kafka.journal.akka.persistence.circe.KafkaJournalCirce"
  * }
  * }}}
  *
@@ -89,7 +89,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       .toFuture
   }
 
-  def logOf: Resource[IO, LogOf[IO]] = LogOfFromPekko[IO](system).pure[Resource[IO, *]]
+  def logOf: Resource[IO, LogOf[IO]] = LogOfFromAkka[IO](system).pure[Resource[IO, *]]
 
   def randomIdOf: Resource[IO, RandomIdOf[IO]] = RandomIdOf.uuid[IO].pure[Resource[IO, *]]
 
@@ -112,14 +112,14 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
     val hostName = Origin.hostName[IO]
 
-    def pekkoHost = OriginExtension.pekkoHost[IO](system)
+    def akkaHost = OriginExtension.akkaHost[IO](system)
 
-    def pekkoName = OriginExtension.pekkoName(system)
+    def akkaName = OriginExtension.akkaName(system)
 
     hostName
       .toOptionT
-      .orElse(pekkoHost.toOptionT)
-      .orElse(pekkoName.some.toOptionT[IO])
+      .orElse(akkaHost.toOptionT)
+      .orElse(akkaName.some.toOptionT[IO])
       .value
   }
 

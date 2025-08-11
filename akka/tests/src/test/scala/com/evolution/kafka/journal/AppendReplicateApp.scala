@@ -1,13 +1,13 @@
 package com.evolution.kafka.journal
 
-import akka.actor.ActorSystem
-import akka.persistence.kafka.journal.KafkaJournalConfig
+import _root_.akka.actor.ActorSystem
 import cats.Parallel
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
 import com.evolution.kafka.journal.TestJsonCodec.instance
+import com.evolution.kafka.journal.akka.persistence.KafkaJournalConfig
 import com.evolution.kafka.journal.conversions.KafkaWrite
 import com.evolution.kafka.journal.eventual.EventualJournal
 import com.evolution.kafka.journal.replicator.{Replicator, ReplicatorConfig}

@@ -1,13 +1,13 @@
 package com.evolution.kafka.journal
 
 import TestJsonCodec.instance
-import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Foldable
 import cats.data.NonEmptyList as Nel
 import cats.effect.{IO, Resource}
 import cats.syntax.all.*
 import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.IOSuite.*
+import com.evolution.kafka.journal.akka.persistence.KafkaJournalConfig
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolution.kafka.journal.util.PureConfigHelper.*

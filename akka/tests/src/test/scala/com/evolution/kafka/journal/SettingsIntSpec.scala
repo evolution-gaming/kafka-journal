@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal
 
-import akka.actor.ActorSystem
+import _root_.akka.actor.ActorSystem
 import cats.Parallel
 import cats.effect.*
 import cats.effect.syntax.resource.*
