@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal
 
-import cats.kernel.Order
 import cats.syntax.all.*
-import cats.{Eq, Show}
+import cats.{Eq, Order, Show}
 import play.api.libs.json.*
 
 final case class DeleteTo(value: SeqNr) {

@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.replicator
 
 import cats.effect.Sync
-import cats.implicits.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, MonadThrowable}
 
 import java.time.temporal.ChronoUnit

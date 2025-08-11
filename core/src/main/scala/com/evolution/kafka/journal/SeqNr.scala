@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal
 
-import cats.kernel.{Eq, Order}
 import cats.syntax.all.*
-import cats.{Applicative, Id, Show}
+import cats.{Applicative, Eq, Id, Order, Show}
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.Fail.implicits.*
 import com.evolution.kafka.journal.util.PlayJsonHelper.*

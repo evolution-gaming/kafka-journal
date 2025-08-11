@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
-import cats.effect.kernel.{Async, Temporal}
 import cats.effect.syntax.all.*
-import cats.effect.{Concurrent, Resource}
+import cats.effect.{Async, Concurrent, Resource, Temporal}
 import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig

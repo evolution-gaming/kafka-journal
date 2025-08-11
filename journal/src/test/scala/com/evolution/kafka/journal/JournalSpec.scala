@@ -2,9 +2,8 @@ package com.evolution.kafka.journal
 
 import cats.Monad
 import cats.data.NonEmptyList as Nel
-import cats.effect.kernel.Sync
 import cats.effect.unsafe.implicits.global
-import cats.effect.{Clock, IO}
+import cats.effect.{Clock, IO, Sync}
 import cats.syntax.all.*
 import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}

@@ -18,7 +18,6 @@ import org.apache.pekko.persistence.journal.AsyncWriteJournal
 import org.apache.pekko.persistence.{AtomicWrite, PersistentRepr}
 import pureconfig.ConfigSource
 
-import scala.collection.immutable.Seq
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Try

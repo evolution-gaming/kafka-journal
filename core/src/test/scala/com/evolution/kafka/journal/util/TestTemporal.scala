@@ -3,7 +3,6 @@ package com.evolution.kafka.journal.util
 import cats.Monad
 import cats.arrow.FunctionK
 import cats.effect.*
-import cats.effect.kernel.{Poll, Unique}
 import cats.syntax.all.*
 
 import java.util.concurrent.atomic.AtomicBoolean

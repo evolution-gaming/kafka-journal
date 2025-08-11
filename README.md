@@ -95,7 +95,7 @@ addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 libraryDependencies += "com.evolution" %% "kafka-journal" % "5.0.0"
 
 // for akka persistence
-//libraryDependencies += "com.evolution" %% "kafka-journal-persistence" % "5.0.0"
+//libraryDependencies += "com.evolution" %% "kafka-journal-akka-persistence" % "5.0.0"
 
 // for pekko persistence
 libraryDependencies += "com.evolution" %% "kafka-journal-pekko-persistence" % "5.0.0"
@@ -104,6 +104,20 @@ libraryDependencies += "com.evolution" %% "kafka-journal-replicator" % "5.0.0"
 
 libraryDependencies += "com.evolution" %% "kafka-journal-eventual-cassandra" % "5.0.0"
 ```
+
+## Migration guide from 4.3.1 to 5.0.0
+
+In `5.0.0` we adapted Evolution's new organization name and changed packages.
+To migrate code from 4.3.1 to 5.0.0:
+* change organization in `libraryDependencies` from `com.evolutiongaming` to `com.evolution`
+* if used, update artefact names from `kafka-journal-persistence*` to
+  `kafka-journal-akka-persistence*` or `kafka-journal-pekko-persistence*`
+* change imports:
+  * from `import com.evolutiongaming.kafka.journal` to `import com.evolution.kafka.journal`
+  * from `import akka.persistence.kafka.journal` to `import com.evolution.kafka.journal.akka.persistence`
+* tech-related extensions were moved from `core` to corresponding tech modules, thus extra imports are required, like:
+  * `com.evolution.kafka.journal.akka.OriginExtension` or `com.evolution.kafka.journal.pekko.OriginExtension` 
+  * all Cassandra `encode*` and `decode*` extensions were moved to `kafka-journal-cassandra` module
 
 ## Presentations
 

@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal
 
 import cats.effect.*
-import cats.effect.kernel.Resource.ExitCase
+import cats.effect.Resource.ExitCase
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
 import com.evolution.kafka.journal.Journal.ConsumerPoolConfig

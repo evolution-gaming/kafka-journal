@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.util
 
-import cats.effect.implicits.*
+import cats.effect.syntax.all.*
 import cats.effect.{Ref, Resource, Sync}
 import cats.syntax.all.*
 

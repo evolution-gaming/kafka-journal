@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.util
 
-import cats.effect.implicits.*
-import cats.effect.{Ref, *}
+import cats.effect.*
+import cats.effect.syntax.all.*
 import cats.syntax.all.*
 
 private[journal] trait ResourceRegistry[F[_]] {

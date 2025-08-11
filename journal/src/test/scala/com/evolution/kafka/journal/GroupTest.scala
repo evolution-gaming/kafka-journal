@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal
 
 import cats.data.NonEmptyList as Nel
-import cats.effect.kernel.Ref
-import cats.effect.{Deferred, IO, Temporal}
+import cats.effect.{Deferred, IO, Ref, Temporal}
 import cats.syntax.all.*
 import com.evolution.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite

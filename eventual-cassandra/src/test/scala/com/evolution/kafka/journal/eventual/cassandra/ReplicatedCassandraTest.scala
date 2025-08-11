@@ -5,7 +5,6 @@ import cats.effect.kernel.CancelScope
 import cats.effect.std.UUIDGen
 import cats.effect.{Poll, Sync}
 import cats.implicits.*
-import cats.syntax.all.none
 import cats.{Id, MonadError, Parallel}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.ExpireAfter.implicits.*

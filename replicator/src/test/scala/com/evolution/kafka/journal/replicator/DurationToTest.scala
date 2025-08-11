@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.replicator
 
-import cats.implicits.*
+import cats.syntax.all.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 

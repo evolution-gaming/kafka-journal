@@ -2,9 +2,9 @@ package com.evolution.kafka.journal
 
 import cats.MonadError
 import cats.data.IndexedStateT
-import cats.effect.kernel.{CancelScope, Poll}
+import cats.effect.Poll
+import cats.effect.kernel.CancelScope
 import cats.implicits.*
-import cats.syntax.all.none
 import com.evolution.kafka.journal.util.MonadCancelFromMonadError
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.skafka.{Offset, Partition}

@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal
 
-import akka.actor.ActorSystem
-import akka.event.LogSource
+import _root_.akka.actor.ActorSystem
+import _root_.akka.event.LogSource
 import cats.effect.Sync
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{Log, LogOf}
@@ -14,7 +14,7 @@ object LogOfFromAkka {
 
     def log[A: LogSource](source: A) = {
       for {
-        log <- Sync[F].delay { akka.event.Logging(system, source) }
+        log <- Sync[F].delay { _root_.akka.event.Logging(system, source) }
       } yield {
         LogFromAkka[F](log)
       }

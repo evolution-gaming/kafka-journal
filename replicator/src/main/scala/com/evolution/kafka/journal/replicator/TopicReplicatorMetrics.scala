@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.replicator
 
 import cats.effect.*
-import cats.implicits.*
+import cats.syntax.all.*
 import cats.{Applicative, Monad}
 import com.evolutiongaming.skafka.{Bytes as _, *}
 import com.evolutiongaming.smetrics.*

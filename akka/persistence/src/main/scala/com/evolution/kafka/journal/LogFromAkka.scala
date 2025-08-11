@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal
 
-import akka.event.LoggingAdapter
+import _root_.akka.event.LoggingAdapter
 import cats.effect.Sync
 import cats.implicits.catsSyntaxApplicativeId
 import com.evolutiongaming.catshelper.Log

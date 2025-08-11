@@ -1,8 +1,7 @@
 package com.evolution.kafka.journal.util
 
 import cats.Monad
-import cats.effect.kernel.{Async, Deferred, Outcome, Ref, Unique}
-import cats.effect.{Concurrent, Fiber, Poll}
+import cats.effect.{Async, Concurrent, Deferred, Fiber, Outcome, Poll, Ref, Unique}
 import cats.syntax.all.*
 
 import scala.util.control.NonFatal
