@@ -1,4 +1,5 @@
-# Kafka Journal 
+# Kafka Journal
+
 [![Build Status](https://github.com/evolution-gaming/kafka-journal/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/evolution-gaming/kafka-journal/actions?query=workflow%3ACI+branch%3Amaster)
 [![Coverage Status](https://coveralls.io/repos/github/evolution-gaming/kafka-journal/badge.svg?branch=master)](https://coveralls.io/github/evolution-gaming/kafka-journal?branch=master)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/a391e347e329454e8f992717113ec1ec)](https://app.codacy.com/gh/evolution-gaming/kafka-journal/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
@@ -7,52 +8,56 @@
 
 > Stream data from two sources where one is eventually consistent and the other one loses its tail
 
-This library provides ability to use [Kafka](https://kafka.apache.org) as storage for events.
+This library provides the ability to use [Kafka](https://kafka.apache.org) as storage for events.
 Kafka is a perfect fit in case you want to have streaming capabilities for your events.
-However, it also uses [Cassandra](http://cassandra.apache.org) to keep data access performance on acceptable level and 
-overcome Kafka's `retention policy`. 
-Cassandra is a default choice, but you may use any other storage which satisfies following interfaces:
-* Read side, called within client library: [EventualJournal](journal/src/main/scala/com/evolutiongaming/kafka/journal/eventual/EventualJournal.scala) 
-* Write side, called from replicator app: [ReplicatedJournal](journal/src/main/scala/com/evolutiongaming/kafka/journal/eventual/ReplicatedJournal.scala) 
+However, kafka-journal also uses [Cassandra](http://cassandra.apache.org) to keep performance of data access at acceptable level 
+and overcome Kafka's `retention policy`. 
+Cassandra is a default choice, but you may use any other storage which satisfies the following interfaces:
+* Read side, called within client library [EventualJournal](journal/src/main/scala/com/evolution/kafka/journal/eventual/EventualJournal.scala) 
+* Write side, called from replicator app [ReplicatedJournal](journal/src/main/scala/com/evolution/kafka/journal/eventual/ReplicatedJournal.scala) 
 
-## High level idea
+## High level description
 
-### Writing events flow:
+### Writing flow
+
 1. Journal client publishes events to Kafka
 2. Replicator app stores events in Cassandra
 
-### Reading events flow:
-1. Client publishes special marker to Kafka, so we can make sure there are no more events to expect
-2. Client reads events from Cassandra, however at this point we are not yet sure that all events are replicated from 
+### Reading flow
+
+1. Client publishes special marker `Mark` to Kafka, so we can make sure there are no more events to expect
+2. Client reads events from Cassandra, however, at this point we are not yet sure that all events are replicated from 
    Kafka to Cassandra
 3. Client reads events from Kafka using offset of last event found in Cassandra
-4. We consider recovery finished when marker is read from Kafka
+4. We consider recovery finished when the marker `Mark` is read from Kafka
 
 ## Notes
-* Kafka topic may be used for many different entities
-* We don't need to store all events in Kafka as long as they are in Cassandra
-* We do not cover snapshots, yet
-* Replicator is a separate application
-* It is easy to replace Cassandra with some relational database
+
+* one Kafka topic may be used for many different entities
+* not all events must be on Kafka, as long as they are stored in Cassandra
+* there is no snapshot support yet
+* `Replicator` is a separate application running concurrently with Journal clients
+* it is relatively easy to replace Cassandra with some other relational database
 
 ## State recovery performance
 
-Performance of reading events depends on finding the closest offset to the marker as well on replication latency (time 
-difference between the moment event has been written to Kafka and the moment when event becomes available from
+Performance of reading events depends on finding the closest offset to the marker and on replication latency (time 
+difference between the moment event has been published on Kafka and the moment when it becomes available from
 Cassandra).
 
-Same Kafka consumer may be shared for many simultaneous recoveries.
+The same Kafka consumer may be shared for many simultaneous recoveries.
 
-## Read & write capabilities:
-* Client allowed to `read` + `write` Kafka and `read` Cassandra
-* Replicator allowed to `read` Kafka and `read` + `write` Cassandra
+## Read & write capabilities
+
+* Client is allowed to `read` + `write` Kafka and `read` Cassandra
+* Replicator is allowed to `read` Kafka and `read` + `write` Cassandra
 
 Hence, we recommend configuring access rights accordingly.
 
 ## Api
 
-See [Journals](journal/src/main/scala/com/evolutiongaming/kafka/journal/Journals.scala) and 
-[Journal](journal/src/main/scala/com/evolutiongaming/kafka/journal/Journal.scala)
+See [Journals](journal/src/main/scala/com/evolution/kafka/journal/Journals.scala) and 
+[Journal](journal/src/main/scala/com/evolution/kafka/journal/Journal.scala)
 
 ## Troubleshooting
 
@@ -69,23 +74,23 @@ List of known "error" cases which may be ignored:
 
 ## Akka persistence plugin
 
-In order to use `kafka-journal` as [akka persistence plugin](https://doc.akka.io/libraries/akka-core/2.6/persistence-plugins.html) 
-you have to add following to your `*.conf` file:
+In order to use `kafka-journal` as [akka persistence plugin](https://doc.akka.io/libraries/akka-core/2.6/persistence-plugins.html)
+ have to add following to `*.conf` file:
 ```hocon
 akka.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
 ```
 
-Unfortunately akka persistence `snapshot` plugin is not implemented, yet.
+Unfortunately akka persistence's `snapshot` plugin is not implemented yet.
 
 ## Pekko persistence plugin
 
-In order to use `kafka-journal` as [pekko persistence plugin](https://pekko.apache.org/docs/pekko/1.0/persistence-plugins.html) 
-you have to add following to your `*.conf` file:
+In order to use `kafka-journal` as [pekko persistence plugin](https://pekko.apache.org/docs/pekko/1.0/persistence-plugins.html)
+have to add following to `*.conf` file:
 ```hocon
 pekko.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
 ```
 
-Unfortunately pekko persistence `snapshot` plugin is not implemented, yet.
+Unfortunately pekko persistence's `snapshot` plugin is not implemented yet.
 
 ## Setup
 
@@ -127,7 +132,9 @@ To migrate code from 4.3.1 to 5.0.0:
 ## Development
 
 To run unit-test, have to have Docker environment **running** (Docker Desktop, Rancher Desktop etc.). Some tests expect
-to have `/var/run/docker.sock` available. In case of Rancher Desktop, one might need to amend local setup with:
+to have `/var/run/docker.sock` available. In the case of Rancher Desktop, one might need to amend local setup with:
 ```shell
 sudo ln -s $HOME/.rd/docker.sock /var/run/docker.sock
 ```
+
+Developer's [Must Read](Notes%20for%20Next%20Developer.md) 
