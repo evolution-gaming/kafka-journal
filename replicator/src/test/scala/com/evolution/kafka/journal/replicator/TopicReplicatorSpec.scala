@@ -1000,7 +1000,7 @@ object TopicReplicatorSpec {
 
     val commit: TopicCommit[StateT] = offsets => {
       StateT.unit { state =>
-        val offsets1 = offsets.mapKV { case (partition, offset) => (partition.value, offset.value) }
+        val offsets1 = offsets.mapKV { case (partition, offset) => ((partition.value, offset.value)) }
         state.copy(commits = offsets1 :: state.commits)
       }
     }
