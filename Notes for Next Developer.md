@@ -1,5 +1,8 @@
 # Kafka Journal
 
+> [!WARNING] 
+> Very possibly the information in this file is outdated!
+
 ## Requirements
 
 * Journal should be operational even when replication is offline, ideally up to topic retention period. Let's say 24h
