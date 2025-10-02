@@ -26,6 +26,7 @@ class SchemaConfigSpec extends AnyFunSuite with Matchers {
       journalTable = "table-journal",
       metaJournalTable = "table-meta-journal",
       pointerTable = "table-pointer",
+      pointer2Table = "table-pointer2",
       settingTable = "table-setting",
       locksTable = "table-locks",
       autoCreate = false,

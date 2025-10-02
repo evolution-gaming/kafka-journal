@@ -71,13 +71,13 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         offset <- journal.offset(topic0, Partition.min)
         _ = offset shouldEqual none
-        _ <- insertPointer(topic0, Partition.min, Offset.min, created = timestamp0, updated = timestamp0)
+        _ <- insertPointer2(topic0, Partition.min, Offset.min, created = timestamp0, updated = timestamp0)
         offset <- journal.offset(topic0, Partition.min)
         _ = offset shouldEqual Offset.min.some
-        _ <- updatePointer(topic0, Partition.min, Offset.unsafe(1), timestamp = timestamp1)
+        _ <- updatePointer2(topic0, Partition.min, Offset.unsafe(1), timestamp = timestamp1)
         offset <- journal.offset(topic0, Partition.min)
         _ = offset shouldEqual Offset.unsafe(1).some
-        _ <- insertPointer(topic1, Partition.min, Offset.min, created = timestamp0, updated = timestamp0)
+        _ <- insertPointer2(topic1, Partition.min, Offset.min, created = timestamp0, updated = timestamp0)
         offset <- journal.offset(topic0, Partition.min)
         _ = offset shouldEqual Offset.unsafe(1).some
       } yield {}
@@ -507,7 +507,7 @@ object EventualCassandraTest {
       }
   }
 
-  val insertPointer: PointerStatements.Insert[StateT] = {
+  val insertPointer2: Pointer2Statements.Insert[StateT] = {
     (
       topic: Topic,
       partition: Partition,
@@ -541,7 +541,7 @@ object EventualCassandraTest {
     }
   }
 
-  val updatePointer: PointerStatements.Update[StateT] = {
+  val updatePointer2: Pointer2Statements.Update[StateT] = {
     (
       topic: Topic,
       partition: Partition,
@@ -550,7 +550,7 @@ object EventualCassandraTest {
     ) =>
       {
         StateT.unit { state =>
-          state.updatePointer(topic, partition) { entry =>
+          state.updatePointer2(topic, partition) { entry =>
             entry.copy(offset = offset, updated = timestamp)
           }
         }
@@ -628,7 +628,7 @@ object EventualCassandraTest {
         state getOrElse self
       }
 
-      def updatePointer(topic: Topic, partition: Partition)(f: PointerEntry => PointerEntry): State = {
+      def updatePointer2(topic: Topic, partition: Partition)(f: PointerEntry => PointerEntry): State = {
         val state = for {
           entries <- self.pointers.get(topic)
           entry <- entries.get(partition)
