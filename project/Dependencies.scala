@@ -3,7 +3,7 @@ import sbt.*
 object Dependencies {
   val ScalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
   val ScalaJava8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2"
-  val KindProjector = "org.typelevel" % "kind-projector" % "0.13.3"
+  val KindProjector = "org.typelevel" % "kind-projector" % "0.13.4"
   val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.2"
   val KafkaClients = "org.apache.kafka" % "kafka-clients" % "3.4.0"
   val PlayJson = "com.typesafe.play" %% "play-json" % "2.10.7"
