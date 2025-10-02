@@ -79,17 +79,11 @@ private[journal] object ReplicatedCassandra {
                   }
 
                   def create(offset: Offset, timestamp: Instant): F[Unit] = {
-                    statements
-                      .insertPointer2(topic, partition, offset, timestamp, timestamp)
-                      .parProduct(statements.insertPointer(topic, partition, offset, timestamp, timestamp))
-                      .map { case (a, b) => a.combine(b) }
+                    statements.insertPointer2(topic, partition, offset, timestamp, timestamp)
                   }
 
                   def update(offset: Offset, timestamp: Instant): F[Unit] = {
-                    statements
-                      .updatePointer(topic, partition, offset, timestamp)
-                      .parProduct(statements.updatePointer2(topic, partition, offset, timestamp))
-                      .map { case (a, b) => a.combine(b) }
+                    statements.updatePointer2(topic, partition, offset, timestamp)
                   }
                 }
               }
@@ -626,9 +620,7 @@ private[journal] object ReplicatedCassandra {
     metaJournal: MetaJournalStatements[F],
     selectOffset2: Pointer2Statements.SelectOffset[F],
     selectPointer2: Pointer2Statements.Select[F],
-    insertPointer: PointerStatements.Insert[F],
     insertPointer2: Pointer2Statements.Insert[F],
-    updatePointer: PointerStatements.Update[F],
     updatePointer2: Pointer2Statements.Update[F],
     selectTopics2: Pointer2Statements.SelectTopics[F],
   )
@@ -651,9 +643,7 @@ private[journal] object ReplicatedCassandra {
         metaJournal <- MetaJournalStatements.of[F](schema, consistencyConfig)
         selectOffset2 <- Pointer2Statements.SelectOffset.of[F](schema.pointer2, consistencyConfig.read)
         selectPointer2 <- Pointer2Statements.Select.of[F](schema.pointer2, consistencyConfig.read)
-        insertPointer <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
         insertPointer2 <- Pointer2Statements.Insert.of[F](schema.pointer2, consistencyConfig.write)
-        updatePointer <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
         updatePointer2 <- Pointer2Statements.Update.of[F](schema.pointer2, consistencyConfig.write)
         selectTopics2 <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
       } yield {
@@ -664,9 +654,7 @@ private[journal] object ReplicatedCassandra {
           metaJournal,
           selectOffset2,
           selectPointer2,
-          insertPointer,
           insertPointer2,
-          updatePointer,
           updatePointer2,
           selectTopics2,
         )
