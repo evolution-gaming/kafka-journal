@@ -66,6 +66,10 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
 //  ProblemFilters.exclude[IncompatibleMethTypeProblem](
 //    "com.evolution.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
 //  ),
+  ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.eventual.cassandra.PointerStatements$Insert"),
+  ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.eventual.cassandra.PointerStatements$Insert$"),
+  ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.eventual.cassandra.PointerStatements$Update"),
+  ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.eventual.cassandra.PointerStatements$Update$"),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
