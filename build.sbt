@@ -66,6 +66,7 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
 //  ProblemFilters.exclude[IncompatibleMethTypeProblem](
 //    "com.evolution.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
 //  ),
+  // TODO remove after v5.1.0 release
   ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.eventual.cassandra.PointerStatements$Insert"),
   ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.eventual.cassandra.PointerStatements$Insert$"),
   ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.eventual.cassandra.PointerStatements$Update"),
