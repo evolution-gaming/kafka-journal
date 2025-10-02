@@ -364,15 +364,15 @@ object EventualCassandraSpec {
         _,
         _,
       ) =>
-      {
-        StateT { state =>
-          val pointers = state.pointers
-          val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
-          val updated = topicPointers.copy(values = topicPointers.values.updated(partition, offset))
-          val pointers1 = pointers.updated(topic, updated)
-          (state.copy(pointers = pointers1), ())
+        {
+          StateT { state =>
+            val pointers = state.pointers
+            val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
+            val updated = topicPointers.copy(values = topicPointers.values.updated(partition, offset))
+            val pointers1 = pointers.updated(topic, updated)
+            (state.copy(pointers = pointers1), ())
+          }
         }
-      }
     }
 
     val updatePointer2: Pointer2Statements.Update[StateT] = {
@@ -382,15 +382,15 @@ object EventualCassandraSpec {
         offset,
         _,
       ) =>
-      {
-        StateT { state =>
-          val pointers = state.pointers
-          val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
-          val updated = topicPointers.copy(values = topicPointers.values.updated(partition, offset))
-          val pointers1 = pointers.updated(topic, updated)
-          (state.copy(pointers = pointers1), ())
+        {
+          StateT { state =>
+            val pointers = state.pointers
+            val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
+            val updated = topicPointers.copy(values = topicPointers.values.updated(partition, offset))
+            val pointers1 = pointers.updated(topic, updated)
+            (state.copy(pointers = pointers1), ())
+          }
         }
-      }
     }
 
     val selectTopics2: Pointer2Statements.SelectTopics[StateT] = { () =>
