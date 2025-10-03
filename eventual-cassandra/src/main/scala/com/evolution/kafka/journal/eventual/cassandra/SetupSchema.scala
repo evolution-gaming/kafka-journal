@@ -31,29 +31,40 @@ import com.evolutiongaming.catshelper.LogOf
  */
 private[journal] object SetupSchema {
 
-  val SettingKey = "schema-version"
+  private val SettingKey = "schema-version"
 
-  def migrations(schema: Schema): Nel[String] = {
+  private def migrations(schema: Schema): Nel[String] = {
 
-    def addHeaders: String =
+    def journalAddColumnHeaders: String =
       JournalStatements.addHeaders(schema.journal)
 
-    def addVersion: String =
+    def journalAddColumnVersion: String =
       JournalStatements.addVersion(schema.journal)
 
-    def dropMetadata =
+    def dropTableMetadata =
       s"DROP TABLE IF EXISTS metadata"
 
-    def createPointer2: String =
+    def createTablePointer2: String =
       Pointer2Statements.createTable(schema.pointer2)
 
-    def journalAddMetaRecordId: String =
+    def journalAddColumnMetaRecordId: String =
       JournalStatements.addMetaRecordId(schema.journal)
 
-    def metaAddRecordId: String =
+    def metaJournalAddColumnRecordId: String =
       MetaJournalStatements.addRecordId(schema.metaJournal)
 
-    Nel.of(addHeaders, addVersion, dropMetadata, createPointer2, journalAddMetaRecordId, metaAddRecordId)
+    def dropTablePointer =
+      s"DROP TABLE IF EXISTS pointer"
+
+    Nel.of(
+      journalAddColumnHeaders,
+      journalAddColumnVersion,
+      dropTableMetadata,
+      createTablePointer2,
+      journalAddColumnMetaRecordId,
+      metaJournalAddColumnRecordId,
+      dropTablePointer,
+    )
 
   }
 

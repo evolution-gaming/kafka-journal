@@ -20,7 +20,6 @@ class CreateSchemaSpec extends AnyFunSuite {
       database.tables.sorted == List(
         "journal.journal",
         "journal.metajournal",
-        "journal.pointer",
         "journal.pointer2",
         "journal.setting",
       ),
@@ -63,7 +62,6 @@ class CreateSchemaSpec extends AnyFunSuite {
       database.tables.sorted == List(
         "journal.journal",
         "journal.metajournal",
-        "journal.pointer",
         "journal.pointer2",
         "journal.setting",
       ),
@@ -75,7 +73,6 @@ class CreateSchemaSpec extends AnyFunSuite {
   private val schema = Schema(
     journal = TableName(keyspace = "journal", table = "journal"),
     metaJournal = TableName(keyspace = "journal", table = "metajournal"),
-    pointer = TableName(keyspace = "journal", table = "pointer"),
     pointer2 = TableName(keyspace = "journal", table = "pointer2"),
     setting = TableName(keyspace = "journal", table = "setting"),
   )
