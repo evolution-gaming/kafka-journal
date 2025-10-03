@@ -66,9 +66,6 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
 //  ProblemFilters.exclude[IncompatibleMethTypeProblem](
 //    "com.evolution.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
 //  ),
-  // TODO remove after 5.2.0 release
-  ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.eventual.cassandra.PointerStatements"),
-  ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.eventual.cassandra.PointerStatements$"),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
