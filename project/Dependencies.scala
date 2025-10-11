@@ -6,7 +6,7 @@ object Dependencies {
   val KindProjector = "org.typelevel" % "kind-projector" % "0.13.4"
   val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.2"
   val KafkaClients = "org.apache.kafka" % "kafka-clients" % "3.4.0"
-  val PlayJson = "com.typesafe.play" %% "play-json" % "2.10.7"
+  val PlayJson = "com.typesafe.play" %% "play-json" % "2.10.8"
 
   private val PekkoExtensionVersion = "1.1.0"
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.2.3"
