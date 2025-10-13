@@ -19,12 +19,13 @@ private[journal] trait MigrateSchema[F[_]] {
    * Run all built-in migrations
    *
    * @param fresh
-   *   Indicates if the schema was just created from scratch, or some tables were already present.
-   *   The parameter is taken into consideration if there is no schema version information available
-   *   in the settings. In this case, if `true`, then it will be assumed that no migrations are
-   *   required, and the latest version will be saved into settings. If `false` then all migration
-   *   steps will be attempted (because the schema, likely, was created before migration steps were
-   *   added).
+   *   Indicates if the schema was just auto-created from scratch (`true`), or some tables were
+   *   already present (`false`). The parameter is taken into consideration if there is no schema
+   *   version information available in the settings. In this case:
+   *   - if `true`, then it will be assumed that no migrations are required, and the latest version
+   *     will be saved into `settings` table.
+   *   - if `false`, then all migration steps will be attempted (because the schema, likely, was
+   *     created before migration steps were added).
    */
   def run(
     fresh: MigrateSchema.Fresh,

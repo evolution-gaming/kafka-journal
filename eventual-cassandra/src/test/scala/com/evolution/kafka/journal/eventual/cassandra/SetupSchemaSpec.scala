@@ -2,7 +2,7 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.implicits.catsStdInstancesForTry
 import cats.syntax.all.*
-import com.datastax.driver.core.{PreparedStatement, Row, Statement}
+import com.datastax.driver.core.{PreparedStatement, RegularStatement, Row, Statement}
 import com.evolution.kafka.journal.cassandra.CassandraSync
 import com.evolution.kafka.journal.util.StreamHelper.*
 import com.evolution.kafka.journal.{Setting, Settings}
@@ -19,16 +19,16 @@ import scala.util.control.NoStackTrace
 class SetupSchemaSpec extends AnyFunSuite with Matchers {
   import SetupSchemaSpec.*
 
-  test("migrate fresh") {
+  test("do not apply any migration on fully auto-created keyspace") {
     val initial = State.empty
     val (state, _) = migrate(fresh = true)
       .run(initial)
       .get
     state shouldEqual initial.copy(
-      version = "6".some,
+      version = "8".some,
       actions = List(
         Action.SyncEnd,
-        Action.SetSetting("schema-version", "6"),
+        Action.SetSetting("schema-version", "8"),
         Action.GetSetting("schema-version"),
         Action.SyncStart,
         Action.GetSetting("schema-version"),
@@ -36,29 +36,41 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     )
   }
 
-  test("migrate") {
+  test("apply migrations on previously created keyspace") {
     val initial = State.empty
     val (state, _) = migrate(fresh = false)
       .run(initial)
       .get
     state shouldEqual initial.copy(
-      version = "6".some,
+      version = "8".some,
       actions = List(
         Action.SyncEnd,
+        Action.SetSetting("schema-version", "8"),
+        Action.Query("DROP TABLE IF EXISTS journal.pointer"),
+        Action.SetSetting("schema-version", "7"),
+        Action.Query("DROP TABLE IF EXISTS journal.metadata"),
         Action.SetSetting("schema-version", "6"),
-        Action.Query,
+        Action.Query("DROP TABLE IF EXISTS pointer"),
         Action.SetSetting("schema-version", "5"),
-        Action.Query,
+        Action.Query("ALTER TABLE journal.metaJournal ADD record_id UUID"),
         Action.SetSetting("schema-version", "4"),
-        Action.Query,
+        Action.Query("ALTER TABLE journal.journal ADD meta_record_id UUID"),
         Action.SetSetting("schema-version", "3"),
-        Action.Query,
+        Action.Query("""
+          |CREATE TABLE IF NOT EXISTS journal.pointer2 (
+          |topic text,
+          |partition int,
+          |offset bigint,
+          |created timestamp,
+          |updated timestamp,
+          |PRIMARY KEY ((topic, partition)))
+          |""".stripMargin),
         Action.SetSetting("schema-version", "2"),
-        Action.Query,
+        Action.Query("DROP TABLE IF EXISTS metadata"),
         Action.SetSetting("schema-version", "1"),
-        Action.Query,
+        Action.Query("ALTER TABLE journal.journal ADD version TEXT"),
         Action.SetSetting("schema-version", "0"),
-        Action.Query,
+        Action.Query("ALTER TABLE journal.journal ADD headers map<text, text>"),
         Action.GetSetting("schema-version"),
         Action.SyncStart,
         Action.GetSetting("schema-version"),
@@ -66,27 +78,19 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     )
   }
 
-  test("migrate 0") {
-    val initial = State.empty.copy(version = "0".some)
+  test("apply the last few missing migrations (after 6th to latest)") {
+    val initial = State.empty.copy(version = "6".some)
     val (state, _) = migrate(fresh = false)
       .run(initial)
       .get
     state shouldEqual initial.copy(
-      version = "6".some,
+      version = "8".some,
       actions = List(
         Action.SyncEnd,
-        Action.SetSetting("schema-version", "6"),
-        Action.Query,
-        Action.SetSetting("schema-version", "5"),
-        Action.Query,
-        Action.SetSetting("schema-version", "4"),
-        Action.Query,
-        Action.SetSetting("schema-version", "3"),
-        Action.Query,
-        Action.SetSetting("schema-version", "2"),
-        Action.Query,
-        Action.SetSetting("schema-version", "1"),
-        Action.Query,
+        Action.SetSetting("schema-version", "8"),
+        Action.Query("DROP TABLE IF EXISTS journal.pointer"),
+        Action.SetSetting("schema-version", "7"),
+        Action.Query("DROP TABLE IF EXISTS journal.metadata"),
         Action.GetSetting("schema-version"),
         Action.SyncStart,
         Action.GetSetting("schema-version"),
@@ -94,8 +98,8 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     )
   }
 
-  test("not migrate") {
-    val initial = State.empty.copy(version = "6".some)
+  test("do not apply any migration script when all migrations have been already applied before") {
+    val initial = State.empty.copy(version = "8".some)
     val (state, _) = migrate(fresh = false)
       .run(initial)
       .get
@@ -149,7 +153,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
     def execute(statement: Statement): Stream[StateT, Row] = {
       val stateT = StateT { state =>
-        val state1 = state.add(Action.Query)
+        val state1 = state.add(Action.Query(statement.asInstanceOf[RegularStatement].getQueryString))
         val rows = Stream.empty[StateT, Row]
         (state1, rows)
       }
@@ -201,7 +205,7 @@ object SetupSchemaSpec {
 
     case object SyncEnd extends Action
 
-    case object Query extends Action
+    final case class Query(query: String) extends Action
 
     final case class GetSetting(key: String) extends Action
 

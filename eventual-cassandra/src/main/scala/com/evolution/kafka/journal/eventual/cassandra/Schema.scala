@@ -25,4 +25,7 @@ private[journal] final case class Schema(
   metaJournal: TableName,
   pointer2: TableName,
   setting: TableName,
-)
+) {
+  def keyspace: String =
+    metaJournal.keyspace
+}
