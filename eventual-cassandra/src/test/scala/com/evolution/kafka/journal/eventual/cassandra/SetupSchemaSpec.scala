@@ -153,7 +153,11 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
     def execute(statement: Statement): Stream[StateT, Row] = {
       val stateT = StateT { state =>
-        val state1 = state.add(Action.Query(statement.asInstanceOf[RegularStatement].getQueryString))
+        val query = statement match {
+          case statement: RegularStatement => statement.getQueryString
+          case other => sys.error(s"Unexpected statement type: $other")
+        }
+        val state1 = state.add(Action.Query(query))
         val rows = Stream.empty[StateT, Row]
         (state1, rows)
       }
