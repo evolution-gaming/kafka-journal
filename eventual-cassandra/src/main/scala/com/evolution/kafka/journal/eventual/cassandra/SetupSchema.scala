@@ -59,10 +59,10 @@ private[journal] object SetupSchema {
       s"DROP TABLE IF EXISTS pointer"
 
     def dropTableMetadataFixed =
-      s"DROP TABLE IF EXISTS ${ TableName(schema.keyspace, table = "metadata").toCql }"
+      s"DROP TABLE IF EXISTS ${ TableName(schema.keyspaceName, table = "metadata").toCql }"
 
     def dropTablePointerFixed =
-      s"DROP TABLE IF EXISTS ${ TableName(schema.keyspace, table = "pointer").toCql }"
+      s"DROP TABLE IF EXISTS ${ TableName(schema.keyspaceName, table = "pointer").toCql }"
 
     Nel.of(
       journalAddColumnHeaders,

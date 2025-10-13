@@ -108,11 +108,13 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   val timestamp: Instant = Instant.now()
 
+  val keyspace = "journal"
   val schema: Schema = Schema(
-    journal = TableName(keyspace = "journal", table = "journal"),
-    metaJournal = TableName(keyspace = "journal", table = "metaJournal"),
-    pointer2 = TableName(keyspace = "journal", table = "pointer2"),
-    setting = TableName(keyspace = "journal", table = "setting"),
+    keyspaceName = keyspace,
+    journal = TableName(keyspace = keyspace, table = "journal"),
+    metaJournal = TableName(keyspace = keyspace, table = "metaJournal"),
+    pointer2 = TableName(keyspace = keyspace, table = "pointer2"),
+    setting = TableName(keyspace = keyspace, table = "setting"),
   )
 
   implicit val settings: Settings[StateT] = {

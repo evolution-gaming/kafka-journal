@@ -21,15 +21,9 @@ import com.evolutiongaming.scassandra.TableName
  *   used to track schema migrations, see [[SetupSchema]] and [[MigrateSchema]] for details
  */
 private[journal] final case class Schema(
+  keyspaceName: String,
   journal: TableName,
   metaJournal: TableName,
   pointer2: TableName,
   setting: TableName,
-) {
-
-  /**
-   * It is expected that all tables are created in the same keyspace (see [[CreateSchema]]).
-   */
-  def keyspace: String =
-    metaJournal.keyspace
-}
+)
