@@ -26,6 +26,10 @@ private[journal] final case class Schema(
   pointer2: TableName,
   setting: TableName,
 ) {
+
+  /**
+   * It is expected that all tables are created in the same keyspace (see [[CreateSchema]]).
+   */
   def keyspace: String =
     metaJournal.keyspace
 }
