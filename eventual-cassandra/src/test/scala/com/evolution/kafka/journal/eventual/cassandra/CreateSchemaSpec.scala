@@ -70,11 +70,13 @@ class CreateSchemaSpec extends AnyFunSuite {
     assert(schema == this.schema)
   }
 
+  val keyspaceName = "journal"
   private val schema = Schema(
-    journal = TableName(keyspace = "journal", table = "journal"),
-    metaJournal = TableName(keyspace = "journal", table = "metajournal"),
-    pointer2 = TableName(keyspace = "journal", table = "pointer2"),
-    setting = TableName(keyspace = "journal", table = "setting"),
+    keyspaceName = keyspaceName,
+    journal = TableName(keyspace = keyspaceName, table = "journal"),
+    metaJournal = TableName(keyspace = keyspaceName, table = "metajournal"),
+    pointer2 = TableName(keyspace = keyspaceName, table = "pointer2"),
+    setting = TableName(keyspace = keyspaceName, table = "setting"),
   )
 
   val createTables: CreateTables[F] = new CreateTables[F] {

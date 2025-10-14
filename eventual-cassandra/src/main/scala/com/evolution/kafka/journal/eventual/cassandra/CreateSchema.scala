@@ -47,6 +47,7 @@ private[journal] object CreateSchema {
       val keyspace = config.keyspace.name
 
       val schema = Schema(
+        keyspaceName = keyspace,
         journal = TableName(keyspace = keyspace, table = config.journalTable),
         metaJournal = TableName(keyspace = keyspace, table = config.metaJournalTable),
         pointer2 = TableName(keyspace = keyspace, table = config.pointer2Table),

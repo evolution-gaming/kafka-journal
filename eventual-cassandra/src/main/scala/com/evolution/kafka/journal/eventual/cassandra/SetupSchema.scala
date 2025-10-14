@@ -13,6 +13,8 @@ import com.evolution.kafka.journal.cassandra.{
 }
 import com.evolution.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.catshelper.LogOf
+import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.scassandra.syntax.toCqlOps
 
 /**
  * Creates a new schema, or migrates to the latest schema version, if it already exists.
@@ -56,6 +58,12 @@ private[journal] object SetupSchema {
     def dropTablePointer =
       s"DROP TABLE IF EXISTS pointer"
 
+    def dropTableMetadataFixed =
+      s"DROP TABLE IF EXISTS ${ TableName(schema.keyspaceName, table = "metadata").toCql }"
+
+    def dropTablePointerFixed =
+      s"DROP TABLE IF EXISTS ${ TableName(schema.keyspaceName, table = "pointer").toCql }"
+
     Nel.of(
       journalAddColumnHeaders,
       journalAddColumnVersion,
@@ -64,6 +72,8 @@ private[journal] object SetupSchema {
       journalAddColumnMetaRecordId,
       metaJournalAddColumnRecordId,
       dropTablePointer,
+      dropTableMetadataFixed,
+      dropTablePointerFixed,
     )
 
   }
