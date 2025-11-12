@@ -8,7 +8,7 @@ object Dependencies {
   val KafkaClients = "org.apache.kafka" % "kafka-clients" % "3.4.0"
   val PlayJson = "com.typesafe.play" %% "play-json" % "2.10.8"
 
-  private val PekkoExtensionVersion = "1.1.0"
+  private val PekkoExtensionVersion = "1.2.0"
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.2.3"
   val ExecutorTools = "com.evolutiongaming" %% "executor-tools" % "1.0.5"
   val AkkaSerialization = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
