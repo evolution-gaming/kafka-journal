@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.data.NonEmptyList as Nel
-import cats.effect.std.UUIDGen
+import cats.effect.std.SecureRandom
 import cats.effect.syntax.all.*
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.syntax.all.*
@@ -42,7 +42,9 @@ private[journal] object ReplicatedCassandra {
       log <- LogOf[F].apply(ReplicatedCassandra.getClass)
       expiryService <- ExpiryService.of[F]
       _ <- log.info(s"kafka-journal version: ${ Version.current.value }")
+      secureRandom <- SecureRandom.javaSecuritySecureRandom(16)
     } yield {
+      implicit val sr: SecureRandom[F] = secureRandom
       val segmentOf = SegmentNrs.Of[F](first = Segments.default, second = Segments.old)
       val journal = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
       metrics
@@ -51,7 +53,7 @@ private[journal] object ReplicatedCassandra {
     }
   }
 
-  def apply[F[_]: Sync: Parallel: Fail: UUIDGen](
+  def apply[F[_]: Sync: Parallel: SecureRandom: Fail](
     segmentSizeDefault: SegmentSize,
     segmentNrsOf: SegmentNrs.Of[F],
     statements: Statements[F],

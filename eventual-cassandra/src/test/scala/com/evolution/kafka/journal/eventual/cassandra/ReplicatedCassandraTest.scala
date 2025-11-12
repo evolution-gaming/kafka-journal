@@ -2,7 +2,7 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.data.{IndexedStateT, NonEmptyList as Nel}
 import cats.effect.kernel.CancelScope
-import cats.effect.std.UUIDGen
+import cats.effect.std.SecureRandom
 import cats.effect.{Poll, Sync}
 import cats.implicits.*
 import cats.{Id, MonadError, Parallel}
@@ -36,8 +36,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   private val partitionOffset = PartitionOffset.empty
   private val origin = Origin("origin")
   private val version = Version.current
-  private val uuid = UUID.randomUUID
-  private val recordId = RecordId(uuid)
+  private val recordId = RecordId(UUID.fromString("13131313-1313-4313-9313-131313131313"))
   private val record = eventRecordOf(SeqNr.min, partitionOffset)
 
   private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
@@ -62,9 +61,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     val segmentOfId = SegmentNr.Of[Id](segmentsFirst)
     val journal = {
       implicit val parallel: Parallel.Aux[StateT, StateT] = Parallel.identity[StateT]
-      implicit val uuidGen: UUIDGen[StateT] = new UUIDGen[StateT] {
-        override def randomUUID: StateT[UUID] = uuid.pure[StateT]
-      }
+      implicit val secureRandom: SecureRandom[StateT] = staticSecureRandom
       ReplicatedCassandra(
         segmentSize,
         segmentNrsOf,
@@ -2438,5 +2435,43 @@ object ReplicatedCassandraTest {
     def success[A](f: State => (State, A)): StateT[A] = apply { s => f(s).pure[Try] }
 
     def unit(f: State => State): StateT[Unit] = success[Unit] { a => (f(a), ()) }
+  }
+
+  val staticSecureRandom: SecureRandom[StateT] = new SecureRandom[StateT] {
+    override def betweenDouble(minInclusive: Double, maxExclusive: Double): StateT[Double] = ???
+
+    override def betweenFloat(minInclusive: Float, maxExclusive: Float): StateT[Float] = ???
+
+    override def betweenInt(minInclusive: Int, maxExclusive: Int): StateT[Int] = ???
+
+    override def betweenLong(minInclusive: Long, maxExclusive: Long): StateT[Long] = ???
+
+    override def nextAlphaNumeric: StateT[Char] = ???
+
+    override def nextBoolean: StateT[Boolean] = ???
+
+    override def nextBytes(n: Int): StateT[Array[Byte]] = Array.fill[Byte](16)(0x13).pure[StateT]
+
+    override def nextDouble: StateT[Double] = ???
+
+    override def nextFloat: StateT[Float] = ???
+
+    override def nextGaussian: StateT[Double] = ???
+
+    override def nextInt: StateT[Int] = ???
+
+    override def nextIntBounded(n: Int): StateT[Int] = ???
+
+    override def nextLong: StateT[Long] = ???
+
+    override def nextLongBounded(n: Long): StateT[Long] = ???
+
+    override def nextPrintableChar: StateT[Char] = ???
+
+    override def nextString(length: Int): StateT[String] = ???
+
+    override def shuffleList[A](l: List[A]): StateT[List[A]] = ???
+
+    override def shuffleVector[A](v: Vector[A]): StateT[Vector[A]] = ???
   }
 }
