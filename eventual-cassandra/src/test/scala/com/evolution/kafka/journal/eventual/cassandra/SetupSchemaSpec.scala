@@ -98,6 +98,19 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     )
   }
 
+  test("do not apply any migration when newer version has been already applied") {
+    val initial = State.empty.copy(version = "987654321".some)
+    val (state, _) = migrate(fresh = false)
+      .run(initial)
+      .get
+    state shouldEqual initial.copy(
+      version = "987654321".some,
+      actions = List(
+        Action.GetSetting("schema-version"),
+      ),
+    )
+  }
+
   test("do not apply any migration script when all migrations have been already applied before") {
     val initial = State.empty.copy(version = "8".some)
     val (state, _) = migrate(fresh = false)
