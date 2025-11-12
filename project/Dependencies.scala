@@ -24,7 +24,7 @@ object Dependencies {
   val AkkaTestActor = "com.evolutiongaming" %% "akka-test-actor" % "0.3.0"
   val PekkoTestActor = "com.evolution" %% "pekko-extension-test-actor" % PekkoExtensionVersion
   val SCache = "com.evolution" %% "scache" % "5.1.4"
-  val ResourcePool = "com.evolution" %% "resource-pool" % "1.0.6"
+  val ResourcePool = "com.evolution" %% "resource-pool" % "1.1.0"
 
   object Cats {
     val Core = "org.typelevel" %% "cats-core" % "2.13.0"
