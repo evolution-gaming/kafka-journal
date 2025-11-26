@@ -40,11 +40,12 @@ private[journal] object TopicConsumer {
       val poll: Stream[F, Map[Partition, Nel[ConsRecord]]] = {
         val records = for {
           records <- consumer.poll(pollTimeout)
-        } yield for {
-          (partition, records) <- records.values
-        } yield {
-          (partition.partition, records)
-        }
+        } yield
+          for {
+            (partition, records) <- records.values
+          } yield {
+            (partition.partition, records)
+          }
         Stream.repeat(records)
       }
 
