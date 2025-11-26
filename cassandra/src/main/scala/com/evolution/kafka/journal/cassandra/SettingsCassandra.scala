@@ -19,9 +19,10 @@ private[journal] object SettingsCassandra {
     def get(key: K): F[Option[Setting]] = {
       for {
         setting <- statements.select(key)
-      } yield for {
-        setting <- setting
-      } yield setting
+      } yield
+        for {
+          setting <- setting
+        } yield setting
     }
 
     def set(key: K, value: V): F[Option[Setting]] = {
