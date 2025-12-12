@@ -207,8 +207,8 @@ object ReplicatedJournal {
       prefix: String = "replicated_journal",
     ): Resource[F, Metrics[F]] = {
 
-      val versionGauge = registry.gauge(
-        name = s"${ prefix }_info",
+      val versionGauge = registry.info(
+        name = s"$prefix",
         help = "Journal version information",
         labels = LabelNames("version"),
       )
@@ -236,7 +236,7 @@ object ReplicatedJournal {
 
       for {
         versionGauge <- versionGauge
-        _ <- versionGauge.labels(Version.current.value).set(1).toResource
+        _ <- versionGauge.labels(Version.current.value).set().toResource
         latencySummary <- latencySummary
         topicLatencySummary <- topicLatencySummary
         eventsSummary <- eventsSummary

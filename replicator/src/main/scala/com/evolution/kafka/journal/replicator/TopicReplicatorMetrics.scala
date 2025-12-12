@@ -123,14 +123,14 @@ object TopicReplicatorMetrics {
       labels = LabelNames("topic"),
     )
 
-    val clientVersionGauge = registry.gauge(
-      name = s"${ prefix }_kafka_journal_client_version_info",
+    val clientVersionGauge = registry.info(
+      name = s"${ prefix }_kafka_journal_client_version",
       help = "kafka-journal's client version as reported in payloads",
       labels = LabelNames("topic", "version"),
     )
 
-    val expirationDurationGauge = registry.gauge(
-      name = s"${ prefix }_kafka_journal_client_journal_expiration_info",
+    val expirationDurationGauge = registry.info(
+      name = s"${ prefix }_kafka_journal_client_journal_expiration",
       help = "kafka-journal's client expiration as observed in payloads",
       labels = LabelNames("topic", "expiration"),
     )
@@ -170,8 +170,8 @@ object TopicReplicatorMetrics {
               _ <- observeMeasurements("append", measurements)
               _ <- eventsSummary.labels(topic).observe(events.toDouble)
               _ <- bytesSummary.labels(topic).observe(bytes.toDouble)
-              _ <- clientVersionGauge.labels(topic, clientVersion).set(1)
-              _ <- expirationDurationGauge.labels(topic, expiration).set(1)
+              _ <- clientVersionGauge.labels(topic, clientVersion).set()
+              _ <- expirationDurationGauge.labels(topic, expiration).set()
             } yield {}
           }
 

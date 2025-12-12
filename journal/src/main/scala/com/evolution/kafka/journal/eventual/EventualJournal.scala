@@ -141,8 +141,8 @@ object EventualJournal {
       prefix: String = "eventual_journal",
     ): Resource[F, Metrics[F]] = {
 
-      val versionGauge = registry.gauge(
-        name = s"${ prefix }_info",
+      val versionGauge = registry.info(
+        name = s"$prefix",
         help = "Journal version information",
         labels = LabelNames("version"),
       )
@@ -163,7 +163,7 @@ object EventualJournal {
 
       for {
         versionGauge <- versionGauge
-        _ <- versionGauge.labels(Version.current.value).set(1).toResource
+        _ <- versionGauge.labels(Version.current.value).set().toResource
         latencySummary <- latencySummary
         eventsSummary <- eventsSummary
       } yield {
