@@ -134,11 +134,12 @@ object JournalSuite {
       ): F[List[EventRecord[A]]] = {
         for {
           records <- journal.read().toList
-        } yield for {
-          record <- records
-        } yield {
-          record.copy(timestamp = timestamp)
-        }
+        } yield
+          for {
+            record <- records
+          } yield {
+            record.copy(timestamp = timestamp)
+          }
       }
 
       def pointer: F[Option[SeqNr]] = journal.pointer

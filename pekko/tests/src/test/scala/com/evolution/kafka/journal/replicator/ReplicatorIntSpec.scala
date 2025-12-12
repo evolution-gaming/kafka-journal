@@ -162,11 +162,12 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       val recordMetadata1 = recordMetadata.withExpireAfter(expireAfter)
       for {
         partitionOffset <- journal.append(events, recordMetadata1, headers)
-      } yield for {
-        event <- events
-      } yield {
-        EventRecord(event, timestamp, partitionOffset, origin.some, version.some, recordMetadata1, headers)
-      }
+      } yield
+        for {
+          event <- events
+        } yield {
+          EventRecord(event, timestamp, partitionOffset, origin.some, version.some, recordMetadata1, headers)
+        }
     }
 
     "replicate events and expire" in {

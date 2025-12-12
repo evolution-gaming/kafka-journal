@@ -16,11 +16,12 @@ object CassandraMetadata {
     def keyspace(name: String): F[Option[KeyspaceMetadata[F]]] = {
       for {
         keyspace <- metadata.keyspace(name)
-      } yield for {
-        keyspace <- keyspace
-      } yield {
-        KeyspaceMetadata[F](keyspace)
-      }
+      } yield
+        for {
+          keyspace <- keyspace
+        } yield {
+          KeyspaceMetadata[F](keyspace)
+        }
     }
   }
 }
@@ -37,11 +38,12 @@ object KeyspaceMetadata {
     def table(name: String): F[Option[TableMetadata]] = {
       for {
         table <- metadata.table(name)
-      } yield for {
-        table <- table
-      } yield {
-        TableMetadata(table.name)
-      }
+      } yield
+        for {
+          table <- table
+        } yield {
+          TableMetadata(table.name)
+        }
     }
   }
 }
