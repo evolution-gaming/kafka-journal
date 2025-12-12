@@ -60,12 +60,8 @@ lazy val commonSettings = Seq(
     )
   },
   versionPolicyIgnored ++= Seq(
-    // TODO remove after 6.1.0 is out
-    // ssl-config-core 0.6.1 and 0.7.1 ARE binary compatible, ignoring, just as Pekko does for 1.3.0 release
-    // com.typesafe:ssl-config-core_2.13: incompatible version change from 0.6.1 to 0.7.1 (compatibility: package versioning policy)
-    "com.typesafe" %% "ssl-config-core",
-    // skafka is binary compatible, though one rarely used metric's name was changed
-    "com.evolutiongaming" %% "skafka",
+    // add libraries here that are known to be binary incompatible, like:
+//    "com.typesafe" %% "ssl-config-core",
   ),
 )
 
@@ -74,15 +70,11 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
 //  ProblemFilters.exclude[IncompatibleMethTypeProblem](
 //    "com.evolution.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
 //  ),
-  // TODO remove after 6.1.0 is out
-  ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.TopicCache$MapOps"),
-  ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.TopicCache$MapOps$"),
-  ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.TopicCache$SetOps"),
-  ProblemFilters.exclude[MissingClassProblem]("com.evolution.kafka.journal.TopicCache$SetOps$"),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(
   // add mima check overrides for RC-level libraries, like:
+//  "org.tpolecat" %% "doobie-core" % VersionScheme.Always,
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
