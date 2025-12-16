@@ -100,7 +100,7 @@ object Dependencies {
   }
 
   object TestContainers {
-    private val version = "1.21.3"
+    private val version = "1.21.4"
     val Kafka = "org.testcontainers" % "kafka" % version
     val Cassandra = "org.testcontainers" % "cassandra" % version
   }
