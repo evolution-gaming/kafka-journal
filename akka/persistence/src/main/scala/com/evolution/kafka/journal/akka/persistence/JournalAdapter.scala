@@ -185,10 +185,11 @@ object JournalAdapter {
         for {
           key <- toKey(persistenceId)
           pointer <- journals(key).pointer
-        } yield for {
-          pointer <- pointer
-          if pointer >= from
-        } yield pointer
+        } yield
+          for {
+            pointer <- pointer
+            if pointer >= from
+          } yield pointer
       }
     }
   }

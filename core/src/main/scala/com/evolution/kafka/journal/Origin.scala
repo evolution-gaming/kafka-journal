@@ -28,10 +28,11 @@ object Origin {
   def hostName[F[_]: Sync]: F[Option[Origin]] = {
     for {
       hostName <- HostName.of[F]()
-    } yield for {
-      hostName <- hostName
-    } yield {
-      fromHostName(hostName)
-    }
+    } yield
+      for {
+        hostName <- hostName
+      } yield {
+        fromHostName(hostName)
+      }
   }
 }
