@@ -87,29 +87,32 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
         }
         val all = for {
           settings <- settings.all.toList
-        } yield for {
-          setting <- settings
-          if setting.key =!= "schema-version"
-        } yield {
-          fix(setting)
-        }
+        } yield
+          for {
+            setting <- settings
+            if setting.key =!= "schema-version"
+          } yield {
+            fix(setting)
+          }
 
         def get(key: Setting.Key) = for {
           setting <- settings.get(key)
-        } yield for {
-          setting <- setting
-        } yield {
-          fix(setting)
-        }
-
-        def remove(key: Setting.Key) = {
+        } yield
           for {
-            setting <- settings.remove(key)
-          } yield for {
             setting <- setting
           } yield {
             fix(setting)
           }
+
+        def remove(key: Setting.Key) = {
+          for {
+            setting <- settings.remove(key)
+          } yield
+            for {
+              setting <- setting
+            } yield {
+              fix(setting)
+            }
         }
 
         for {
