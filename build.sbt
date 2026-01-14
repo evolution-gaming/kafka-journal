@@ -60,8 +60,9 @@ lazy val commonSettings = Seq(
     )
   },
   versionPolicyIgnored ++= Seq(
-    // add libraries here that are known to be binary incompatible, like:
+    // add libraries here that are known to be binary compatible, like:
 //    "com.typesafe" %% "ssl-config-core",
+    "com.evolutiongaming" %% "skafka", // TODO remove after 6.2.0 release
   ),
 )
 
