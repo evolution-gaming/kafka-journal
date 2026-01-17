@@ -159,11 +159,12 @@ private[journal] object MetaJournalStatements {
             .first
           for {
             row <- row
-          } yield for {
-            row <- row
-          } yield {
-            row.decode[JournalHead]
-          }
+          } yield
+            for {
+              row <- row
+            } yield {
+              row.decode[JournalHead]
+            }
         }
     }
   }
@@ -198,11 +199,12 @@ private[journal] object MetaJournalStatements {
             .first
           for {
             row <- row
-          } yield for {
-            row <- row
-          } yield {
-            JournalPointer(partitionOffset = row.decode[PartitionOffset], seqNr = row.decode[SeqNr])
-          }
+          } yield
+            for {
+              row <- row
+            } yield {
+              JournalPointer(partitionOffset = row.decode[PartitionOffset], seqNr = row.decode[SeqNr])
+            }
         }
     }
   }
