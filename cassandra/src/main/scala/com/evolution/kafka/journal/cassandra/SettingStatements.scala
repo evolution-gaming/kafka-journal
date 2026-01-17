@@ -71,16 +71,17 @@ private[journal] object SettingStatements {
           .setConsistencyLevel(consistencyConfig.value)
         for {
           row <- bound.first
-        } yield for {
-          row <- row
-        } yield {
-          Setting(
-            key = key,
-            value = row.decode[Value]("value"),
-            timestamp = row.decode[Instant]("timestamp"),
-            origin = row.decode[Option[Origin]],
-          )
-        }
+        } yield
+          for {
+            row <- row
+          } yield {
+            Setting(
+              key = key,
+              value = row.decode[Value]("value"),
+              timestamp = row.decode[Instant]("timestamp"),
+              origin = row.decode[Option[Origin]],
+            )
+          }
       }
     }
   }

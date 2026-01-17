@@ -465,21 +465,23 @@ object JournalSpec {
         def delete(to: DeleteTo): F[Option[Offset]] = {
           for {
             partitionOffset <- journal.delete(to)
-          } yield for {
-            partitionOffset <- partitionOffset
-          } yield {
-            partitionOffset.offset
-          }
+          } yield
+            for {
+              partitionOffset <- partitionOffset
+            } yield {
+              partitionOffset.offset
+            }
         }
 
         def purge: F[Option[Offset]] = {
           for {
             partitionOffset <- journal.purge
-          } yield for {
-            partitionOffset <- partitionOffset
-          } yield {
-            partitionOffset.offset
-          }
+          } yield
+            for {
+              partitionOffset <- partitionOffset
+            } yield {
+              partitionOffset.offset
+            }
         }
       }
     }

@@ -25,8 +25,7 @@ private[journal] object BufferNr {
    * List(BufferNr(0), BufferNr(1), BufferNr(2))
    * }}}
    */
-  def listOf(size: Int): List[BufferNr] =
-    (0 until size).toList.map(fromIntUnsafe)
+  def listOf(size: Int): List[BufferNr] = (0 until size).toList.map(fromIntUnsafe)
 
   private def fromIntUnsafe(value: Int): BufferNr =
     new BufferNr(value) {}
