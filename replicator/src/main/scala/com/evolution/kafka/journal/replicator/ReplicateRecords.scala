@@ -99,11 +99,12 @@ private[journal] object ReplicateRecords {
                     JournalError(s"ReplicateRecords failed for id: $id, partition: $partition, offset: $offset: $e", e)
                 }
                 eventualEvents <- events.events.traverse { _.traverse { a => eventualWrite(a) } }
-              } yield for {
-                event <- eventualEvents
-              } yield {
-                EventRecord(record, event, events.metadata)
-              }
+              } yield
+                for {
+                  event <- eventualEvents
+                } yield {
+                  EventRecord(record, event, events.metadata)
+                }
             }
             expireAfter = events.last.metadata.payload.expireAfter
             result <- journal.append(offset, timestamp, expireAfter, events)

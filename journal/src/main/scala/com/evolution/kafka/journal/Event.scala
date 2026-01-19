@@ -13,8 +13,7 @@ object Event {
   implicit def codecEvent[A](
     implicit
     payloadCodec: Codec[Option[A]],
-  ): Codec[Event[A]] =
-    (SeqNr.codecSeqNr :: Tags.codecTags :: payloadCodec).as[Event[A]]
+  ): Codec[Event[A]] = (SeqNr.codecSeqNr :: Tags.codecTags :: payloadCodec).as[Event[A]]
 
   implicit def codecEventPayload(
     implicit

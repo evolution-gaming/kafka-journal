@@ -5,11 +5,7 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.Concurrent
 import cats.syntax.all.*
 import com.evolution.kafka.journal.cassandra.{
-  CassandraSync,
-  CreateKeyspace,
-  CreateTables,
-  MigrateSchema,
-  SettingStatements,
+  CassandraSync, CreateKeyspace, CreateTables, MigrateSchema, SettingStatements,
 }
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.scassandra.TableName
