@@ -6,7 +6,10 @@ import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolution.kafka.journal.cassandra.MigrateSchema.Fresh
 import com.evolution.kafka.journal.cassandra.{
-  CassandraConsistencyConfig, CassandraSync, MigrateSchema, SettingsCassandra,
+  CassandraConsistencyConfig,
+  CassandraSync,
+  MigrateSchema,
+  SettingsCassandra,
 }
 import com.evolution.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.catshelper.LogOf

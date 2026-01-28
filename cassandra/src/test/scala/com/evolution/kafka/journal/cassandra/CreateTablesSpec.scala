@@ -6,7 +6,11 @@ import cats.effect.Resource
 import cats.syntax.all.*
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}
 import com.evolution.kafka.journal.eventual.cassandra.{
-  CassandraCluster, CassandraMetadata, CassandraSession, KeyspaceMetadata, TableMetadata,
+  CassandraCluster,
+  CassandraMetadata,
+  CassandraSession,
+  KeyspaceMetadata,
+  TableMetadata,
 }
 import com.evolution.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.catshelper.Log
