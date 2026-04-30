@@ -23,7 +23,7 @@ object Dependencies {
   val SKafka = "com.evolutiongaming" %% "skafka" % "19.1.0"
   val AkkaTestActor = "com.evolutiongaming" %% "akka-test-actor" % "0.3.0"
   val PekkoTestActor = "com.evolution" %% "pekko-extension-test-actor" % PekkoExtensionVersion
-  val SCache = "com.evolution" %% "scache" % "6.0.0"
+  val SCache = "com.evolution" %% "scache" % "6.0.1"
   val ResourcePool = "com.evolution" %% "resource-pool" % "1.1.0"
 
   object Cats {
