@@ -5,7 +5,7 @@ object Dependencies {
   val ScalaJava8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2"
   val KindProjector = "org.typelevel" % "kind-projector" % "0.13.4"
   val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.5"
-  val KafkaClients = "org.apache.kafka" % "kafka-clients" % "3.9.2"
+  val KafkaClients = "org.apache.kafka" % "kafka-clients" % "4.2.0"
   val PlayJson = "com.typesafe.play" %% "play-json" % "2.10.8"
 
   private val PekkoExtensionVersion = "1.3.1"
