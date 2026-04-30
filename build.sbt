@@ -63,6 +63,8 @@ lazy val commonSettings = Seq(
     // add libraries here that are known to be binary compatible, like:
 //    "com.typesafe" %% "ssl-config-core",
   ),
+  // TODO remove after release of v7.0.1
+  versionPolicyCheck / skip := true,
 )
 
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
