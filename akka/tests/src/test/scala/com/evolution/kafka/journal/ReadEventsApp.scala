@@ -45,9 +45,7 @@ object ReadEventsApp extends IOApp {
   }
 
   private def runF[
-    F[
-      _,
-    ]: Async: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail,
+    F[_]: Async: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail,
   ](
     log: Log[F],
   ): F[Unit] = {
