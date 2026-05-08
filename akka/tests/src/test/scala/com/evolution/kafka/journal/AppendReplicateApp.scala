@@ -39,7 +39,7 @@ object AppendReplicateApp extends IOApp {
     result.as(ExitCode.Success)
   }
 
-  private def runF[F[_]: Async: Parallel: ToFuture: FromGFuture: MeasureDuration: FromAttempt: FromTry: ToTry: Fail](
+  private def runF[F[_]: Async: Parallel: FromGFuture: MeasureDuration: FromAttempt: FromTry: ToTry: Fail](
     topic: Topic,
   )(implicit
     system: ActorSystem,

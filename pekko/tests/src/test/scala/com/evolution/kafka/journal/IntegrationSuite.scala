@@ -23,7 +23,7 @@ object IntegrationSuite {
   // Kafka version: 4.0.0 is too new to be the main test version, 3.9.0 container doesn't start
   private val KafkaDockerImage = DockerImageName.parse("apache/kafka-native:3.8.1")
 
-  def startF[F[_]: Async: ToFuture: LogOf: MeasureDuration: FromTry: ToTry: Fail](
+  def startF[F[_]: Async: LogOf: MeasureDuration: FromTry: ToTry: Fail](
     cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, Unit] = {
 

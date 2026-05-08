@@ -26,7 +26,7 @@ object ReadEventsApp extends IOApp {
     runF[IO].as(ExitCode.Success)
   }
 
-  private def runF[F[_]: Async: ToFuture: Parallel: FromGFuture: FromTry: ToTry: Fail]: F[Unit] = {
+  private def runF[F[_]: Async: Parallel: FromGFuture: FromTry: ToTry: Fail]: F[Unit] = {
 
     for {
       logOf <- LogOf.slf4j[F]
@@ -47,7 +47,7 @@ object ReadEventsApp extends IOApp {
   private def runF[
     F[
       _,
-    ]: Async: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail,
+    ]: Async: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail,
   ](
     log: Log[F],
   ): F[Unit] = {

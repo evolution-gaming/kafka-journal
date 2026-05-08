@@ -5,7 +5,7 @@ object Dependencies {
   val ScalaJava8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2"
   val KindProjector = "org.typelevel" % "kind-projector" % "0.13.4"
   val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.5"
-  val KafkaClients = "org.apache.kafka" % "kafka-clients" % "3.9.2"
+  val KafkaClients = "org.apache.kafka" % "kafka-clients" % "4.2.0"
   val PlayJson = "com.typesafe.play" %% "play-json" % "2.10.8"
 
   private val PekkoExtensionVersion = "2.0.1"
@@ -20,7 +20,7 @@ object Dependencies {
   val Random = "com.evolution" %% "random" % "1.0.5"
   val Retry = "com.evolutiongaming" %% "retry" % "3.1.0"
   val SStream = "com.evolutiongaming" %% "sstream" % "1.1.0"
-  val SKafka = "com.evolutiongaming" %% "skafka" % "19.1.0"
+  val SKafka = "com.evolutiongaming" %% "skafka" % "20.0.0"
   val AkkaTestActor = "com.evolutiongaming" %% "akka-test-actor" % "0.3.0"
   val PekkoTestActor = "com.evolution" %% "pekko-extension-test-actor" % PekkoExtensionVersion
   val SCache = "com.evolution" %% "scache" % "6.0.1"
