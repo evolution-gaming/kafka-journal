@@ -34,7 +34,7 @@ object JournalAdapter {
   def make[
     F[
       _,
-    ]: Async: ToFuture: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
+    ]: Async: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
     A,
   ](
     toKey: ToKey[F],

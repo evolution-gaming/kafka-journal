@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal
 
 import cats.effect.*
-import com.evolutiongaming.catshelper.{MeasureDuration, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{MeasureDuration, ToTry}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics, ConsumerOf}
 
@@ -22,7 +22,7 @@ object KafkaConsumerOf {
     F: KafkaConsumerOf[F],
   ): KafkaConsumerOf[F] = F
 
-  def apply[F[_]: Async: ToTry: ToFuture: MeasureDuration](
+  def apply[F[_]: Async: ToTry: MeasureDuration](
     metrics: Option[ConsumerMetrics[F]] = None,
   ): KafkaConsumerOf[F] = {
 

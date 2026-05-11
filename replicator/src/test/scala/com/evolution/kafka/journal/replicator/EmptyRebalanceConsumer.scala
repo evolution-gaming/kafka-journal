@@ -91,4 +91,6 @@ trait EmptyRebalanceConsumer extends RebalanceConsumer {
 
   override def subscription(): Try[Set[Topic]] = Failure(new NotImplementedError)
 
+  override def currentLag(partition: TopicPartition): Try[Option[Long]] = Failure(new NotImplementedError)
+
 }

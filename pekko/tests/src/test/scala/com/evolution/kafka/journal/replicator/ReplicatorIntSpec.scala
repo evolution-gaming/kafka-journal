@@ -42,9 +42,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private implicit val randomIdOf: RandomIdOf[IO] = RandomIdOf.uuid[IO]
 
-  private def resources[
-    F[_]: Async: LogOf: Parallel: FromFuture: ToFuture: RandomIdOf: MeasureDuration: FromTry: ToTry: Fail,
-  ](
+  private def resources[F[_]: Async: LogOf: Parallel: FromFuture: RandomIdOf: MeasureDuration: FromTry: ToTry: Fail](
     cassandraClusterOf: CassandraClusterOf[F],
   ) = {
 
