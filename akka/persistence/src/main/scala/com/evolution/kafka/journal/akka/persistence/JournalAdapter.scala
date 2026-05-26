@@ -14,8 +14,9 @@ import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
-import com.evolutiongaming.skafka.{ClientId, CommonConfig}
+import com.evolutiongaming.skafka.{ClientId, CommonConfig, Topic}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 trait JournalAdapter[F[_]] {
@@ -48,6 +49,37 @@ object JournalAdapter {
     appendMetadataOf: AppendMetadataOf[F],
     cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, JournalAdapter[F]] = {
+    makeWithJournals[F, A](
+      toKey = toKey,
+      origin = origin,
+      serializer = serializer,
+      journalReadWrite = journalReadWrite,
+      config = config,
+      metrics = metrics,
+      log = log,
+      batching = batching,
+      appendMetadataOf = appendMetadataOf,
+      cassandraClusterOf = cassandraClusterOf,
+    ).map { case (adapter, _) => adapter }
+  }
+
+  def makeWithJournals[
+    F[
+      _,
+    ]: Async: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
+    A,
+  ](
+    toKey: ToKey[F],
+    origin: Option[Origin],
+    serializer: EventSerializer[F, A],
+    journalReadWrite: JournalReadWrite[F, A],
+    config: KafkaJournalConfig,
+    metrics: Metrics[F],
+    log: Log[F],
+    batching: Batching[F],
+    appendMetadataOf: AppendMetadataOf[F],
+    cassandraClusterOf: CassandraClusterOf[F],
+  ): Resource[F, (JournalAdapter[F], Journals[F])] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
 
@@ -109,9 +141,11 @@ object JournalAdapter {
         cassandraClusterOf,
         config.dataIntegrity,
       )
-      journal <- journal(eventualJournal)(kafkaConsumerOf, kafkaProducerOf, headCacheOf1)
+      journals <- journal(eventualJournal)(kafkaConsumerOf, kafkaProducerOf, headCacheOf1)
     } yield {
-      JournalAdapter[F, A](journal, toKey, serializer, journalReadWrite, appendMetadataOf).withBatching(batching)
+      val adapter = JournalAdapter[F, A](journals, toKey, serializer, journalReadWrite, appendMetadataOf)
+        .withBatching(batching)
+      (adapter, journals)
     }
   }
 
