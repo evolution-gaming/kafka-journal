@@ -201,8 +201,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       logOf <- logOf
       log <- logOf(classOf[KafkaJournal]).toResource
       _ <- log.debug(s"config: $config").toResource
-      adapter <- Resource {
-        val adapter = for {
+      pair <- Resource {
+        val build = for {
           randomId <- randomIdOf
           measureDuration <- measureDuration
           toKey <- toKey
@@ -212,7 +212,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
           batching <- batching(config)
           cassandraClusterOf <- cassandraClusterOf
           jsonCodec <- jsonCodec(config).toResource
-          adapter <- adapterOf(
+          pair <- adapterOfWithJournals(
             toKey = toKey,
             origin = origin,
             serializer = serializer,
@@ -224,7 +224,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
             log = log,
             cassandraClusterOf = cassandraClusterOf,
           )(logOf = logOf, randomIdOf = randomId, measureDuration = measureDuration, jsonCodec = jsonCodec)
-        } yield adapter
+        } yield pair
         val strategy = Strategy
           .fibonacci(100.millis)
           .cap(config.startTimeout)
@@ -241,19 +241,54 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
             }
           }
         }
-        adapter
+        build
           .allocated
           .retry(strategy, onError)
           .timeout(config.startTimeout)
           .map {
-            case (adapter, release0) =>
+            case (pair, release0) =>
               val release = release0
                 .timeout(config.startTimeout)
                 .handleErrorWith { e => log.error(s"release failed with $e", e) }
-              (adapter, release)
+              (pair, release)
           }
       }
+      (adapter, journals) = pair
+      ref <- KafkaJournalsRef.actorSystemRef[IO](system).toResource
+      _ <- ref.set(KafkaJournalsRef(journals)).toResource
     } yield adapter
+  }
+
+  def adapterOfWithJournals[A](
+    toKey: ToKey[IO],
+    origin: Option[Origin],
+    serializer: EventSerializer[IO, A],
+    journalReadWrite: JournalReadWrite[IO, A],
+    config: KafkaJournalConfig,
+    metrics: JournalAdapter.Metrics[IO],
+    appendMetadataOf: AppendMetadataOf[IO],
+    batching: Batching[IO],
+    log: Log[IO],
+    cassandraClusterOf: CassandraClusterOf[IO],
+  )(implicit
+    logOf: LogOf[IO],
+    randomIdOf: RandomIdOf[IO],
+    measureDuration: MeasureDuration[IO],
+    jsonCodec: JsonCodec[IO],
+  ): Resource[IO, (JournalAdapter[IO], Journals[IO])] = {
+
+    JournalAdapter.makeWithJournals[IO, A](
+      toKey = toKey,
+      origin = origin,
+      serializer = serializer,
+      journalReadWrite = journalReadWrite,
+      config = config,
+      metrics = metrics,
+      log = log,
+      batching = batching,
+      appendMetadataOf = appendMetadataOf,
+      cassandraClusterOf = cassandraClusterOf,
+    )
   }
 
   def adapterOf[A](
@@ -274,18 +309,18 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     jsonCodec: JsonCodec[IO],
   ): Resource[IO, JournalAdapter[IO]] = {
 
-    JournalAdapter.make[IO, A](
+    adapterOfWithJournals(
       toKey = toKey,
       origin = origin,
       serializer = serializer,
       journalReadWrite = journalReadWrite,
       config = config,
       metrics = metrics,
-      log = log,
-      batching = batching,
       appendMetadataOf = appendMetadataOf,
+      batching = batching,
+      log = log,
       cassandraClusterOf = cassandraClusterOf,
-    )
+    ).map { case (adapter, _) => adapter }
   }
 
   override def postStop(): Unit = {
