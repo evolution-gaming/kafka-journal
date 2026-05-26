@@ -48,6 +48,16 @@ trait Journal[F[_]] {
    * key, consecutive pointer call will return `None`. Mostly used by [[PurgeExpired]].
    */
   def purge: F[Option[PartitionOffset]]
+
+  /**
+   * Produces a `mark` action with the given correlation id, returning the partition/offset where
+   * the mark was produced.
+   *
+   * Intended for clients that need to observe replication of preceding actions externally, by
+   * subscribing to marks in the replicated topic. The `id` should be unique per use case (callers
+   * are responsible for generating an id with sufficient entropy).
+   */
+  def mark(id: String): F[PartitionOffset]
 }
 
 object Journal {
@@ -77,6 +87,8 @@ object Journal {
       def delete(to: DeleteTo): F[Option[PartitionOffset]] = none[PartitionOffset].pure[F]
 
       def purge: F[Option[PartitionOffset]] = none[PartitionOffset].pure[F]
+
+      def mark(id: String): F[PartitionOffset] = PartitionOffset.empty.pure[F]
     }
   }
 
@@ -175,6 +187,15 @@ object Journal {
             _ <- logDebugOrWarn(d, config.purge) { s"$key purge in ${ d.toMillis }ms, result: $r" }
           } yield r
         }
+
+        def mark(id: String): F[PartitionOffset] = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.mark(id)
+            d <- d
+            _ <- logDebugOrWarn(d, config.mark) { s"$key mark in ${ d.toMillis }ms, id: $id, result: $r" }
+          } yield r
+        }
       }
     }
 
@@ -254,6 +275,14 @@ object Journal {
             self.purge
           } { (error, latency) =>
             s"$key purge failed in ${ latency.toMillis }ms, error: $error"
+          }
+        }
+
+        def mark(id: String): F[PartitionOffset] = {
+          logError {
+            self.mark(id)
+          } { (error, latency) =>
+            s"$key mark failed in ${ latency.toMillis }ms, id: $id, error: $error"
           }
         }
       }
@@ -344,6 +373,15 @@ object Journal {
             _ <- metrics.purge(topic, d)
           } yield r
         }
+
+        def mark(id: String): F[PartitionOffset] = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- handleError("mark", topic) { self.mark(id) }
+            d <- d
+            _ <- metrics.mark(topic, d)
+          } yield r
+        }
       }
     }
 
@@ -373,6 +411,8 @@ object Journal {
         def delete(to: DeleteTo): G[Option[PartitionOffset]] = fg(self.delete(to))
 
         def purge: G[Option[PartitionOffset]] = fg(self.purge)
+
+        def mark(id: String): G[PartitionOffset] = fg(self.mark(id))
       }
     }
   }
@@ -383,6 +423,7 @@ object Journal {
     pointer: FiniteDuration = 1.second,
     delete: FiniteDuration = 1.second,
     purge: FiniteDuration = 1.second,
+    mark: FiniteDuration = 1.second,
   )
 
   object CallTimeThresholds {

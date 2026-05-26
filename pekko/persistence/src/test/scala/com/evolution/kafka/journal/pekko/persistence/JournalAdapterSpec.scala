@@ -223,6 +223,12 @@ object JournalAdapterSpec {
             (state1, none[PartitionOffset])
           }
         }
+
+        def mark(id: String): StateT[PartitionOffset] = {
+          StateT { state =>
+            (state, partitionOffset)
+          }
+        }
       }
     }
 

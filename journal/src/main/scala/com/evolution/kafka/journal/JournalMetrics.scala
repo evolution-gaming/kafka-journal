@@ -23,6 +23,8 @@ trait JournalMetrics[F[_]] {
 
   def purge(topic: Topic, latency: FiniteDuration): F[Unit]
 
+  def mark(topic: Topic, latency: FiniteDuration): F[Unit]
+
   def failure(topic: Topic, name: String): F[Unit]
 }
 
@@ -45,6 +47,8 @@ object JournalMetrics {
       def delete(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
       def purge(topic: Topic, latency: FiniteDuration): F[Unit] = unit
+
+      def mark(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
       def failure(topic: Topic, name: String): F[Unit] = unit
     }
@@ -120,6 +124,10 @@ object JournalMetrics {
 
         def purge(topic: Topic, latency: FiniteDuration): F[Unit] = {
           observeLatency(name = "purge", topic = topic, latency = latency)
+        }
+
+        def mark(topic: Topic, latency: FiniteDuration): F[Unit] = {
+          observeLatency(name = "mark", topic = topic, latency = latency)
         }
 
         def failure(topic: Topic, name: String): F[Unit] = {

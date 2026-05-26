@@ -139,6 +139,19 @@ class JournalSpec extends AnyWordSpec with Matchers {
         }
       }
 
+      s"mark, $name" in {
+        createAndAppend {
+          case (journal, _) =>
+            for {
+              _ <- journal.mark("test-mark-id")
+              a <- journal.read(SeqRange.all)
+              _ = a shouldEqual seqNrs
+              a <- journal.pointer
+              _ = a shouldEqual seqNrLast
+            } yield Succeeded
+        }
+      }
+
       s"lastSeqNr, $name" in {
         createAndAppend {
           case (journal, _) =>
@@ -243,6 +256,37 @@ class JournalSpec extends AnyWordSpec with Matchers {
           a shouldEqual List(SeqNr.unsafe(2))
         }
       }
+    }
+  }
+
+  "Journal.mark" should {
+    "produce an Action.Mark with the supplied id" in {
+      implicit val clock: Clock[StateT] = Clock.const[StateT](nanos = 0, millis = timestamp.toEpochMilli)
+      implicit val randomIdOf: RandomIdOf[StateT] = RandomIdOf.uuid[StateT]
+      implicit val measureDuration: MeasureDuration[StateT] = MeasureDuration.fromClock(clock)
+      val log = Log.empty[StateT]
+
+      val journals = Journals[StateT](
+        eventual = StateT.eventualJournal,
+        consumeActionRecords = StateT.consumeActionRecords,
+        produce = Produce(StateT.produceAction, none),
+        headCache = StateT.headCache,
+        log = log,
+        conversionMetrics = none,
+      )
+
+      val (state, partitionOffset) = journals(JournalSpec.key)
+        .mark("custom-purge-id")
+        .run(State.empty)
+        .unsafeRunSync()
+
+      val ids = state
+        .records
+        .toList
+        .collect { case ActionRecord(a: Action.Mark, _) => a.id }
+
+      ids shouldEqual List("custom-purge-id")
+      partitionOffset.partition shouldEqual partition
     }
   }
 
@@ -414,6 +458,8 @@ object JournalSpec {
     def delete(to: DeleteTo): F[Option[Offset]]
 
     def purge: F[Option[Offset]]
+
+    def mark(id: String): F[Offset]
   }
 
   object SeqNrJournal {
@@ -482,6 +528,14 @@ object JournalSpec {
             } yield {
               partitionOffset.offset
             }
+        }
+
+        def mark(id: String): F[Offset] = {
+          for {
+            partitionOffset <- journal.mark(id)
+          } yield {
+            partitionOffset.offset
+          }
         }
       }
     }
