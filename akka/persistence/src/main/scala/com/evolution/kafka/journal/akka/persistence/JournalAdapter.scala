@@ -14,9 +14,8 @@ import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
-import com.evolutiongaming.skafka.{ClientId, CommonConfig, Topic}
+import com.evolutiongaming.skafka.{ClientId, CommonConfig}
 
-import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 trait JournalAdapter[F[_]] {
