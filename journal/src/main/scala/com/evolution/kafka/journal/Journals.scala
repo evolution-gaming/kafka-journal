@@ -336,6 +336,10 @@ object Journals {
               .purge(key)
               .map { _.some }
           }
+
+          def mark(id: String): F[PartitionOffset] = {
+            produce.mark(key, RandomId(id))
+          }
         }
       }
     }
