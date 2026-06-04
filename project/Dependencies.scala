@@ -14,7 +14,7 @@ object Dependencies {
   val AkkaSerialization = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
   val PekkoSerialization = "com.evolution" %% "pekko-extension-serialization" % PekkoExtensionVersion
   val Hostname = "com.evolutiongaming" %% "hostname" % "1.0.0"
-  val SCassandra = "com.evolutiongaming" %% "scassandra" % "5.4.0"
+  val SCassandra = "com.evolutiongaming" %% "scassandra" % "5.5.0"
   val CassandraSync = "com.evolutiongaming" %% "cassandra-sync" % "4.0.0"
   val CatsHelper = "com.evolutiongaming" %% "cats-helper" % "3.12.2"
   val Random = "com.evolution" %% "random" % "1.0.5"
