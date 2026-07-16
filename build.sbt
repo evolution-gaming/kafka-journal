@@ -77,12 +77,6 @@ ThisBuild / libraryDependencySchemes ++= Seq(
 //  "org.tpolecat" %% "doobie-core" % VersionScheme.Always,
 )
 
-// precaution to NOT allow accidental transitive dependency
-ThisBuild / excludeDependencies ++= Seq(
-  ExclusionRule("com.typesafe.play", "play-json_2.13"),
-  ExclusionRule("com.typesafe.play", "play-functional_2.13"),
-)
-
 val alias: Seq[sbt.Def.Setting[?]] =
   addCommandAlias("fmt", "+all scalafmtAll scalafmtSbt") ++
     addCommandAlias(
