@@ -35,11 +35,12 @@ jobs:
         run: sbt ++${{ matrix.scala }} clean check
 
       - name: build ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} clean coverage test
+        run: sbt ++${{ matrix.scala }} clean coverage test coverageAggregate
 
       - name: test coverage
         if: success()
-        run: sbt ++${{ matrix.scala }} coverageAggregate coveralls
-        env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_FLAG_NAME: Scala ${{ matrix.scala }}
+        uses: coverallsapp/github-action@v2
+        with:
+          file: target/out/jvm/scala-${{ matrix.scala }}/kafka-journal-root/coverage-report/cobertura.xml
+          format: cobertura
+          flag-name: Scala ${{ matrix.scala }}

@@ -16,7 +16,7 @@ lazy val commonSettings = Seq(
   ),
   scalacOptions ++= crossSettings(
     scalaVersion = scalaVersion.value,
-    // Good compiler options for Scala 2.13 are coming from com.evolution:sbt-scalac-opts-plugin:0.0.9,
+    // Good compiler options for Scala 2.13 are coming from com.evolution:sbt-scalac-opts-plugin:0.1.0,
     // but its support for Scala 3 is limited, especially what concerns linting options.
     //
     // If Scala 3 is made the primary target, good linting scalac options for it should be added first.
@@ -37,6 +37,9 @@ lazy val commonSettings = Seq(
   ),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
+  // -Wnonunit-statement (added in sbt-scalac-opts-plugin 0.1.0) flags ScalaTest's
+  // `x shouldEqual y` used as a non-final statement; too noisy to fix across specs right now.
+  Test / scalacOptions -= "-Wnonunit-statement",
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   // set up compiler plugins:
@@ -87,7 +90,7 @@ val alias: Seq[sbt.Def.Setting[?]] =
 
 lazy val root = project
   .in(file("."))
-  .settings(name := "kafka-journal")
+  .settings(name := "kafka-journal-root")
   .settings(commonSettings)
   .settings(publish / skip := true)
   .settings(alias)
