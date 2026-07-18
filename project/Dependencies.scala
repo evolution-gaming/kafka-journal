@@ -9,7 +9,7 @@ object Dependencies {
   val PlayJson = "org.playframework" %% "play-json" % "3.0.6"
 
   private val PekkoExtensionVersion = "2.0.1"
-  val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.2.3"
+  val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.3.0"
   val ExecutorTools = "com.evolutiongaming" %% "executor-tools" % "1.0.5"
   val AkkaSerialization = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
   val PekkoSerialization = "com.evolution" %% "pekko-extension-serialization" % PekkoExtensionVersion
