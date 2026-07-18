@@ -32,10 +32,10 @@ jobs:
         uses: sbt/setup-sbt@v1
 
       - name: check code ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} clean check
+        run: sbt "++${{ matrix.scala }}; clean; check"
 
       - name: build ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} clean coverage test coverageAggregate
+        run: sbt "++${{ matrix.scala }}; clean; coverage; test; coverageAggregate"
 
       - name: test coverage
         if: success()
