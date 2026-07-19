@@ -65,7 +65,13 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
     val badPersistentRepr = PersistentRepr("bad", persistenceId = persistenceId)
     val awsWithBad = List(AtomicWrite(List(persistentRepr)), AtomicWrite(List(badPersistentRepr)))
     val adapter =
-      JournalAdapter[StateT, Payload](StateT.JournalsStateF, toKey, failingSerializer, journalReadWrite, appendMetadataOf)
+      JournalAdapter[StateT, Payload](
+        StateT.JournalsStateF,
+        toKey,
+        failingSerializer,
+        journalReadWrite,
+        appendMetadataOf,
+      )
     val (data, result) = adapter.write(awsWithBad).run(State.empty).get
     result shouldEqual List(scala.util.Success(()), scala.util.Failure(serializationError))
     data shouldEqual State(appends = List(appendOf(key1, Nel.of(event))))
