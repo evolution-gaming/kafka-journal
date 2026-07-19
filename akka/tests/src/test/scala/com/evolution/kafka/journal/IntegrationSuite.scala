@@ -43,9 +43,9 @@ object IntegrationSuite {
     ): Resource[F, Unit] = {
 
       def startContainer: F[C] =
-        Sync[F].blocking {
-          val container = makeContainer
-            .withCreateContainerCmdModifier { cmd =>
+        Sync[F]
+          .blocking {
+            makeContainer.withCreateContainerCmdModifier { cmd =>
               cmd.withHostConfig(
                 new HostConfig()
                   .withPortBindings(new PortBinding(
@@ -55,18 +55,38 @@ object IntegrationSuite {
               )
               ()
             }
-          container.start()
-          container
-        }
+          }
+          .flatMap { container =>
+            Sync[F]
+              .blocking { container.start() }
+              .as(container)
+              // remove the partially-created container so a retry can rebind the port
+              .onError { case _ => Sync[F].blocking { container.stop() }.handleError(_ => ()) }
+          }
 
       // The containers bind fixed host ports, so only one test module can use them at a time.
       // Under sbt 2 the forked-test JVM closes its classloader (and the cats-effect runtime)
       // before shutdown hooks run, so the previous module's cleanup fails to stop its container
       // and it leaks the port. The out-of-process testcontainers Ryuk reaper frees it a few
-      // seconds after that JVM exits, so retry startup for a while to let the port become free.
+      // seconds after that JVM exits, so retry startup while the port is still held.
+      def portInUse(error: Throwable): Boolean = {
+        @annotation.tailrec
+        def loop(t: Throwable): Boolean = {
+          val message = Option(t.getMessage).fold("")(_.toLowerCase)
+          if (message.contains("already allocated") || message.contains("already in use")) true
+          else
+            t.getCause match {
+              case null => false
+              case cause if cause eq t => false
+              case cause => loop(cause)
+            }
+        }
+        loop(error)
+      }
+
       def startContainerWithRetry(attemptsLeft: Int): F[C] =
         startContainer.handleErrorWith { error =>
-          if (attemptsLeft <= 1) error.raiseError[F, C]
+          if (attemptsLeft <= 1 || !portInUse(error)) error.raiseError[F, C]
           else
             log.warn(s"failed to start container on port $exposeStaticPort, retrying: ${ error.getMessage }") *>
               Temporal[F].sleep(3.seconds) *>

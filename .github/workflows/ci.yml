@@ -37,10 +37,15 @@ jobs:
       - name: build ${{ matrix.scala }}
         run: sbt "++${{ matrix.scala }}; clean; coverage; test; coverageAggregate"
 
+      - name: locate coverage report
+        id: coverage
+        if: success()
+        run: echo "file=$(find . -path '*/coverage-report/cobertura.xml' | head -1)" >> "$GITHUB_OUTPUT"
+
       - name: test coverage
         if: success()
         uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e # v2.3.7
         with:
-          file: target/out/jvm/scala-${{ matrix.scala }}/kafka-journal-root/coverage-report/cobertura.xml
+          file: ${{ steps.coverage.outputs.file }}
           format: cobertura
           flag-name: Scala ${{ matrix.scala }}
