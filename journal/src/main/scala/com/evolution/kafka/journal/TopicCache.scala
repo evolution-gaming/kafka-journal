@@ -188,7 +188,12 @@ private[journal] object TopicCache {
                       cachesMap
                         .get(partition)
                         .fold {
-                          JournalError(s"invalid partition: $partition").raiseError[F, Sample]
+                          // A partition appeared that was not present when the cache was built
+                          // (the topic was repartitioned after init). `cachesMap` is fixed, so
+                          // retrying cannot recover: signal failure to rebuild the whole cache,
+                          // which re-reads partitions and picks up the new one.
+                          val error = JournalError(s"invalid partition: $partition")
+                          failure.complete(error) >> error.raiseError[F, Sample]
                         } { cache =>
                           cache
                             .add(records)
