@@ -161,8 +161,22 @@ object HeadCache {
           val log1 = log.prefixed(topic)
           cache
             .getOrUpdateResource(topic) {
+              val onBackgroundFailure = (e: Throwable) =>
+                log1.error(s"background task failed, rebuilding cache: $e", e) >>
+                  // Detach the eviction: `remove` releases this very resource (cancelling the
+                  // task that called us), so it must not run within this scope.
+                  cache.remove(topic).void.start.void
               TopicCache
-                .make(eventual, topic, log1, consumer, config, consRecordToActionHeader, metrics.map { _.headCache })
+                .make(
+                  eventual,
+                  topic,
+                  log1,
+                  consumer,
+                  config,
+                  consRecordToActionHeader,
+                  metrics.map { _.headCache },
+                  onBackgroundFailure,
+                )
                 .map { cache =>
                   metrics
                     .fold(cache) { metrics => cache.withMetrics(topic, metrics.headCache) }

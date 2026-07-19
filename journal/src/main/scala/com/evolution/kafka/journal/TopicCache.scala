@@ -70,6 +70,10 @@ private[journal] object TopicCache {
    *   payload will be ignored.
    * @param metrics
    *   Interface to report the metrics to.
+   * @param onBackgroundFailure
+   *   Called once if any of the background tasks (Kafka consumption, Cassandra polling) terminates
+   *   abnormally. The intended use is to invalidate this cache so it gets rebuilt on the next
+   *   access, rather than silently degrading. It is not called on normal shutdown (cancellation).
    * @return
    *   Resource which will configure a [[TopicCache]] with the passed parameters. Instance of
    *   `Resource[TopicCache]` are, obviously, reusable and there is no need to call
@@ -83,6 +87,7 @@ private[journal] object TopicCache {
     config: HeadCacheConfig,
     consRecordToActionHeader: ConsRecordToActionHeader[F],
     metrics: Option[HeadCache.Metrics[F]],
+    onBackgroundFailure: Throwable => F[Unit],
   ): Resource[F, TopicCache[F]] = {
 
     for {
@@ -106,6 +111,19 @@ private[journal] object TopicCache {
         }
 
       cachesMap = caches.toMap
+
+      // Completed with the first background task failure. A background task is not expected to
+      // terminate on its own: consumption retries forever and the polling loops are `foreverM`, so
+      // any completion (error or unexpected success) means the cache stopped doing its job.
+      failure <- Deferred[F, Throwable].toResource
+      onBackgroundExit = (name: String) =>
+        (outcome: Outcome[F, Throwable, Unit]) =>
+          outcome match {
+            case Outcome.Succeeded(_) =>
+              failure.complete(JournalError(s"headcache background task '$name' terminated unexpectedly")).void
+            case Outcome.Errored(e) => failure.complete(e).void
+            case Outcome.Canceled() => ().pure[F]
+          }
 
       remove = caches
         .foldMapM {
@@ -213,7 +231,8 @@ private[journal] object TopicCache {
               }
           } yield result
         }
-        .onError { case e => log.error(s"consuming failed with $e", e) } /*TODO headcache: fail head cache*/
+        .onError { case e => log.error(s"consuming failed with $e", e) }
+        .guaranteeCase(onBackgroundExit("consuming"))
         .background
       random <- Random.State.fromClock[F]().toResource
       strategy = Strategy
@@ -226,7 +245,10 @@ private[journal] object TopicCache {
         .retry(strategy)
         .handleErrorWith { e => log.error(s"remove failed, error: $e", e) }
         .foreverM[Unit]
+        .guaranteeCase(onBackgroundExit("remove"))
         .background
+      // Rebuild the cache when a background task dies, instead of serving stale/empty results forever.
+      _ <- failure.get.flatMap { e => onBackgroundFailure(e) }.background
       _ <- metrics.foldMapM { metrics =>
         val result = for {
           _ <- Temporal[F].sleep(1.minute)
