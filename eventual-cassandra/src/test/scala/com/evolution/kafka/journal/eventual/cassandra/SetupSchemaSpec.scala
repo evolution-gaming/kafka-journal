@@ -14,8 +14,8 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
-import scala.util.{Failure, Try}
 import scala.util.control.NoStackTrace
+import scala.util.{Failure, Try}
 
 class SetupSchemaSpec extends AnyFunSuite with Matchers {
   import SetupSchemaSpec.*
@@ -238,8 +238,8 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   }
 
   /**
-   * A [[CassandraSession]] whose `execute` raises the error returned by `fail` for a given query, or
-   * yields no rows when `fail` returns `None`.
+   * A [[CassandraSession]] whose `execute` raises the error returned by `fail` for a given query,
+   * or yields no rows when `fail` returns `None`.
    */
   private def failingSession(fail: String => Option[Throwable]): CassandraSession[Try] =
     new CassandraSession[Try] {
@@ -269,7 +269,9 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     SetupSchema.migrate[Try](schema, fresh, settings, trySync)
   }
 
-  /** A minimal mutable [[Settings]] backed by a single version value. */
+  /**
+   * A minimal mutable [[Settings]] backed by a single version value.
+   */
   private final class TrySettings(initial: Option[String]) extends Settings[Try] {
 
     var value: Option[String] = initial
