@@ -25,6 +25,79 @@ object IntegrationSuite {
   // Kafka version: 4.0.0 is too new to be the main test version, 3.9.0 container doesn't start
   private val KafkaDockerImage = DockerImageName.parse("apache/kafka-native:3.8.1")
 
+  // Whether the throwable (or any cause in its chain) is a "host port already taken" failure.
+  private def portInUse(error: Throwable): Boolean = {
+    def indicatesPortInUse(t: Throwable): Boolean = {
+      val message = Option(t.getMessage).fold("")(_.toLowerCase)
+      message.contains("already allocated") || message.contains("already in use")
+    }
+    def loop(t: Throwable): Boolean =
+      indicatesPortInUse(t) ||
+        (t.getCause match {
+          case null => false
+          case cause if cause eq t => false
+          case cause => loop(cause)
+        })
+    loop(error)
+  }
+
+  private def testContainer[F[_]: Async, C <: GenericContainer[C]](
+    log: Log[F],
+    exposeStaticPort: Int,
+  )(
+    makeContainer: => C,
+  ): Resource[F, Unit] = {
+
+    def startContainer: F[C] =
+      Sync[F]
+        .blocking {
+          makeContainer.withCreateContainerCmdModifier { cmd =>
+            cmd.withHostConfig(
+              new HostConfig()
+                .withPortBindings(new PortBinding(
+                  Ports.Binding.bindPort(exposeStaticPort),
+                  new ExposedPort(exposeStaticPort),
+                )),
+            )
+            ()
+          }
+        }
+        .flatMap { container =>
+          Sync[F]
+            .blocking { container.start() }
+            .as(container)
+            // remove the partially-created container so a retry can rebind the port
+            .onError { case _ => Sync[F].blocking { container.stop() }.handleError(_ => ()) }
+        }
+
+    // The containers bind fixed host ports, so only one test module can use them at a time.
+    // Under sbt 2 the forked-test JVM closes its classloader (and the cats-effect runtime)
+    // before shutdown hooks run, so the previous module's cleanup fails to stop its container
+    // and it leaks the port. The out-of-process testcontainers Ryuk reaper frees it a few
+    // seconds after that JVM exits, so retry startup while the port is still held.
+    def startContainerWithRetry(attemptsLeft: Int): F[C] =
+      startContainer.handleErrorWith { error =>
+        if (attemptsLeft <= 1 || !portInUse(error)) error.raiseError[F, C]
+        else
+          log.warn(s"failed to start container on port $exposeStaticPort, retrying: ${ error.getMessage }") *>
+            Temporal[F].sleep(3.seconds) *>
+            startContainerWithRetry(attemptsLeft - 1)
+      }
+
+    Resource
+      .make {
+        startContainerWithRetry(attemptsLeft = 20) // ~1 minute total
+      } { container =>
+        Sync[F]
+          .blocking { container.stop() }
+          .onError {
+            case t =>
+              log.error(s"failed to stop $container: ${ t.getMessage }", t)
+          }
+      }
+      .void
+  }
+
   def startF[F[_]: Async: LogOf: MeasureDuration: FromTry: ToTry: Fail](
     cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, Unit] = {
@@ -34,78 +107,6 @@ object IntegrationSuite {
 
     def kafkaContainer(log: Log[F]): Resource[F, Unit] =
       testContainer(log, exposeStaticPort = 9092)(new KafkaContainer(KafkaDockerImage))
-
-    def testContainer[C <: GenericContainer[C]](
-      log: Log[F],
-      exposeStaticPort: Int,
-    )(
-      makeContainer: => C,
-    ): Resource[F, Unit] = {
-
-      def startContainer: F[C] =
-        Sync[F]
-          .blocking {
-            makeContainer.withCreateContainerCmdModifier { cmd =>
-              cmd.withHostConfig(
-                new HostConfig()
-                  .withPortBindings(new PortBinding(
-                    Ports.Binding.bindPort(exposeStaticPort),
-                    new ExposedPort(exposeStaticPort),
-                  )),
-              )
-              ()
-            }
-          }
-          .flatMap { container =>
-            Sync[F]
-              .blocking { container.start() }
-              .as(container)
-              // remove the partially-created container so a retry can rebind the port
-              .onError { case _ => Sync[F].blocking { container.stop() }.handleError(_ => ()) }
-          }
-
-      // The containers bind fixed host ports, so only one test module can use them at a time.
-      // Under sbt 2 the forked-test JVM closes its classloader (and the cats-effect runtime)
-      // before shutdown hooks run, so the previous module's cleanup fails to stop its container
-      // and it leaks the port. The out-of-process testcontainers Ryuk reaper frees it a few
-      // seconds after that JVM exits, so retry startup while the port is still held.
-      def portInUse(error: Throwable): Boolean = {
-        @annotation.tailrec
-        def loop(t: Throwable): Boolean = {
-          val message = Option(t.getMessage).fold("")(_.toLowerCase)
-          if (message.contains("already allocated") || message.contains("already in use")) true
-          else
-            t.getCause match {
-              case null => false
-              case cause if cause eq t => false
-              case cause => loop(cause)
-            }
-        }
-        loop(error)
-      }
-
-      def startContainerWithRetry(attemptsLeft: Int): F[C] =
-        startContainer.handleErrorWith { error =>
-          if (attemptsLeft <= 1 || !portInUse(error)) error.raiseError[F, C]
-          else
-            log.warn(s"failed to start container on port $exposeStaticPort, retrying: ${ error.getMessage }") *>
-              Temporal[F].sleep(3.seconds) *>
-              startContainerWithRetry(attemptsLeft - 1)
-        }
-
-      Resource
-        .make {
-          startContainerWithRetry(attemptsLeft = 20) // ~1 minute total
-        } { container =>
-          Sync[F]
-            .blocking { container.stop() }
-            .onError {
-              case t =>
-                log.error(s"failed to stop $container: ${ t.getMessage }", t)
-            }
-        }
-        .void
-    }
 
     def replicator(log: Log[F]) = {
       implicit val kafkaConsumerOf: KafkaConsumerOf[F] = KafkaConsumerOf[F]()
