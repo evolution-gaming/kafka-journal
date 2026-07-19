@@ -24,6 +24,7 @@ final case class ReplicatorConfig(
     ),
   ),
   pollTimeout: FiniteDuration = 10.millis,
+  replicationParallelism: Int = 100,
 )
 
 object ReplicatorConfig {
@@ -78,6 +79,7 @@ object ReplicatorConfig {
       kafka = get[KafkaConfig]("kafka") getOrElse default.kafka,
       cassandra = get[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
       pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout,
+      replicationParallelism = get[Int]("replication-parallelism") getOrElse default.replicationParallelism,
     )
   }
 }
