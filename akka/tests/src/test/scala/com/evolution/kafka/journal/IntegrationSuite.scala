@@ -17,6 +17,8 @@ import org.testcontainers.containers.GenericContainer
 import org.testcontainers.kafka.KafkaContainer
 import org.testcontainers.utility.DockerImageName
 
+import scala.concurrent.duration.*
+
 object IntegrationSuite {
   // Cassandra version: latest 4.x
   private val CassandraDockerImage = DockerImageName.parse("cassandra:4.1.8")
@@ -39,7 +41,8 @@ object IntegrationSuite {
     )(
       makeContainer: => C,
     ): Resource[F, Unit] = {
-      Resource.make {
+
+      def startContainer: F[C] =
         Sync[F].blocking {
           val container = makeContainer
             .withCreateContainerCmdModifier { cmd =>
@@ -55,14 +58,33 @@ object IntegrationSuite {
           container.start()
           container
         }
-      } { container =>
-        Sync[F]
-          .blocking { container.stop() }
-          .onError {
-            case t =>
-              log.error(s"failed to stop $container: ${ t.getMessage }", t)
-          }
-      }.void
+
+      // The containers bind fixed host ports, so only one test module can use them at a time.
+      // Under sbt 2 the forked-test JVM closes its classloader (and the cats-effect runtime)
+      // before shutdown hooks run, so the previous module's cleanup fails to stop its container
+      // and it leaks the port. The out-of-process testcontainers Ryuk reaper frees it a few
+      // seconds after that JVM exits, so retry startup for a while to let the port become free.
+      def startContainerWithRetry(attemptsLeft: Int): F[C] =
+        startContainer.handleErrorWith { error =>
+          if (attemptsLeft <= 1) error.raiseError[F, C]
+          else
+            log.warn(s"failed to start container on port $exposeStaticPort, retrying: ${ error.getMessage }") *>
+              Temporal[F].sleep(3.seconds) *>
+              startContainerWithRetry(attemptsLeft - 1)
+        }
+
+      Resource
+        .make {
+          startContainerWithRetry(attemptsLeft = 20) // ~1 minute total
+        } { container =>
+          Sync[F]
+            .blocking { container.stop() }
+            .onError {
+              case t =>
+                log.error(s"failed to stop $container: ${ t.getMessage }", t)
+            }
+        }
+        .void
     }
 
     def replicator(log: Log[F]) = {
