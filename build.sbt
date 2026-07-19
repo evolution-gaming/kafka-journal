@@ -121,6 +121,7 @@ lazy val root = project
     pekkoPersistenceCirce,
     pekkoTests,
     ScalaTestIO,
+    testsShared,
   )
 
 lazy val core = project
@@ -233,7 +234,12 @@ lazy val akkaTests = project
       Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
     ),
   )
-  .dependsOn(akkaPersistence % "test->test;compile->compile", akkaPersistenceCirce, replicator)
+  .dependsOn(
+    akkaPersistence % "test->test;compile->compile",
+    akkaPersistenceCirce,
+    replicator,
+    testsShared % "test->test",
+  )
   .settings(
     libraryDependencies ++= Seq(
       CatsHelper,
@@ -261,7 +267,12 @@ lazy val pekkoTests = project
       Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
     ),
   )
-  .dependsOn(pekkoPersistence % "test->test;compile->compile", pekkoPersistenceCirce, replicator)
+  .dependsOn(
+    pekkoPersistence % "test->test;compile->compile",
+    pekkoPersistenceCirce,
+    replicator,
+    testsShared % "test->test",
+  )
   .settings(
     libraryDependencies ++= Seq(
       CatsHelper,
@@ -348,6 +359,25 @@ lazy val ScalaTestIO = project
   .settings(commonSettings)
   .settings(publish / skip := true)
   .settings(libraryDependencies ++= Seq(ScalaTest, Smetrics.SMetrics, CatsHelper, Cats.Core, Cats.Effect))
+
+// Framework-agnostic integration-test fixtures shared by the akka and pekko test suites.
+lazy val testsShared = project
+  .in(file("tests-shared"))
+  .settings(name := "kafka-journal-tests-shared")
+  .settings(commonSettings)
+  .settings(publish / skip := true)
+  .dependsOn(
+    replicator,
+    core % "test->test",
+    ScalaTestIO % Test,
+  )
+  .settings(
+    libraryDependencies ++= Seq(
+      TestContainers.Cassandra % Test,
+      TestContainers.Kafka % Test,
+      ScalaTest % Test,
+    ),
+  )
 
 // not part of aggregate, tests can be run only manually
 lazy val benchmark = project
