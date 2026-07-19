@@ -33,70 +33,74 @@ object IntegrationSuite {
     }
     def loop(t: Throwable): Boolean =
       indicatesPortInUse(t) ||
-        (t.getCause match {
-          case null => false
-          case cause if cause eq t => false
-          case cause => loop(cause)
+        (Option(t.getCause) match {
+          case Some(cause) if cause ne t => loop(cause)
+          case _ => false
         })
     loop(error)
   }
+
+  private def startContainer[F[_]: Sync, C <: GenericContainer[C]](
+    exposeStaticPort: Int,
+  )(
+    makeContainer: => C,
+  ): F[C] =
+    Sync[F]
+      .blocking {
+        makeContainer.withCreateContainerCmdModifier { cmd =>
+          cmd.withHostConfig(
+            new HostConfig()
+              .withPortBindings(new PortBinding(
+                Ports.Binding.bindPort(exposeStaticPort),
+                new ExposedPort(exposeStaticPort),
+              )),
+          )
+          ()
+        }
+      }
+      .flatMap { container =>
+        Sync[F]
+          .blocking { container.start() }
+          .as(container)
+          // remove the partially-created container so a retry can rebind the port
+          .onError { case _ => Sync[F].blocking { container.stop() }.handleError(_ => ()) }
+      }
+
+  // The containers bind fixed host ports, so only one test module can use them at a time.
+  // Under sbt 2 the forked-test JVM closes its classloader (and the cats-effect runtime)
+  // before shutdown hooks run, so the previous module's cleanup fails to stop its container
+  // and it leaks the port. The out-of-process testcontainers Ryuk reaper frees it a few
+  // seconds after that JVM exits, so retry startup while the port is still held.
+  private def startContainerWithRetry[F[_]: Async, C <: GenericContainer[C]](
+    log: Log[F],
+    exposeStaticPort: Int,
+    attemptsLeft: Int,
+  )(
+    makeContainer: => C,
+  ): F[C] =
+    startContainer(exposeStaticPort)(makeContainer).handleErrorWith { error =>
+      if (attemptsLeft <= 1 || !portInUse(error)) error.raiseError[F, C]
+      else
+        log.warn(s"failed to start container on port $exposeStaticPort, retrying: ${ error.getMessage }") *>
+          Temporal[F].sleep(3.seconds) *>
+          startContainerWithRetry(log, exposeStaticPort, attemptsLeft - 1)(makeContainer)
+    }
 
   private def testContainer[F[_]: Async, C <: GenericContainer[C]](
     log: Log[F],
     exposeStaticPort: Int,
   )(
     makeContainer: => C,
-  ): Resource[F, Unit] = {
-
-    def startContainer: F[C] =
-      Sync[F]
-        .blocking {
-          makeContainer.withCreateContainerCmdModifier { cmd =>
-            cmd.withHostConfig(
-              new HostConfig()
-                .withPortBindings(new PortBinding(
-                  Ports.Binding.bindPort(exposeStaticPort),
-                  new ExposedPort(exposeStaticPort),
-                )),
-            )
-            ()
-          }
-        }
-        .flatMap { container =>
-          Sync[F]
-            .blocking { container.start() }
-            .as(container)
-            // remove the partially-created container so a retry can rebind the port
-            .onError { case _ => Sync[F].blocking { container.stop() }.handleError(_ => ()) }
-        }
-
-    // The containers bind fixed host ports, so only one test module can use them at a time.
-    // Under sbt 2 the forked-test JVM closes its classloader (and the cats-effect runtime)
-    // before shutdown hooks run, so the previous module's cleanup fails to stop its container
-    // and it leaks the port. The out-of-process testcontainers Ryuk reaper frees it a few
-    // seconds after that JVM exits, so retry startup while the port is still held.
-    def startContainerWithRetry(attemptsLeft: Int): F[C] =
-      startContainer.handleErrorWith { error =>
-        if (attemptsLeft <= 1 || !portInUse(error)) error.raiseError[F, C]
-        else
-          log.warn(s"failed to start container on port $exposeStaticPort, retrying: ${ error.getMessage }") *>
-            Temporal[F].sleep(3.seconds) *>
-            startContainerWithRetry(attemptsLeft - 1)
-      }
-
+  ): Resource[F, Unit] =
     Resource
       .make {
-        startContainerWithRetry(attemptsLeft = 20) // ~1 minute total
+        startContainerWithRetry(log, exposeStaticPort, attemptsLeft = 20)(makeContainer) // ~1 minute total
       } { container =>
         Sync[F]
           .blocking { container.stop() }
-          .onError {
-            case t =>
-              log.error(s"failed to stop $container: ${ t.getMessage }", t)
-          }
+          .onError { case t => log.error(s"failed to stop $container: ${ t.getMessage }", t) }
       }
       .void
-  }
 
   def startF[F[_]: Async: LogOf: MeasureDuration: FromTry: ToTry: Fail](
     cassandraClusterOf: CassandraClusterOf[F],
