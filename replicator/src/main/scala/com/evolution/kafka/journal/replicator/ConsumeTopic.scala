@@ -14,13 +14,13 @@ import com.evolutiongaming.skafka.consumer.{RebalanceCallback, RebalanceListener
 import scala.concurrent.duration.*
 
 /** Consumes a topic and replicates its records into the eventual store.
-  *
-  * By design there is no skip or dead-letter path. The replicator must preserve the exact order and completeness of
-  * the journal, so no record may ever be dropped. A record that cannot be processed (for example a corrupt or
-  * unparseable one) therefore intentionally stalls replication of its topic — the poll is retried with backoff and
-  * offsets are not advanced past it — until the underlying cause is resolved. This stalling is the expected
-  * behaviour, not a bug: skipping the record would silently diverge the replica from the source journal.
-  */
+ *
+ * By design there is no skip or dead-letter path. The replicator must preserve the exact order and completeness of
+ * the journal, so no record may ever be dropped. A record that cannot be processed (for example a corrupt or
+ * unparseable one) therefore intentionally stalls replication of its topic — the poll is retried with backoff and
+ * offsets are not advanced past it — until the underlying cause is resolved. This stalling is the expected
+ * behaviour, not a bug: skipping the record would silently diverge the replica from the source journal.
+ */
 private[journal] object ConsumeTopic {
 
   def apply[F[_]: BracketThrowable: Sleep](
