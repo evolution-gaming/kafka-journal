@@ -24,7 +24,7 @@ final case class ReplicatorConfig(
     ),
   ),
   pollTimeout: FiniteDuration = 10.millis,
-  replicationParallelism: Int = 100,
+  replicationParallelism: Int = 1024,
 )
 
 object ReplicatorConfig {
