@@ -85,11 +85,7 @@ private[journal] object MigrateSchema {
                 .foldLeftM(version) { (version, migration) =>
                   val version1 = version + 1
                   for {
-                    // Any migration failure is propagated: the `foldLeftM` short-circuits before
-                    // `setVersion` runs, so the persisted version is only ever advanced past a step
-                    // that fully succeeded. This keeps the schema version truthful (version == k
-                    // iff steps 0..k were all applied) and lets the next start resume from the last
-                    // good step, instead of silently skipping a half-applied migration. See #923.
+                    // Errors are purposefully not swallowed to prevent the stored version to advance
                     _ <- migration.execute.first.void
                     _ <- setVersion(version1)
                   } yield version1
