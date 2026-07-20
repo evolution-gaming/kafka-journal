@@ -37,3 +37,4 @@ scripts/tmp
 ignored/
 
 .java-version
+/.devcontainer
