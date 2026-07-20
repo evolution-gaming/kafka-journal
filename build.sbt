@@ -96,6 +96,7 @@ lazy val root = project
     journal,
     snapshot,
     replicator,
+    replicatorApp,
     cassandra,
     eventualCassandra,
     snapshotCassandra,
@@ -278,6 +279,32 @@ lazy val replicator = project
     Logback.Classic % Test,
     ScalaTest % Test,
   ))
+
+lazy val replicatorApp = project
+  .in(file("replicator-app"))
+  .settings(name := "kafka-journal-replicator-app")
+  .settings(commonSettings)
+  .settings(publish / skip := true)
+  .dependsOn(replicator, eventualCassandra)
+  .settings(
+    libraryDependencies ++= Seq(
+      Logback.Core,
+      Logback.Classic,
+    ),
+    Compile / run / fork := true,
+    assembly / mainClass := Some("com.evolution.kafka.journal.replicator.ReplicatorApp"),
+    assembly / assemblyJarName := s"kafka-journal-replicator-${ version.value }.jar",
+    assembly / assemblyMergeStrategy := {
+      case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
+      case PathList("META-INF", xs @ _*) if xs.lastOption.exists(_.endsWith(".SF")) => MergeStrategy.discard
+      case PathList("META-INF", xs @ _*) if xs.lastOption.exists(_.endsWith(".DSA")) => MergeStrategy.discard
+      case PathList("META-INF", xs @ _*) if xs.lastOption.exists(_.endsWith(".RSA")) => MergeStrategy.discard
+      case x if x.endsWith("module-info.class") => MergeStrategy.discard
+      case "reference.conf" => MergeStrategy.concat
+      case "application.conf" => MergeStrategy.concat
+      case _ => MergeStrategy.first
+    },
+  )
 
 lazy val cassandra = project
   .in(file("cassandra"))

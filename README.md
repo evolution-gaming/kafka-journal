@@ -110,6 +110,18 @@ libraryDependencies += "com.evolution" %% "kafka-journal-replicator" % "5.0.0"
 libraryDependencies += "com.evolution" %% "kafka-journal-eventual-cassandra" % "5.0.0"
 ```
 
+## Standalone replicator
+
+The replicator can be built as a self-contained runnable jar:
+
+```sh
+sbt replicatorApp/assembly
+java -Dconfig.file=application.conf -jar replicator-app/target/scala-2.13/kafka-journal-replicator-<version>.jar
+```
+
+Configuration lives under `evolutiongaming.kafka-journal.replicator` (see
+`replicator/src/main/resources/reference.conf`).
+
 ## Migration guide from 4.3.1 to 5.0.0
 
 In `5.0.0` we adapted Evolution's new organization name and changed packages.
