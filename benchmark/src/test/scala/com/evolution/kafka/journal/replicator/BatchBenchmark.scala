@@ -23,25 +23,25 @@ class BatchBenchmark {
 
   @Benchmark
   def original4_1_0(blackhole: Blackhole): Unit = {
-    val of = Batch_4_1_0.of
+    val of = Batch_4_1_0.of(_)
     callAll[Batch_4_1_0](blackhole, of)
   }
 
   @Benchmark
   def alternativeWithVector(blackhole: Blackhole): Unit = {
-    val of = Batch_4_1_0_Alternative_with_Vector.of
+    val of = Batch_4_1_0_Alternative_with_Vector.of(_)
     callAll[Batch_4_1_0_Alternative_with_Vector](blackhole, of)
   }
 
   @Benchmark
   def alternativeWithAggressiveReshuffling(blackhole: Blackhole): Unit = {
-    val of = Batch_Alternative_with_Aggressive_Reshuffling.of
+    val of = Batch_Alternative_with_Aggressive_Reshuffling.of(_)
     callAll[Batch_Alternative_with_Aggressive_Reshuffling](blackhole, of)
   }
 
   @Benchmark
   def alternative4_1_2(blackhole: Blackhole): Unit = {
-    val of = Batch_4_1_2.of
+    val of = Batch_4_1_2.of(_)
     callAll[Batch_4_1_2](blackhole, of)
   }
 
@@ -85,7 +85,7 @@ class BatchBenchmark {
     blackhole.consume(of(b37.map(actionRecordOf)))
     blackhole.consume(of(b38.map(actionRecordOf)))
     blackhole.consume(of(b39.map(actionRecordOf)))
-    blackhole.consume(of(b30.map(actionRecordOf)))
+    blackhole.consume(of(b40.map(actionRecordOf)))
     blackhole.consume(of(b41.map(actionRecordOf)))
     blackhole.consume(of(b42.map(actionRecordOf)))
     blackhole.consume(of(b43.map(actionRecordOf)))

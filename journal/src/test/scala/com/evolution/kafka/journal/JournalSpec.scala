@@ -381,25 +381,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
       } {
         s"eventual journal is $n actions behind the kafka journal, $name" should {
 
-          val produceAction = new ProduceAction[StateT] {
-
-            def apply(action: Action): StateT[PartitionOffset] = {
-              StateT { state =>
-                val offset = Offset.unsafe(state.records.size)
-                val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-                val record = ActionRecord(action, partitionOffset)
-                val records = state.records.enqueue(record)
-
-                val replicatedState = for {
-                  actions <- records.dropLast(n)
-                  action <- actions.lastOption
-                } yield state.replicatedState(action)
-                val state1 =
-                  state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
-                (state1, partitionOffset)
-              }
-            }
-          }
+          val produceAction = StateT.eventualActionsBehind(n)
 
           test(StateT.eventualJournal, StateT.consumeActionRecords, produceAction, headCache)
         }
@@ -673,6 +655,21 @@ object JournalSpec {
             .foldLeft(HeadInfo.empty) { (info, record) => info(record.action.header, record.offset) }
           (state, headInfo.some)
         }
+      }
+    }
+
+    def eventualActionsBehind(n: Int): ProduceAction[StateT] = { (action: Action) =>
+      StateT { state =>
+        val offset = Offset.unsafe(state.records.size)
+        val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+        val record = ActionRecord(action, partitionOffset)
+        val records = state.records.enqueue(record)
+        val replicatedState = for {
+          actions <- records.dropLast(n)
+          action <- actions.lastOption
+        } yield state.replicatedState(action)
+        val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
+        (state1, partitionOffset)
       }
     }
 
