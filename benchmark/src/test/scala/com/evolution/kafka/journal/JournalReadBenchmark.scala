@@ -13,8 +13,8 @@ import java.util.concurrent.TimeUnit
  * Performance coverage of the worst-case journal-read scenarios in [[JournalReadWorstCaseSpec]]
  * (issue #14). Materialises `Journals.read` over the in-memory model reused from [[JournalSpec]];
  * the state per shape is built once in [[setup]] and the measured method only runs the read.
- * `replicatedFastPath` is the baseline; the others add a cold cache, a large tail, a merge seam or a
- * duplicated tail on top.
+ * `replicatedFastPath` is the baseline; the others add a cold cache, a large tail, a merge seam or
+ * a duplicated tail on top.
  *
  * {{{sbt benchmark/Jmh/run com.evolution.kafka.journal.JournalReadBenchmark}}}
  */
@@ -39,7 +39,12 @@ class JournalReadBenchmark {
     val defaultState = stateOf(StateT.produceAction, size)
 
     replicatedFastPathShape = Shape(
-      journal = SeqNrJournal(StateT.eventualJournal, StateT.consumeActionRecords, StateT.produceAction, StateT.headCache),
+      journal = SeqNrJournal(
+        StateT.eventualJournal,
+        StateT.consumeActionRecords,
+        StateT.produceAction,
+        StateT.headCache,
+      ),
       state = defaultState,
     )
 
@@ -55,13 +60,23 @@ class JournalReadBenchmark {
 
     warmCacheLargeTailShape = Shape(
       journal =
-        SeqNrJournal(EventualJournal.empty[StateT], StateT.consumeActionRecords, StateT.produceAction, StateT.headCache),
+        SeqNrJournal(
+          EventualJournal.empty[StateT],
+          StateT.consumeActionRecords,
+          StateT.produceAction,
+          StateT.headCache,
+        ),
       state = defaultState,
     )
 
     val behind = StateT.eventualActionsBehind(size / 2)
     mergeSeamShape = Shape(
-      journal = SeqNrJournal(StateT.eventualJournal, StateT.consumeActionRecords, behind, StateT.headCache),
+      journal = SeqNrJournal(
+        StateT.eventualJournal,
+        StateT.consumeActionRecords,
+        behind,
+        StateT.headCache,
+      ),
       state = stateOf(behind, size),
     )
 
