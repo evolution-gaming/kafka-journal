@@ -40,7 +40,7 @@ private[journal] object TopicReplicator {
     metrics: TopicReplicatorMetrics[F],
     cacheOf: CacheOf[F],
     replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
-    replicationParallelism: Int,
+    replicationParallelism: Long,
   ): Resource[F, F[Outcome[F, Throwable, Unit]]] = {
 
     implicit val fromAttempt: FromAttempt[F] = FromAttempt.lift[F]
@@ -92,7 +92,7 @@ private[journal] object TopicReplicator {
     log: Log[F],
     cacheOf: CacheOf[F],
     replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
-    replicationParallelism: Int,
+    replicationParallelism: Long,
   ): F[Unit] = {
 
     trait PartitionFlow {
@@ -110,7 +110,7 @@ private[journal] object TopicReplicator {
           cache <- cacheOf[Partition, PartitionFlow](topic)
           // bounds concurrent per-key replication across all partitions of the topic, so a single
           // poll spanning many keys cannot exhaust the Cassandra connection pool
-          semaphore <- Semaphore[F](replicationParallelism.max(1).toLong).toResource
+          semaphore <- Semaphore[F](replicationParallelism).toResource
         } yield {
 
           def remove(partitions: Nes[Partition]) = {
