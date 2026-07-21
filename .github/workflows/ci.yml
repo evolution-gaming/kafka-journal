@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: coursier/cache-action@v6
+      - uses: coursier/cache-action@v8
 
       - name: setup Java 17
         uses: actions/setup-java@v5
@@ -44,7 +44,7 @@ jobs:
 
       - name: test coverage
         if: success()
-        uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e # v2.3.7
+        uses: coverallsapp/github-action@v2
         with:
           file: ${{ steps.coverage.outputs.file }}
           format: cobertura
