@@ -31,7 +31,7 @@ private[journal] trait MigrateSchema[F[_]] {
     fresh: MigrateSchema.Fresh,
   )(implicit
     session: CassandraSession[F],
-  ): F[Unit]
+  ): F[Int]
 
 }
 
@@ -51,7 +51,8 @@ private[journal] object MigrateSchema {
    *   schemas, to ensure there is no accidental overwrite if both schemas are located in one
    *   keyspace.
    * @param migrations
-   *   List of CQL statements to execute. The schema version is equal to the size of this list.
+   *   List of CQL statements to execute. The schema version is equal to the index of the last
+   *   migration in this list.
    * @return
    *   The instance of schema migrator.
    */
@@ -71,11 +72,14 @@ private[journal] object MigrateSchema {
       fresh: MigrateSchema.Fresh,
     )(implicit
       session: CassandraSession[F],
-    ): F[Unit] = {
+    ): F[Int] = {
 
-      def migrate: F[Option[F[Unit]]] = {
+      // Resolves the schema state into the current version and, if the schema is out of date, an
+      // effect applying the outstanding migrations. The effect yields the resulting version, while
+      // `version` is the value to report when no migration is required.
+      def plan: F[(Int, Option[F[Int]])] = {
 
-        def migrate(version: Int): Option[F[Unit]] = {
+        def migrate(version: Int): Option[F[Int]] = {
           migrations
             .toList
             .drop(version + 1)
@@ -89,7 +93,6 @@ private[journal] object MigrateSchema {
                     _ <- setVersion(version1)
                   } yield version1
                 }
-                .void
             }
         }
 
@@ -103,28 +106,28 @@ private[journal] object MigrateSchema {
               .fold {
                 if (fresh) {
                   val version = migrations.size - 1
-                  if (version >= 0) {
-                    setVersion(version).some
-                  } else {
-                    none[F[Unit]]
-                  }
+                  (version, setVersion(version).as(version).some)
                 } else {
-                  migrate(-1)
+                  (-1, migrate(-1))
                 }
               } { version =>
-                migrate(version)
+                (version, migrate(version))
               }
           }
       }
 
-      migrate.flatMap { migrate1 =>
-        migrate1.foldMapM { _ =>
+      // `plan.flatMap` calculates current version and if the migrations are needed
+      plan.flatMap {
+        case (version, None) =>
+          version.pure[F]
+        case (_, Some(_)) =>
           cassandraSync {
-            migrate.flatMap { migrate =>
-              migrate.foldMapM(identity)
+            // `plan.flatMap` "locks" Cassandra for modifications, recalculates and applies the migrations
+            plan.flatMap {
+              case (version, migrate) =>
+                migrate.getOrElse(version.pure[F])
             }
           }
-        }
       }
 
     }

@@ -11,6 +11,10 @@ import com.evolutiongaming.scassandra.TableName
  *   - [[MigrateSchema]]
  *   - [[SettingsCassandra]]
  *
+ * @param keyspaceName
+ *   used to keep keyspace name associated with tables
+ * @param version
+ *   exposes the schema's version (indirectly tracks the number of applied migrations)
  * @param journal
  *   stores all journals, see [[JournalStatements]]
  * @param metaJournal
@@ -22,6 +26,7 @@ import com.evolutiongaming.scassandra.TableName
  */
 private[journal] final case class Schema(
   keyspaceName: String,
+  version: Int = -1, // initial version, no migrations applied, yet
   journal: TableName,
   metaJournal: TableName,
   pointer2: TableName,

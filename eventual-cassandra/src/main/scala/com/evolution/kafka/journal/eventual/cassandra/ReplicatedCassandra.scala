@@ -38,6 +38,7 @@ private[journal] object ReplicatedCassandra {
 
     for {
       schema <- SetupSchema[F](config.schema, origin, config.consistencyConfig)
+      _ <- metrics.map(_.setSchemaVersion(schema.version)).getOrElse(Async[F].unit)
       statements <- Statements.of[F](schema, config.consistencyConfig)
       log <- LogOf[F].apply(ReplicatedCassandra.getClass)
       expiryService <- ExpiryService.of[F]

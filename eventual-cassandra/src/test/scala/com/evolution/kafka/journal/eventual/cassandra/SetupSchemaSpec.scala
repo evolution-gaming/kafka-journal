@@ -194,7 +194,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     }
   }
 
-  def migrate(fresh: Boolean): StateT[Unit] = {
+  def migrate(fresh: Boolean): StateT[Int] = {
     SetupSchema.migrate[StateT](schema, fresh, settings, cassandraSync)
   }
 
