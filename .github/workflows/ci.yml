@@ -35,7 +35,7 @@ jobs:
         run: sbt "++${{ matrix.scala }}; clean; check"
 
       - name: build ${{ matrix.scala }}
-        run: sbt "++${{ matrix.scala }}; clean; coverage; test; coverageAggregate"
+        run: sbt "++${{ matrix.scala }}; clean; coverage; testFull; coverageAggregate"
 
       - name: locate coverage report
         id: coverage
