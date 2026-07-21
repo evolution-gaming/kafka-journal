@@ -5,8 +5,8 @@ import sbt.Package.ManifestAttributes
 lazy val commonSettings = Seq(
   organization := "com.evolution",
   organizationName := "Evolution",
-  organizationHomepage := Some(url("https://evolution.com")),
-  homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
+  organizationHomepage := Some(uri("https://evolution.com")),
+  homepage := Some(uri("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
   crossScalaVersions := Seq("2.13.18", "3.3.8"),
   scalaVersion := crossScalaVersions.value.head,
@@ -52,12 +52,12 @@ lazy val commonSettings = Seq(
     compiled
   },
   publishTo := Some(Resolver.evolutionReleases),
-  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
+  licenses := Seq(("MIT", uri("https://opensource.org/licenses/MIT"))),
   // set up compiler plugins:
   libraryDependencies ++= crossSettings(
     scalaVersion = scalaVersion.value,
     if3 = Seq(),
-    if2 = Seq(compilerPlugin(KindProjector cross CrossVersion.full)),
+    if2 = Seq(compilerPlugin(KindProjector.cross(CrossVersion.full))),
   ),
   libraryDependencySchemes ++= Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
@@ -92,12 +92,12 @@ ThisBuild / libraryDependencySchemes ++= Seq(
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
-  addCommandAlias("fmt", "+all scalafmtAll scalafmtSbt") ++
+  addCommandAlias("fmt", "+all scalafmtRepo") ++
     addCommandAlias(
       "check", // check is called with + from the release action
-      "all versionPolicyCheck Compile/doc scalafmtCheckAll scalafmtSbtCheck",
+      "all versionPolicyCheck Compile/doc scalafmtCheckRepo",
     ) ++
-    addCommandAlias("build", "+all compile test")
+    addCommandAlias("build", "all compile testFull")
 
 lazy val root = project
   .in(file("."))
