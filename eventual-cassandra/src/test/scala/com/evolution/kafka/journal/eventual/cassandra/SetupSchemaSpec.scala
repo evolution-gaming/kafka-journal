@@ -21,9 +21,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   test("do not apply any migration on fully auto-created keyspace") {
     val initial = State.empty
-    val (state, _) = migrate(fresh = true)
+    val (state, version) = migrate(fresh = true)
       .run(initial)
       .get
+    state.version.contains(s"$version") shouldBe true
     state shouldEqual initial.copy(
       version = "8".some,
       actions = List(
@@ -38,9 +39,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   test("apply migrations on previously created keyspace") {
     val initial = State.empty
-    val (state, _) = migrate(fresh = false)
+    val (state, version) = migrate(fresh = false)
       .run(initial)
       .get
+    state.version.contains(s"$version") shouldBe true
     state shouldEqual initial.copy(
       version = "8".some,
       actions = List(
@@ -80,9 +82,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   test("apply the last few missing migrations (after 6th to latest)") {
     val initial = State.empty.copy(version = "6".some)
-    val (state, _) = migrate(fresh = false)
+    val (state, version) = migrate(fresh = false)
       .run(initial)
       .get
+    state.version.contains(s"$version") shouldBe true
     state shouldEqual initial.copy(
       version = "8".some,
       actions = List(
@@ -100,9 +103,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   test("do not apply any migration when newer version has been already applied") {
     val initial = State.empty.copy(version = "987654321".some)
-    val (state, _) = migrate(fresh = false)
+    val (state, version) = migrate(fresh = false)
       .run(initial)
       .get
+    state.version.contains(s"$version") shouldBe true
     state shouldEqual initial.copy(
       version = "987654321".some,
       actions = List(
@@ -113,9 +117,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   test("do not apply any migration script when all migrations have been already applied before") {
     val initial = State.empty.copy(version = "8".some)
-    val (state, _) = migrate(fresh = false)
+    val (state, version) = migrate(fresh = false)
       .run(initial)
       .get
+    state.version.contains(s"$version") shouldBe true
     state shouldEqual initial.copy(actions = List(Action.GetSetting("schema-version")))
   }
 
