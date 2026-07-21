@@ -176,6 +176,8 @@ object ReplicatedJournal {
     def delete(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def purge(topic: Topic, latency: FiniteDuration): F[Unit]
+
+    def setSchemaVersion(version: Int): F[Unit]
   }
 
   object Metrics {
@@ -199,6 +201,8 @@ object ReplicatedJournal {
         def delete(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
         def purge(topic: Topic, latency: FiniteDuration): F[Unit] = unit
+
+        def setSchemaVersion(version: Int): F[Unit] = unit
       }
     }
 
@@ -210,6 +214,12 @@ object ReplicatedJournal {
       val versionGauge = registry.info(
         name = s"$prefix",
         help = "Journal version information",
+        labels = LabelNames("version"),
+      )
+
+      val schemaVersionInfo = registry.info(
+        name = s"${ prefix }_schema_version",
+        help = "Journal keyspace schema's version",
         labels = LabelNames("version"),
       )
 
@@ -237,6 +247,7 @@ object ReplicatedJournal {
       for {
         versionGauge <- versionGauge
         _ <- versionGauge.labels(Version.current.value).set().toResource
+        schemaVersionInfo <- schemaVersionInfo
         latencySummary <- latencySummary
         topicLatencySummary <- topicLatencySummary
         eventsSummary <- eventsSummary
@@ -281,6 +292,9 @@ object ReplicatedJournal {
 
           def purge(topic: Topic, latency: FiniteDuration): F[Unit] =
             observeTopicLatency(name = "purge", topic = topic, latency = latency)
+
+          def setSchemaVersion(version: Int): F[Unit] =
+            schemaVersionInfo.labels(s"$version").set()
 
         }
       }

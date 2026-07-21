@@ -83,7 +83,7 @@ private[journal] object SetupSchema {
     fresh: MigrateSchema.Fresh,
     settings: Settings[F],
     cassandraSync: CassandraSync[F],
-  ): F[Unit] = {
+  ): F[Int] = {
     val migrateSchema = MigrateSchema.forSettingKey(
       cassandraSync = cassandraSync,
       settings = settings,
@@ -109,8 +109,8 @@ private[journal] object SetupSchema {
       ab <- createSchema(cassandraSync)
       (schema, fresh) = ab
       settings <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig)
-      _ <- migrate(schema, fresh, settings, cassandraSync)
-    } yield schema
+      versionAfterMigrations <- migrate(schema, fresh, settings, cassandraSync)
+    } yield schema.copy(version = versionAfterMigrations)
   }
 
 }
