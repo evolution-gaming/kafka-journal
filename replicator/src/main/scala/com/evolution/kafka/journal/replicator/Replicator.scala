@@ -83,7 +83,15 @@ object Replicator {
           .fold { TopicReplicatorMetrics.empty[F] } { metrics => metrics(topic) }
 
         val cacheOf = CacheOf[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
-        TopicReplicator.make(topic, journal, consumer, metrics1, cacheOf, replicatedOffsetNotifier)
+        TopicReplicator.make(
+          topic,
+          journal,
+          consumer,
+          metrics1,
+          cacheOf,
+          replicatedOffsetNotifier,
+          config.replicationParallelism,
+        )
       }
 
     val consumer = Consumer.make[F](config.kafka.consumer)
