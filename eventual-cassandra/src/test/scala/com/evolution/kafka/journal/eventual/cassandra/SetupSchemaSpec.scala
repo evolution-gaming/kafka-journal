@@ -2,6 +2,7 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.implicits.catsStdInstancesForTry
 import cats.syntax.all.*
+import com.datastax.driver.core.exceptions.InvalidQueryException
 import com.datastax.driver.core.{PreparedStatement, RegularStatement, Row, Statement}
 import com.evolution.kafka.journal.cassandra.CassandraSync
 import com.evolution.kafka.journal.util.StreamHelper.*
@@ -13,8 +14,8 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
-import scala.util.Try
 import scala.util.control.NoStackTrace
+import scala.util.{Failure, Try}
 
 class SetupSchemaSpec extends AnyFunSuite with Matchers {
   import SetupSchemaSpec.*
@@ -124,6 +125,40 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     state shouldEqual initial.copy(actions = List(Action.GetSetting("schema-version")))
   }
 
+  test("a transient error aborts migration without advancing the schema version (#923)") {
+    val settings = new TrySettings(initial = None)
+    // fail on the 5th migration step (index 4), which would advance the version to 4
+    val failure = new RuntimeException("write timeout") with NoStackTrace
+    val session = failingSession {
+      case "ALTER TABLE journal.journal ADD meta_record_id UUID" => failure.some
+      case _ => none
+    }
+
+    val result = runMigrate(fresh = false, settings, session)
+
+    result shouldEqual Failure(failure)
+    // steps 0..3 applied and persisted; the failing step must NOT bump the version
+    settings.value shouldEqual "3".some
+  }
+
+  test("an 'already exists' error is not special-cased and aborts migration (#923)") {
+    val settings = new TrySettings(initial = None)
+    // the very first `ALTER TABLE ... ADD` reports the column as already present
+    val failure = new InvalidQueryException(
+      "Invalid column name headers because it conflicts with an existing column",
+    )
+    val session = failingSession {
+      case "ALTER TABLE journal.journal ADD headers map<text, text>" => failure.some
+      case _ => none
+    }
+
+    val result = runMigrate(fresh = false, settings, session)
+
+    // no error tolerance: it fails like any other error and no version is persisted
+    result shouldEqual Failure(failure)
+    settings.value shouldEqual None
+  }
+
   val timestamp: Instant = Instant.now()
 
   val keyspace = "journal"
@@ -201,6 +236,66 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   def migrate(fresh: Boolean): StateT[Int] = {
     SetupSchema.migrate[StateT](schema, fresh, settings, cassandraSync)
+  }
+
+  private val trySync: CassandraSync[Try] = new CassandraSync[Try] {
+    def apply[A](fa: Try[A]): Try[A] = fa
+  }
+
+  /**
+   * A [[CassandraSession]] whose `execute` raises the error returned by `fail` for a given query,
+   * or yields no rows when `fail` returns `None`.
+   */
+  private def failingSession(fail: String => Option[Throwable]): CassandraSession[Try] =
+    new CassandraSession[Try] {
+
+      def prepare(query: String): Try[PreparedStatement] = throw NotImplemented
+
+      def execute(statement: Statement): Stream[Try, Row] = {
+        val query = statement match {
+          case statement: RegularStatement => statement.getQueryString
+          case other => sys.error(s"Unexpected statement type: $other")
+        }
+        fail(query) match {
+          case Some(error) => error.raiseError[Try, Stream[Try, Row]].toStream.flatten
+          case None => Stream.empty[Try, Row]
+        }
+      }
+
+      def unsafe: scassandra.CassandraSession[Try] = throw NotImplemented
+    }
+
+  private def runMigrate(
+    fresh: Boolean,
+    settings: Settings[Try],
+    session: CassandraSession[Try],
+  ): Try[Unit] = {
+    implicit val session1: CassandraSession[Try] = session
+    SetupSchema.migrate[Try](schema, fresh, settings, trySync)
+  }
+
+  /**
+   * A minimal mutable [[Settings]] backed by a single version value.
+   */
+  private final class TrySettings(initial: Option[String]) extends Settings[Try] {
+
+    var value: Option[String] = initial
+
+    private def settingOf(key: K, value: V) = Setting(key, value, timestamp, None)
+
+    def get(key: K): Try[Option[Setting]] = Try {
+      value.map(settingOf(key, _))
+    }
+
+    def set(key: K, value: V): Try[Option[Setting]] = Try {
+      val previous = this.value.map(settingOf(key, _))
+      this.value = value.some
+      previous
+    }
+
+    def remove(key: K): Try[Option[Setting]] = throw NotImplemented
+
+    def all: Stream[Try, Setting] = throw NotImplemented
   }
 
   case class State(version: Option[String], actions: List[Action]) {
