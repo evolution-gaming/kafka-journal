@@ -40,15 +40,13 @@ object ConsumeActionRecords {
               actions <- records
                 .values
                 .values
-                .flatMap { records =>
-                  records
-                    .toList
-                    .filter { record =>
-                      record.key.exists { _.value === key.id }
-                    }
-                }
                 .toList
-                .traverseFilter { record => consRecordToActionRecord(record) }
+                .flatTraverse { records =>
+                  records.toList.traverseFilter { record =>
+                    if (record.key.exists { _.value === key.id }) consRecordToActionRecord(record)
+                    else none[ActionRecord[Action]].pure[F]
+                  }
+                }
             } yield actions
           }
           record <- records.toStream1[F]
