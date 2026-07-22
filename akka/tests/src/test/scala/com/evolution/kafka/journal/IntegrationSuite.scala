@@ -20,10 +20,8 @@ import org.testcontainers.utility.DockerImageName
 import scala.concurrent.duration.*
 
 object IntegrationSuite {
-  // Cassandra version: latest 4.x
-  private val CassandraDockerImage = DockerImageName.parse("cassandra:4.1.8")
-  // Kafka version: 4.0.0 is too new to be the main test version, 3.9.0 container doesn't start
-  private val KafkaDockerImage = DockerImageName.parse("apache/kafka-native:3.8.1")
+  private val CassandraDockerImage = DockerImageName.parse("cassandra:5.0.8")
+  private val KafkaDockerImage = DockerImageName.parse("apache/kafka-native:4.3.1")
 
   // Whether the throwable (or any cause in its chain) is a "host port already taken" failure.
   private def portInUse(error: Throwable): Boolean = {
