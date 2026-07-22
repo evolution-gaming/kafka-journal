@@ -170,14 +170,16 @@ object JournalAdapter {
             // Serialize each atomic write independently so that a serialization failure is surfaced as a
             // per-write rejection (`Failure`, routed to `onPersistRejected`) rather than by failing `F` - which
             // Akka/Pekko treats as a store failure that stops/restarts the persistent actor, taking down the
-            // unrelated valid writes in the same batch.
+            // unrelated valid writes in the same batch. Writes are accepted only up to the first failure:
+            // rejecting one write while persisting a later one would leave a gap in the sequence numbers.
             results <- aws.toList.traverse { aw =>
               aw.payload.toList.toNel.traverse { prs =>
                 prs.traverse(serializer.toEvent).map { events => (prs, events) }
               }.attempt
             }
-            accepted = results.collect { case Right(Some(prsAndEvents)) => prsAndEvents }
-            _ <- accepted.toNel.traverse_ { accepted =>
+            (accepted, rejected) = results.span(_.isRight)
+            toAppend = accepted.collect { case Right(Some(prsAndEvents)) => prsAndEvents }
+            _ <- toAppend.toNel.traverse_ { accepted =>
               val prs = accepted.flatMap { case (prs, _) => prs }
               val events = accepted.flatMap { case (_, events) => events }
               for {
@@ -186,12 +188,11 @@ object JournalAdapter {
               } yield {}
             }
           } yield {
-            if (results.forall(_.isRight)) List.empty[Try[Unit]]
-            else
-              results.map {
-                case Right(_) => Success(())
-                case Left(error) => Failure(error)
-              }
+            rejected match {
+              case Left(error) :: _ =>
+                accepted.map(_ => Success(())) ::: rejected.map(_ => Failure(error))
+              case _ => List.empty[Try[Unit]]
+            }
           }
         }
       }

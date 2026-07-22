@@ -77,6 +77,37 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
     data shouldEqual State(appends = List(appendOf(key1, Nel.of(event))))
   }
 
+  test("write rejects every write following the first serialization failure") {
+    val serializationError = new RuntimeException("serialization failed")
+    val failingSerializer = new EventSerializer[StateT, Payload] {
+      def toEvent(persistentRepr: PersistentRepr): StateT[Event[Payload]] =
+        if (persistentRepr.payload == "bad")
+          cats.data.StateT[Try, State, Event[Payload]] { _ => scala.util.Failure(serializationError) }
+        else event.pure[StateT]
+
+      def toPersistentRepr(persistenceId: PersistenceId, event: Event[Payload]): StateT[PersistentRepr] =
+        persistentRepr.pure[StateT]
+    }
+    val badPersistentRepr = PersistentRepr("bad", persistenceId = persistenceId)
+    val awsWithBad =
+      List(AtomicWrite(List(persistentRepr)), AtomicWrite(List(badPersistentRepr)), AtomicWrite(List(persistentRepr)))
+    val adapter =
+      JournalAdapter[StateT, Payload](
+        StateT.JournalsStateF,
+        toKey,
+        failingSerializer,
+        journalReadWrite,
+        appendMetadataOf,
+      )
+    val (data, result) = adapter.write(awsWithBad).run(State.empty).get
+    result shouldEqual List(
+      scala.util.Success(()),
+      scala.util.Failure(serializationError),
+      scala.util.Failure(serializationError),
+    )
+    data shouldEqual State(appends = List(appendOf(key1, Nel.of(event))))
+  }
+
   test("delete") {
     val (data, _) = journalAdapter.delete(persistenceId, DeleteTo.max).run(State.empty).get
     data shouldEqual State(deletes = List(Delete(key1, DeleteTo.max, timestamp)))
