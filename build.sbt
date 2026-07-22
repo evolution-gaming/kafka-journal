@@ -101,7 +101,8 @@ val alias: Seq[sbt.Def.Setting[?]] =
 
 lazy val root = project
   .in(file("."))
-  .settings(name := "kafka-journal-root")
+  .settings(name := "kafka-journal")
+  .settings(normalizedName := "root")
   .settings(commonSettings)
   .settings(publish / skip := true)
   .settings(alias)
