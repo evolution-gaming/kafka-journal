@@ -77,7 +77,7 @@ lazy val commonSettings = Seq(
     // add libraries here that are known to be binary compatible, like:
 //    "com.typesafe" %% "ssl-config-core",
     // TODO remove after release of v10.1.0 (play-json organization name change)
-    "com.evolutiongaming" %% "skafka"
+    "com.evolutiongaming" %% "skafka",
   ),
 )
 
