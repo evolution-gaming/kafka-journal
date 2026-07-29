@@ -170,8 +170,8 @@ private[journal] object TopicReplicator {
                                             }
                                             result <- keyFlow(timestamp, records)
                                           } yield result
-                                        }
-                                    }
+                                        }.attempt
+                                    }.flatMap { i => Concurrent[F].fromEither(i) }
                                 }
                               result <- {
                                 val offset1 = records.maximumBy { _.offset }.offset
