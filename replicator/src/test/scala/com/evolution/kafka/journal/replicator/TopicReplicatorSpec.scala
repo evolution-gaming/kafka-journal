@@ -1090,7 +1090,6 @@ object TopicReplicatorSpec {
       log = Log.empty[StateT],
       cacheOf = CacheOf.empty[StateT],
       replicatedOffsetNotifier = replicatedOffsetNotifier,
-      replicationParallelism = ReplicatorConfig.default.replicationParallelism,
     )
   }
 

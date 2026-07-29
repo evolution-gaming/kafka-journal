@@ -4,7 +4,6 @@ import cats.Monad
 import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.*
 import cats.effect.implicits.*
-import cats.effect.std.Semaphore
 import cats.syntax.all.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
@@ -40,7 +39,6 @@ private[journal] object TopicReplicator {
     metrics: TopicReplicatorMetrics[F],
     cacheOf: CacheOf[F],
     replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
-    replicationParallelism: Long,
   ): Resource[F, F[Outcome[F, Throwable, Unit]]] = {
 
     implicit val fromAttempt: FromAttempt[F] = FromAttempt.lift[F]
@@ -67,7 +65,6 @@ private[journal] object TopicReplicator {
         log = log,
         cacheOf = cacheOf,
         replicatedOffsetNotifier = replicatedOffsetNotifier,
-        replicationParallelism = replicationParallelism,
       )
     }
 
@@ -92,7 +89,6 @@ private[journal] object TopicReplicator {
     log: Log[F],
     cacheOf: CacheOf[F],
     replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
-    replicationParallelism: Long,
   ): F[Unit] = {
 
     trait PartitionFlow {
@@ -108,9 +104,6 @@ private[journal] object TopicReplicator {
         for {
           journal <- journal.journal(topic)
           cache <- cacheOf[Partition, PartitionFlow](topic)
-          // bounds concurrent per-key replication across all partitions of the topic, so a single
-          // poll spanning many keys cannot exhaust the Cassandra connection pool
-          semaphore <- Semaphore[F](replicationParallelism).toResource
         } yield {
 
           def remove(partitions: Nes[Partition]) = {
@@ -156,29 +149,27 @@ private[journal] object TopicReplicator {
                                     .groupBy { _.key.map { _.value } }
                                     .parFoldMap1 {
                                       case (key, records) =>
-                                        semaphore.permit.use { _ =>
-                                          key.foldMapM { key =>
-                                            for {
-                                              keyFlow <- cache.getOrUpdate(key) {
-                                                journal
-                                                  .journal(key)
-                                                  .map { journal =>
-                                                    val replicateRecords = ReplicateRecords(
-                                                      consRecordToActionRecord,
-                                                      journal,
-                                                      metrics,
-                                                      kafkaRead,
-                                                      eventualWrite,
-                                                      log,
-                                                    )
-                                                    (timestamp: Instant, records: Nel[ConsRecord]) => {
-                                                      replicateRecords(records, timestamp)
-                                                    }
+                                        key.foldMapM { key =>
+                                          for {
+                                            keyFlow <- cache.getOrUpdate(key) {
+                                              journal
+                                                .journal(key)
+                                                .map { journal =>
+                                                  val replicateRecords = ReplicateRecords(
+                                                    consRecordToActionRecord,
+                                                    journal,
+                                                    metrics,
+                                                    kafkaRead,
+                                                    eventualWrite,
+                                                    log,
+                                                  )
+                                                  (timestamp: Instant, records: Nel[ConsRecord]) => {
+                                                    replicateRecords(records, timestamp)
                                                   }
-                                              }
-                                              result <- keyFlow(timestamp, records)
-                                            } yield result
-                                          }
+                                                }
+                                            }
+                                            result <- keyFlow(timestamp, records)
+                                          } yield result
                                         }
                                     }
                                 }
