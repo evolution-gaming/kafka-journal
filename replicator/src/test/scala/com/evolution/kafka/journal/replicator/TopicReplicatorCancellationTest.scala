@@ -25,31 +25,23 @@ class TopicReplicatorCancellationTest extends AsyncFunSuite with Matchers {
   import TopicReplicatorCancellationTest.*
 
   test("key failure does not cancel other keys of the same partition") {
-    val result = for {
-      started <- Deferred[IO, Unit]
-      finished <- Deferred[IO, Unit]
-      cancelled <- Deferred[IO, Unit]
-      deletes = Map(
-        (
-          "ok",
-          (started.complete(()) *> IO.sleep(50.millis) *> finished.complete(()).as(true))
-            .onCancel(cancelled.complete(()).void),
-        ),
-        ("bad", started.get *> IO.raiseError[Boolean](Error)),
-      )
-      records = Map((Partition.min, Nel.of(record("ok", 0, 0), record("bad", 0, 1))))
-      fiber <- consume(records, deletes).start
-      _ <- finished.get.timeout(5.seconds)
-      wasCancelled <- cancelled.tryGet
-      _ <- fiber.cancel
-    } yield {
-      wasCancelled shouldEqual none
-    }
-    result.unsafeToFuture()
+    replicateOkAndBad { Map((Partition.min, Nel.of(record("ok", 0, 0), record("bad", 0, 1)))) }
+      .unsafeToFuture()
   }
 
   test("key failure does not cancel keys of other partitions") {
-    val result = for {
+    val records = Map(
+      (Partition.unsafe(0), Nel.of(record("bad", 0, 0))),
+      (Partition.unsafe(1), Nel.of(record("ok", 1, 0))),
+    )
+    pendingUntilFixed {
+      replicateOkAndBad(records).unsafeRunSync()
+      ()
+    }
+  }
+
+  private def replicateOkAndBad(records: Map[Partition, Nel[ConsRecord]]) = {
+    for {
       started <- Deferred[IO, Unit]
       finished <- Deferred[IO, Unit]
       cancelled <- Deferred[IO, Unit]
@@ -61,21 +53,13 @@ class TopicReplicatorCancellationTest extends AsyncFunSuite with Matchers {
         ),
         ("bad", started.get *> IO.raiseError[Boolean](Error)),
       )
-      records = Map(
-        (Partition.unsafe(0), Nel.of(record("bad", 0, 0))),
-        (Partition.unsafe(1), Nel.of(record("ok", 1, 0))),
-      )
       fiber <- consume(records, deletes).start
-      wasFinished <- finished.get.timeout(1.second).attempt
+      wasFinished <- finished.get.timeout(5.seconds).attempt
       wasCancelled <- cancelled.tryGet
       _ <- fiber.cancel
     } yield {
       wasCancelled shouldEqual none
       wasFinished shouldEqual ().asRight
-    }
-    pendingUntilFixed {
-      result.unsafeRunSync()
-      ()
     }
   }
 }
