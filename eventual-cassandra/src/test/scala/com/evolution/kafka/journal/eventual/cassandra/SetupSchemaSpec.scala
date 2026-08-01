@@ -14,6 +14,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Try}
 
@@ -275,22 +276,22 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   }
 
   /**
-   * A minimal mutable [[Settings]] backed by a single version value.
+   * A minimal [[Settings]] backed by a single version value.
    */
   private final class TrySettings(initial: Option[String]) extends Settings[Try] {
 
-    var value: Option[String] = initial
+    private val ref = new AtomicReference[Option[String]](initial)
+
+    def value: Option[String] = ref.get()
 
     private def settingOf(key: K, value: V) = Setting(key, value, timestamp, None)
 
     def get(key: K): Try[Option[Setting]] = Try {
-      value.map(settingOf(key, _))
+      ref.get().map(settingOf(key, _))
     }
 
     def set(key: K, value: V): Try[Option[Setting]] = Try {
-      val previous = this.value.map(settingOf(key, _))
-      this.value = value.some
-      previous
+      ref.getAndSet(value.some).map(settingOf(key, _))
     }
 
     def remove(key: K): Try[Option[Setting]] = throw NotImplemented
