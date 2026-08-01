@@ -270,7 +270,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     fresh: Boolean,
     settings: Settings[Try],
     session: CassandraSession[Try],
-  ): Try[Unit] = {
+  ): Try[Int] = {
     implicit val session1: CassandraSession[Try] = session
     SetupSchema.migrate[Try](schema, fresh, settings, trySync)
   }
