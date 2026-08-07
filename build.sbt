@@ -84,6 +84,11 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
 //  ProblemFilters.exclude[IncompatibleMethTypeProblem](
 //    "com.evolution.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
 //  ),
+  // journal fork detection counter added to the metrics SPI, which has no implementors outside of
+  // `ReplicatedJournal.Metrics.const` / `.make`
+  ProblemFilters.exclude[ReversedMissingMethodProblem](
+    "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.journalForkDetected",
+  ),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(
