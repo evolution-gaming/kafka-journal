@@ -47,7 +47,9 @@ private[journal] object ReplicatedCassandra {
     } yield {
       implicit val sr: SecureRandom[F] = secureRandom
       val segmentOf = SegmentNrs.Of[F](first = Segments.default, second = Segments.old)
-      val journal = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
+      val forkReporter = JournalForkReporter[F](log, metrics)
+      val journal =
+        apply[F](config.segmentSize, segmentOf, statements, expiryService, forkReporter).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -59,6 +61,21 @@ private[journal] object ReplicatedCassandra {
     segmentNrsOf: SegmentNrs.Of[F],
     statements: Statements[F],
     expiryService: ExpiryService[F],
+  ): ReplicatedJournal[F] = {
+    apply[F](segmentSizeDefault, segmentNrsOf, statements, expiryService, JournalForkReporter.empty[F])
+  }
+
+  /**
+   * @param forkReporter
+   *   told about every [[JournalFork]] observed while appending. Reporting only: forks are appended
+   *   exactly as if they were not detected.
+   */
+  def apply[F[_]: Sync: Parallel: SecureRandom: Fail](
+    segmentSizeDefault: SegmentSize,
+    segmentNrsOf: SegmentNrs.Of[F],
+    statements: Statements[F],
+    expiryService: ExpiryService[F],
+    forkReporter: JournalForkReporter[F],
   ): ReplicatedJournal[F] = {
 
     new Main with ReplicatedJournal[F] {
@@ -139,6 +156,30 @@ private[journal] object ReplicatedCassandra {
 
                         def partitionOffset = PartitionOffset(partition, offset)
 
+                        /**
+                         * Events which are not covered by `offset` yet, i.e. genuinely new ones
+                         * rather than a re-delivered batch.
+                         */
+                        def newEvents(offset: Option[Offset]) = {
+                          offset.fold {
+                            events.toList
+                          } { offset =>
+                            events.filter { event => event.partitionOffset.offset > offset }
+                          }
+                        }
+
+                        /**
+                         * Reports the [[JournalFork]]s among the events about to be appended. Free
+                         * of extra Cassandra reads: `journalHead` is the one already loaded for the
+                         * append itself.
+                         */
+                        def detectForks(journalHead: Option[JournalHead]) = {
+                          val events = newEvents(journalHead.map { _.partitionOffset.offset })
+                          JournalFork
+                            .fromEvents(key, journalHead, events)
+                            .traverse_(forkReporter.report)
+                        }
+
                         def append(journalHead: JournalHead, offset: Option[Offset]) = {
 
                           @tailrec
@@ -175,12 +216,7 @@ private[journal] object ReplicatedCassandra {
                             }
                           }
 
-                          val events1 = offset.fold {
-                            events.toList
-                          } { offset =>
-                            events.filter { event => event.partitionOffset.offset > offset }
-                          }
-                          loop(events1, None, ().pure[F])
+                          loop(newEvents(offset), None, ().pure[F])
                         }
 
                         def appendAndSave(journalHead: Option[JournalHead]) = {
@@ -260,12 +296,12 @@ private[journal] object ReplicatedCassandra {
                           }
 
                           journalHead.fold {
-                            appendAndSave
+                            detectForks(none) *> appendAndSave
                           } { journalHead =>
                             if (offset <= journalHead.partitionOffset.offset) {
                               none[JournalHead].pure[F]
                             } else {
-                              appendAndSave
+                              detectForks(journalHead.some) *> appendAndSave
                             }
                           }
                         }
