@@ -7,5 +7,4 @@ on:
 
 jobs:
   test:
-    uses: evolution-gaming/scala-github-actions/.github/workflows/ci.yml@v6
-    secrets: inherit
+    uses: evolution-gaming/scala-github-actions/.github/workflows/ci.yml@2a389d2a5f4b093e72f738464bd7472bd0c3b4b8 # v6
