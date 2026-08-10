@@ -8,9 +8,9 @@ import cats.implicits.*
 import cats.{Id, MonadError, Parallel}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.ExpireAfter.implicits.*
+import com.evolution.kafka.journal.eventual.EventualPayloadAndType
 import com.evolution.kafka.journal.eventual.cassandra.ExpireOn.implicits.*
 import com.evolution.kafka.journal.eventual.cassandra.JournalStatements.JournalRecord
-import com.evolution.kafka.journal.eventual.{EventualPayloadAndType, ReplicatedJournalFlat}
 import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolution.kafka.journal.util.TemporalHelper.*
 import com.evolution.kafka.journal.util.{Fail, MonadCancelFromMonadError}
@@ -74,14 +74,6 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         ExpiryService(ZoneOffset.UTC),
         forkReporter,
       ).toFlat
-    }
-
-    /**
-     * Runs `f` and returns the forks reported while it ran, in the order they were reported.
-     */
-    def forksOf(initial: State)(f: ReplicatedJournalFlat[StateT] => StateT[Unit]): List[JournalFork] = {
-      val (state, _) = f(journal).run(initial).get
-      state.actions.reverse.collect { case Action.DetectedFork(fork) => fork }
     }
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
@@ -2015,18 +2007,16 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       // replicated: same `seqNr`, higher offset, different node and Cassandra timestamp
       val event1 = event(seqNr = 1, offset = 2).copy(origin = Some(origin1), timestamp = timestamp1)
 
-      def scenario(journal: ReplicatedJournalFlat[StateT]) = {
-        for {
-          _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
-          _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp1, none, Nel.of(event1))
-        } yield {}
-      }
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp1, none, Nel.of(event1))
+      } yield {}
 
-      val forks = forksOf(State.empty)(scenario)
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
 
       // `journal` clusters on `(seq_nr, timestamp)`, so both branches of the fork end up stored - which
       // is what breaks the next recovery of the entity, and what the alert is about
-      val (state, _) = scenario(journal).run(State.empty).get
       state.journal.values.flatMap(_.keys).toSet shouldEqual
         Set((SeqNr.min, timestamp0), (SeqNr.min, timestamp1))
 
@@ -2046,11 +2036,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val event0 = event(seqNr = 1, offset = 1)
       val event1 = event(seqNr = 1, offset = 2).copy(origin = Some(origin1), timestamp = timestamp1)
 
-      val forks = forksOf(State.empty) { journal =>
-        journal
-          .append(key, Partition.min, Offset.unsafe(2), timestamp1, none, Nel.of(event0, event1))
-          .void
-      }
+      val program = journal
+        .append(key, Partition.min, Offset.unsafe(2), timestamp1, none, Nel.of(event0, event1))
+        .void
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
 
       forks.map(_.seqNr) shouldEqual List(SeqNr.min)
       forks.map(_.consequence) shouldEqual List(JournalFork.Consequence.BreaksRecovery)
@@ -2068,12 +2059,13 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       // reported as suspected only, which is also what a legitimate out-of-order append looks like
       val event2 = event(seqNr = 1, offset = 3).copy(origin = Some(origin1), timestamp = timestamp1)
 
-      val forks = forksOf(State.empty) { journal =>
-        for {
-          _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
-          _ <- journal.append(key, Partition.min, Offset.unsafe(3), timestamp1, none, Nel.of(event2))
-        } yield {}
-      }
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(3), timestamp1, none, Nel.of(event2))
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
 
       forks.map(_.seqNr) shouldEqual List(SeqNr.unsafe(1))
       forks.map(_.consequence) shouldEqual List(JournalFork.Consequence.SuspectedRegression)
@@ -2090,24 +2082,25 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val event1 = event(seqNr = 2, offset = 2)
       val event2 = event(seqNr = 3, offset = 3)
 
-      val forks = forksOf(State.empty) { journal =>
-        for {
-          _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
-          // the very same batch again, as after a rebalance which lost the consumer offset
-          changed <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
-          _ = changed shouldEqual false
-          // and again, this time extended by a genuinely new event
-          changed <- journal.append(
-            key,
-            Partition.min,
-            Offset.unsafe(3),
-            timestamp0,
-            none,
-            Nel.of(event0, event1, event2),
-          )
-          _ = changed shouldEqual true
-        } yield {}
-      }
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
+        // the very same batch again, as after a rebalance which lost the consumer offset
+        changed <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
+        _ = changed shouldEqual false
+        // and again, this time extended by a genuinely new event
+        changed <- journal.append(
+          key,
+          Partition.min,
+          Offset.unsafe(3),
+          timestamp0,
+          none,
+          Nel.of(event0, event1, event2),
+        )
+        _ = changed shouldEqual true
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
 
       forks shouldEqual List.empty
     }
@@ -2119,15 +2112,16 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       // after a purge the journal legitimately restarts from `SeqNr.min`
       val event2 = event(seqNr = 1, offset = 4).copy(timestamp = timestamp1)
 
-      val forks = forksOf(State.empty) { journal =>
-        for {
-          _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
-          _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event1))
-          changed <- journal.purge(key, Partition.min, Offset.unsafe(3), timestamp0)
-          _ = changed shouldEqual true
-          _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp1, none, Nel.of(event2))
-        } yield {}
-      }
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event1))
+        changed <- journal.purge(key, Partition.min, Offset.unsafe(3), timestamp0)
+        _ = changed shouldEqual true
+        _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp1, none, Nel.of(event2))
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
 
       forks shouldEqual List.empty
     }
@@ -2141,15 +2135,16 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       // because the row it duplicates is gone
       val event3 = event(seqNr = 2, offset = 5).copy(timestamp = timestamp1)
 
-      val forks = forksOf(State.empty) { journal =>
-        for {
-          _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
-          _ <- journal.delete(key, Partition.min, Offset.unsafe(3), timestamp0, SeqNr.unsafe(2).toDeleteTo, none)
-          // seqNr 3 follows the delete, so `deleteTo` neither hides nor fakes a fork here
-          _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp0, none, Nel.of(event2))
-          _ <- journal.append(key, Partition.min, Offset.unsafe(5), timestamp1, none, Nel.of(event3))
-        } yield {}
-      }
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
+        _ <- journal.delete(key, Partition.min, Offset.unsafe(3), timestamp0, SeqNr.unsafe(2).toDeleteTo, none)
+        // seqNr 3 follows the delete, so `deleteTo` neither hides nor fakes a fork here
+        _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp0, none, Nel.of(event2))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(5), timestamp1, none, Nel.of(event3))
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
 
       forks.map(_.seqNr) shouldEqual List(SeqNr.unsafe(2))
       forks.map(_.consequence) shouldEqual List(JournalFork.Consequence.BelowDeleteTo)
@@ -2566,6 +2561,11 @@ object ReplicatedCassandraTest {
     implicit class StateOps(val self: State) extends AnyVal {
 
       def append(action: Action): State = self.copy(actions = action :: self.actions)
+
+      /**
+       * Journal forks reported while the state was built, in the order they were reported.
+       */
+      def forks: List[JournalFork] = self.actions.reverse.collect { case Action.DetectedFork(fork) => fork }
 
       def updateMetaJournal(key: Key, segment: SegmentNr)(f: MetaJournalEntry => MetaJournalEntry): State = {
         val state = for {
