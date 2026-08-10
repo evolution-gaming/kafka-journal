@@ -2035,7 +2035,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       // replicated: same `seqNr`, higher offset, different node and Cassandra timestamp
       val event1 = eventRecordOf(SeqNr.min, PartitionOffset(Partition.min, Offset.unsafe(2)))
         .event
-        .copy(origin = origin1.some, timestamp = timestamp1)
+        .copy(origin = Some(origin1), timestamp = timestamp1)
 
       def scenario(journal: ReplicatedJournalFlat[StateT]) = {
         for {
@@ -2055,7 +2055,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks shouldEqual List(
         JournalFork(
           key = key,
-          laterRecord = JournalFork.Record(SeqNr.min, event1.partitionOffset, origin1.some),
+          laterRecord = JournalFork.Record(SeqNr.min, event1.partitionOffset, Some(origin1)),
           earlierRecord = JournalFork.Record(SeqNr.min, event0.partitionOffset, none),
           deleteTo = none,
           duplicateProven = true,
@@ -2075,7 +2075,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val event0 = eventRecordOf(SeqNr.min, PartitionOffset(Partition.min, Offset.unsafe(1))).event
       val event1 = eventRecordOf(SeqNr.min, PartitionOffset(Partition.min, Offset.unsafe(2)))
         .event
-        .copy(origin = origin1.some, timestamp = timestamp1)
+        .copy(origin = Some(origin1), timestamp = timestamp1)
 
       val forks = forksOf(State.empty) { journal =>
         journal
@@ -2086,8 +2086,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks shouldEqual List(
         JournalFork(
           key = key,
-          laterRecord = JournalFork.Record(SeqNr.min, event1.partitionOffset, origin1.some),
-          earlierRecord = JournalFork.Record(SeqNr.min, event0.partitionOffset, origin.some),
+          laterRecord = JournalFork.Record(SeqNr.min, event1.partitionOffset, Some(origin1)),
+          earlierRecord = JournalFork.Record(SeqNr.min, event0.partitionOffset, Some(origin)),
           deleteTo = none,
           duplicateProven = true,
         ),
@@ -2103,7 +2103,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       // reported as suspected only, which is also what a legitimate out-of-order append looks like
       val event2 = eventRecordOf(SeqNr.unsafe(1), PartitionOffset(Partition.min, Offset.unsafe(3)))
         .event
-        .copy(origin = origin1.some, timestamp = timestamp1)
+        .copy(origin = Some(origin1), timestamp = timestamp1)
 
       val forks = forksOf(State.empty) { journal =>
         for {
@@ -2115,7 +2115,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks shouldEqual List(
         JournalFork(
           key = key,
-          laterRecord = JournalFork.Record(SeqNr.unsafe(1), event2.partitionOffset, origin1.some),
+          laterRecord = JournalFork.Record(SeqNr.unsafe(1), event2.partitionOffset, Some(origin1)),
           earlierRecord = JournalFork.Record(SeqNr.unsafe(2), event1.partitionOffset, none),
           deleteTo = none,
           duplicateProven = false,
