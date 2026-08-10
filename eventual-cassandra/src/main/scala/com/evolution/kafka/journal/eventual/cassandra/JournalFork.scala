@@ -61,7 +61,7 @@ private[journal] final case class JournalFork(
    * from the `journal` table and [[EventualCassandra]] starts reading above `deleteTo`.
    */
   def consequence: JournalFork.Consequence = {
-    if (deleteTo.exists { _.value >= seqNr }) JournalFork.Consequence.BelowDeleteTo
+    if (deleteTo.exists(_.value >= seqNr)) JournalFork.Consequence.BelowDeleteTo
     else if (duplicateProven) JournalFork.Consequence.BreaksRecovery
     else JournalFork.Consequence.SuspectedRegression
   }
@@ -99,8 +99,8 @@ private[journal] object JournalFork {
     events: List[EventRecord[A]],
   ): List[JournalFork] = {
 
-    val deleteTo = journalHead.flatMap { _.deleteTo }
-    val headSeqNr = journalHead.map { _.seqNr }
+    val deleteTo = journalHead.flatMap(_.deleteTo)
+    val headSeqNr = journalHead.map(_.seqNr)
 
     // `seqNr`s of the batch walked so far: needed on top of `earlier` because two *equal* `seqNr`s
     // both below the running maximum would otherwise never be compared to each other
