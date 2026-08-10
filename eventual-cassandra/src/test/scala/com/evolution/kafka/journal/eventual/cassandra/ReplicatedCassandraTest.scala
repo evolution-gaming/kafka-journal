@@ -40,8 +40,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   private val recordId = RecordId(UUID.fromString("13131313-1313-4313-9313-131313131313"))
   private val record = eventRecordOf(SeqNr.min, partitionOffset)
 
-  private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
-    val event = EventRecord(
+  private def eventOf(seqNr: SeqNr, partitionOffset: PartitionOffset): EventRecord[EventualPayloadAndType] = {
+    EventRecord(
       event = Event[EventualPayloadAndType](seqNr),
       timestamp = timestamp0,
       partitionOffset = partitionOffset,
@@ -50,11 +50,14 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       metadata = RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata.empty),
       headers = Headers(("key", "value")),
     )
-    JournalRecord(event, recordId.some)
   }
 
-  private def event(seqNr: Int, offset: Int) = {
-    eventRecordOf(SeqNr.unsafe(seqNr), PartitionOffset(Partition.min, Offset.unsafe(offset))).event
+  private def eventOf(seqNr: SeqNr, offset: Offset): EventRecord[EventualPayloadAndType] = {
+    eventOf(seqNr, PartitionOffset(Partition.min, offset))
+  }
+
+  private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset): JournalRecord = {
+    JournalRecord(eventOf(seqNr, partitionOffset), recordId.some)
   }
 
   for {
@@ -2002,10 +2005,10 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
     test(s"detect a journal fork appended in a later batch, $suffix") {
       val key = Key("id", topic0)
-      val event0 = event(seqNr = 1, offset = 1)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       // the stale write of the previous incarnation of the entity, landed after `event0` was already
       // replicated: same `seqNr`, higher offset, different node and Cassandra timestamp
-      val event1 = event(seqNr = 1, offset = 2).copy(origin = Some(origin1), timestamp = timestamp1)
+      val event1 = eventOf(SeqNr.unsafe(1), Offset.unsafe(2)).copy(origin = Some(origin1), timestamp = timestamp1)
 
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
@@ -2033,8 +2036,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val key = Key("id", topic0)
       // `Batch.of` merges consecutive appends without comparing their `seqNr`s, so both branches of
       // a fork can arrive in a single `append`
-      val event0 = event(seqNr = 1, offset = 1)
-      val event1 = event(seqNr = 1, offset = 2).copy(origin = Some(origin1), timestamp = timestamp1)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(1), Offset.unsafe(2)).copy(origin = Some(origin1), timestamp = timestamp1)
 
       val program = journal
         .append(key, Partition.min, Offset.unsafe(2), timestamp1, none, Nel.of(event0, event1))
@@ -2052,12 +2055,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
     test(s"detect a journal fork which regresses `seqNr` by more than one event, $suffix") {
       val key = Key("id", topic0)
-      val event0 = event(seqNr = 1, offset = 1)
-      val event1 = event(seqNr = 2, offset = 2)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
       // the dead incarnation had both events in flight, so the live one replicated past the `seqNr`
       // this one duplicates. Nothing here proves seqNr 1 is occupied - the head says 2 - so it is
       // reported as suspected only, which is also what a legitimate out-of-order append looks like
-      val event2 = event(seqNr = 1, offset = 3).copy(origin = Some(origin1), timestamp = timestamp1)
+      val event2 = eventOf(SeqNr.unsafe(1), Offset.unsafe(3)).copy(origin = Some(origin1), timestamp = timestamp1)
 
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
@@ -2078,9 +2081,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
     test(s"do not report a re-delivered batch as a journal fork, $suffix") {
       val key = Key("id", topic0)
-      val event0 = event(seqNr = 1, offset = 1)
-      val event1 = event(seqNr = 2, offset = 2)
-      val event2 = event(seqNr = 3, offset = 3)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
+      val event2 = eventOf(SeqNr.unsafe(3), Offset.unsafe(3))
 
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
@@ -2107,10 +2110,11 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
     test(s"do not report a purged and recreated journal as a journal fork, $suffix") {
       val key = Key("id", topic0)
-      val event0 = event(seqNr = 1, offset = 1)
-      val event1 = event(seqNr = 2, offset = 2)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
       // after a purge the journal legitimately restarts from `SeqNr.min`
-      val event2 = event(seqNr = 1, offset = 4).copy(timestamp = timestamp1)
+      val event2 =
+        eventOf(SeqNr.unsafe(1), Offset.unsafe(4)).copy(timestamp = timestamp1)
 
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
@@ -2128,12 +2132,13 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
     test(s"`delete` does not reset `seqNr`, so it neither hides nor fakes a journal fork, $suffix") {
       val key = Key("id", topic0)
-      val event0 = event(seqNr = 1, offset = 1)
-      val event1 = event(seqNr = 2, offset = 2)
-      val event2 = event(seqNr = 3, offset = 4)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
+      val event2 = eventOf(SeqNr.unsafe(3), Offset.unsafe(4))
       // a duplicate of an already deleted `seqNr`: still reported, but no recovery can trip over it
       // because the row it duplicates is gone
-      val event3 = event(seqNr = 2, offset = 5).copy(timestamp = timestamp1)
+      val event3 =
+        eventOf(SeqNr.unsafe(2), Offset.unsafe(5)).copy(timestamp = timestamp1)
 
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
