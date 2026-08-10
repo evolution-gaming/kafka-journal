@@ -2049,7 +2049,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       // `journal` clusters on `(seq_nr, timestamp)`, so both branches of the fork end up stored - which
       // is what breaks the next recovery of the entity, and what the alert is about
       val (state, _) = scenario(journal).run(State.empty).get
-      state.journal.values.flatMap { _.keys }.toSet shouldEqual
+      state.journal.values.flatMap(_.keys).toSet shouldEqual
         Set((SeqNr.min, timestamp0), (SeqNr.min, timestamp1))
 
       forks shouldEqual List(
