@@ -301,7 +301,7 @@ private[journal] object ReplicatedCassandra {
                             if (offset <= journalHead.partitionOffset.offset) {
                               none[JournalHead].pure[F]
                             } else {
-                              detectForks(journalHead.some) *> appendAndSave
+                              detectForks(Some(journalHead)) *> appendAndSave
                             }
                           }
                         }

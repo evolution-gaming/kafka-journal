@@ -119,9 +119,9 @@ private[journal] object JournalFork {
               deleteTo = deleteTo,
               duplicateProven = seen.contains(record.seqNr) || headSeqNr.contains(record.seqNr),
             )
-            (earlier.some, seen1, fork :: forks)
+            (Some(earlier), seen1, fork :: forks)
           case _ =>
-            (record.some, seen1, forks)
+            (Some(record), seen1, forks)
         }
     }
 
