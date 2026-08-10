@@ -174,7 +174,7 @@ private[journal] object ReplicatedCassandra {
                          * append itself.
                          */
                         def detectForks(journalHead: Option[JournalHead]) = {
-                          val events = newEvents(journalHead.map { _.partitionOffset.offset })
+                          val events = newEvents(journalHead.map(_.partitionOffset.offset))
                           JournalFork
                             .fromEvents(key, journalHead, events)
                             .traverse_(forkReporter.report)
