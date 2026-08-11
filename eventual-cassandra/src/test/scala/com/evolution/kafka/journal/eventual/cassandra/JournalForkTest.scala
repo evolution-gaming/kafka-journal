@@ -2,11 +2,6 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
 import com.evolution.kafka.journal.*
-import com.evolution.kafka.journal.eventual.cassandra.JournalFork.Consequence.{
-  BelowDeleteTo,
-  BreaksRecovery,
-  SuspectedRegression,
-}
 import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -32,13 +27,12 @@ class JournalForkTest extends AnyFunSuite {
     )
   }
 
-  private def journalHead(seqNr: Long, offset: Int, deleteTo: Option[Long] = none) = {
+  private def journalHead(seqNr: Long, offset: Int) = {
     Some(
       JournalHead(
         partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(offset)),
         segmentSize = SegmentSize.default,
         seqNr = SeqNr.unsafe(seqNr),
-        deleteTo = deleteTo.map(to => SeqNr.unsafe(to).toDeleteTo),
       ),
     )
   }
@@ -72,7 +66,7 @@ class JournalForkTest extends AnyFunSuite {
     val forks = JournalFork.fromEvents(key, journalHead(seqNr = 2, offset = 2), events)
 
     assert(forks.map(_.seqNr.value) == List(2L))
-    assert(forks.map(_.consequence) == List(BreaksRecovery))
+    assert(forks.map(_.duplicateProven) == List(true))
   }
 
   test("a bare regression is only suspected - concurrent appends of distinct seqNrs look the same") {
@@ -83,8 +77,8 @@ class JournalForkTest extends AnyFunSuite {
     val forks1 = JournalFork.fromEvents(key, journalHead(seqNr = 5, offset = 5), events1)
     val forks2 = JournalFork.fromEvents(key, none, events2)
 
-    assert(forks1.map(_.consequence) == List(SuspectedRegression))
-    assert(forks2.map(_.consequence) == List(SuspectedRegression, SuspectedRegression))
+    assert(forks1.map(_.duplicateProven) == List(false))
+    assert(forks2.map(_.duplicateProven) == List(false, false))
   }
 
   test("every fork of a batch is reported, in event order") {
@@ -108,7 +102,7 @@ class JournalForkTest extends AnyFunSuite {
     val events = List(event(seqNr = 1, offset = 1), event(seqNr = 1, offset = 2))
     val forks = JournalFork.fromEvents(key, none, events)
 
-    assert(forks.map(_.consequence) == List(BreaksRecovery))
+    assert(forks.map(_.duplicateProven) == List(true))
   }
 
   test("equal seqNrs within one batch prove a duplicate even below the running maximum") {
@@ -117,33 +111,7 @@ class JournalForkTest extends AnyFunSuite {
     val events = List(event(seqNr = 9, offset = 1), event(seqNr = 1, offset = 2), event(seqNr = 1, offset = 3))
     val forks = JournalFork.fromEvents(key, none, events)
 
-    assert(forks.map(_.consequence) == List(SuspectedRegression, BreaksRecovery))
-  }
-
-  test("a duplicate at or below deleteTo is reported, but as harmless") {
-    val head = journalHead(seqNr = 5, offset = 5, deleteTo = Some(3L))
-    val forks1 = JournalFork.fromEvents(key, head, List(event(seqNr = 2, offset = 6)))
-    val forks2 = JournalFork.fromEvents(key, head, List(event(seqNr = 3, offset = 6)))
-    val forks3 = JournalFork.fromEvents(key, head, List(event(seqNr = 4, offset = 6)))
-    val forks4 = JournalFork.fromEvents(key, head, List(event(seqNr = 5, offset = 6)))
-
-    // no recovery reads these - whatever they duplicate is gone - but it is the same bug, so counted
-    assert(forks1.map(_.consequence) == List(BelowDeleteTo))
-    assert(forks2.map(_.consequence) == List(BelowDeleteTo))
-    // above `deleteTo` nothing is deleted, so proof of a duplicate decides
-    assert(forks3.map(_.consequence) == List(SuspectedRegression))
-    assert(forks4.map(_.consequence) == List(BreaksRecovery))
-  }
-
-  test("a delete-all of a journal with no metajournal entry does not blind detection") {
-    // `ReplicatedCassandra.delete` stores an unclamped `deleteTo` when there is no head yet, so a
-    // `deleteMessagesTo(Long.MaxValue)` leaves `deleteTo` at `SeqNr.max`. Forks are still reported
-    // there, just as harmless - suppressing them would silence the journal for good.
-    val head = journalHead(seqNr = SeqNr.max.value, offset = 1, deleteTo = Some(SeqNr.max.value))
-    val events = List(event(seqNr = 1, offset = 2), event(seqNr = 1, offset = 3))
-    val forks = JournalFork.fromEvents(key, head, events)
-
-    assert(forks.map(_.consequence) == List(BelowDeleteTo, BelowDeleteTo))
+    assert(forks.map(_.duplicateProven) == List(false, true))
   }
 
   test("origins of both records are carried over where known") {
