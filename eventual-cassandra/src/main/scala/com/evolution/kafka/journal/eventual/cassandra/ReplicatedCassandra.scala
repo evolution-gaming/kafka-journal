@@ -47,7 +47,7 @@ private[journal] object ReplicatedCassandra {
     } yield {
       implicit val sr: SecureRandom[F] = secureRandom
       val segmentOf = SegmentNrs.Of[F](first = Segments.default, second = Segments.old)
-      val forkReporter = JournalForkReporter[F](log, metrics)
+      val forkReporter = JournalForkReporter.fromMetrics(metrics.getOrElse(ReplicatedJournal.Metrics.empty[F]), log)
       val journal =
         apply[F](config.segmentSize, segmentOf, statements, expiryService, forkReporter).withLog(log)
       metrics
