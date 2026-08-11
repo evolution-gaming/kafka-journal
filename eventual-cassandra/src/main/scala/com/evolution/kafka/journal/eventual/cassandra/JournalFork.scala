@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
-import com.evolution.kafka.journal.{DeleteTo, EventRecord, Key, Origin, PartitionOffset, SeqNr}
+import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, SeqNr}
 
 /**
  * A candidate journal fork: an event whose `seqNr` is not above every `seqNr` replicated to that
@@ -10,16 +10,14 @@ import com.evolution.kafka.journal.{DeleteTo, EventRecord, Key, Origin, Partitio
  * Happens when a persistent actor's append to Kafka is still in flight while the entity is
  * restarted elsewhere: the new incarnation does not see the in-flight event, so it appends a
  * different event with the same `seqNr`. Both are replicated (the `journal` table clusters on
- * `(seq_nr, timestamp)`), and the next recovery of the entity fails with `Data integrity violated:
+ * `(seq_nr, timestamp)`), and a recovery of the entity can then fail with `Data integrity violated:
  * seqNr ... duplicated in multiple records`, see
  * [[com.evolution.kafka.journal.eventual.cassandra.EventualCassandra]].
  *
- * Whether the `seqNr` really is written twice is only sometimes decidable here, see
- * [[JournalFork.Consequence]]: a recovery fails on two rows sharing a `seq_nr`, and knowing which
- * `seqNr`s a journal already occupies would take a `journal` table read this deliberately avoids.
- *
- * Detected, but not acted upon: which of the two branches survives is a decision for a human or a
- * repair tool, as it depends on the `writerUuid` of the events which follow the fork.
+ * Detected, but not acted upon, and deliberately says nothing about what it costs: that depends on
+ * how the journal is used, which is not known here. Which of the two branches survives is a
+ * decision for a human or a repair tool, as it depends on the `writerUuid` of the events which
+ * follow.
  *
  * The two records are named by their Kafka offset order, because that is all they always have in
  * common: `earlierRecord` may be the journal's last replicated event, but it may equally be another
@@ -31,10 +29,7 @@ import com.evolution.kafka.journal.{DeleteTo, EventRecord, Key, Origin, Partitio
  *   the event being appended right now, the one whose `seqNr` failed to increase
  * @param earlierRecord
  *   the record with the highest `seqNr` at a lower offset - either the journal's last replicated
- *   event, see [[JournalFork.Record.fromJournalHead]], or an earlier event of the same batch. It is
- *   the record actually duplicated only when `duplicateProven` came from comparing against it.
- * @param deleteTo
- *   the journal's delete watermark at the time
+ *   event, see [[JournalFork.Record.fromJournalHead]], or an earlier event of the same batch.
  * @param duplicateProven
  *   whether a record is known to occupy `seqNr` already - true when `laterRecord` repeats the
  *   `seqNr` of the journal head or of an earlier event of the same batch. False means the `seqNr`
@@ -45,24 +40,10 @@ private[journal] final case class JournalFork(
   key: Key,
   laterRecord: JournalFork.Record,
   earlierRecord: JournalFork.Record,
-  deleteTo: Option[DeleteTo],
   duplicateProven: Boolean,
 ) {
 
-  /**
-   * The `seqNr` which failed to increase.
-   */
   def seqNr: SeqNr = laterRecord.seqNr
-
-  /**
-   * A `seqNr` at or below `deleteTo` is harmless whether it is duplicated or not: the record it
-   * would duplicate is gone from the `journal` table and [[EventualCassandra]] reads above it.
-   */
-  def consequence: JournalFork.Consequence = {
-    if (deleteTo.exists(_.value >= seqNr)) JournalFork.Consequence.BelowDeleteTo
-    else if (duplicateProven) JournalFork.Consequence.BreaksRecovery
-    else JournalFork.Consequence.SuspectedRegression
-  }
 
   def show: String = {
     s"key: $key, later: ${ laterRecord.show }, earlier: ${ earlierRecord.show }"
@@ -84,7 +65,6 @@ private[journal] object JournalFork {
     events: List[EventRecord[A]],
   ): List[JournalFork] = {
 
-    val deleteTo = journalHead.flatMap(_.deleteTo)
     val headSeqNr = journalHead.map(_.seqNr)
 
     // `seqNr`s of the batch walked so far: needed on top of `earlier` because two *equal* `seqNr`s
@@ -101,7 +81,6 @@ private[journal] object JournalFork {
               key,
               laterRecord = record,
               earlierRecord = earlier,
-              deleteTo = deleteTo,
               duplicateProven = seen.contains(record.seqNr) || headSeqNr.contains(record.seqNr),
             )
             (Some(earlier), seen1, fork :: forks)
@@ -114,47 +93,7 @@ private[journal] object JournalFork {
   }
 
   /**
-   * What a [[JournalFork]] means for the journal, and hence how loudly to report it. The `name` is
-   * a metric label value, so the set of them stays small and stable.
-   */
-  sealed abstract class Consequence(val name: String, val explanation: String)
-
-  object Consequence {
-
-    /**
-     * A record is known to occupy the `seqNr` and is still readable, so the entity's next recovery
-     * fails and stays broken until the losing row is removed by hand. Assumes the default
-     * `seqNrUniqueness` data integrity setting on the reader side; with it off,
-     * [[EventualCassandra]] replays both events instead of failing.
-     */
-    case object BreaksRecovery
-    extends Consequence("breaks_recovery", "the next recovery of the entity will fail on it")
-
-    /**
-     * The `seqNr` is at or below the journal's `deleteTo`, so whatever it duplicates is already
-     * gone and no recovery reads that far back. The appended row is orphaned until the next purge
-     * or expiry - the same underlying bug, but nothing to repair.
-     */
-    case object BelowDeleteTo
-    extends Consequence(
-      "below_delete_to",
-      "already deleted, so no recovery reads it - the appended row is merely orphaned",
-    )
-
-    /**
-     * The `seqNr` regressed but nothing proves it is occupied: it is the fingerprint of the fork
-     * bug, yet concurrent appends of distinct `seqNr`s to one key look identical from here.
-     */
-    case object SuspectedRegression
-    extends Consequence(
-      "suspected_regression",
-      "a duplicate is likely but unproven - only a `journal` table read for this seqNr can tell",
-    )
-  }
-
-  /**
-   * Where one of the two records claiming the same `seqNr` sits in Kafka, and which node appended
-   * it.
+   * Where one of a fork's two records sits in Kafka, and which node appended it.
    *
    * Notably not the `writerUuid` of the entity incarnation behind it, which is what decides the
    * surviving branch - that lives in the payload and is left to the repair tool.
