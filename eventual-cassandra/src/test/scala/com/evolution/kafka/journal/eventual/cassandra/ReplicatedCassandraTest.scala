@@ -2018,14 +2018,13 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
 
-      // `journal` clusters on `(seq_nr, timestamp)`, so both branches of the fork end up stored - which
-      // is what breaks the next recovery of the entity, and what the alert is about
+      // `journal` clusters on `(seq_nr, timestamp)`, so both branches of the fork end up stored
       state.journal.values.flatMap(_.keys).toSet shouldEqual
         Set((SeqNr.min, timestamp0), (SeqNr.min, timestamp1))
 
       forks.map(_.key) shouldEqual List(key)
       forks.map(_.seqNr) shouldEqual List(SeqNr.min)
-      forks.map(_.consequence) shouldEqual List(JournalFork.Consequence.BreaksRecovery)
+      forks.map(_.duplicateProven) shouldEqual List(true)
       forks.map(_.laterRecord) shouldEqual List(JournalFork.Record(SeqNr.min, event1.partitionOffset, Some(origin1)))
       // the earlier record comes from the `metajournal` head, which does not carry the writer's origin
       forks.map(_.earlierRecord) shouldEqual List(JournalFork.Record(SeqNr.min, event0.partitionOffset, none))
@@ -2046,7 +2045,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val forks = state.forks
 
       forks.map(_.seqNr) shouldEqual List(SeqNr.min)
-      forks.map(_.consequence) shouldEqual List(JournalFork.Consequence.BreaksRecovery)
+      forks.map(_.duplicateProven) shouldEqual List(true)
       // unlike a fork against the journal head, both origins are at hand within one batch
       forks.map(_.laterRecord.origin) shouldEqual List(Some(origin1))
       forks.map(_.earlierRecord.origin) shouldEqual List(Some(origin))
@@ -2070,7 +2069,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val forks = state.forks
 
       forks.map(_.seqNr) shouldEqual List(SeqNr.unsafe(1))
-      forks.map(_.consequence) shouldEqual List(JournalFork.Consequence.SuspectedRegression)
+      forks.map(_.duplicateProven) shouldEqual List(false)
       // the fork's `seqNr` and the earlier one differ - the live incarnation got past what this
       // event duplicates, so nothing here proves seqNr 1 is occupied
       forks.map(_.earlierRecord.seqNr) shouldEqual List(SeqNr.unsafe(2))
@@ -2127,20 +2126,19 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks shouldEqual List.empty
     }
 
-    test(s"`delete` does not reset `seqNr`, so it neither hides nor fakes a journal fork, $suffix") {
+    test(s"`delete` does not reset `seqNr`, so it does not fake a journal fork, $suffix") {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
       val event2 = eventOf(SeqNr.unsafe(3), Offset.unsafe(4))
-      // a duplicate of an already deleted `seqNr`: still reported, but no recovery can trip over it
-      // because the row it duplicates is gone
+      // a `seqNr` below the head again, reported as a regression like any other
       val event3 =
         eventOf(SeqNr.unsafe(2), Offset.unsafe(5)).copy(timestamp = timestamp1)
 
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
         _ <- journal.delete(key, Partition.min, Offset.unsafe(3), timestamp0, SeqNr.unsafe(2).toDeleteTo, none)
-        // seqNr 3 follows the delete, so `deleteTo` neither hides nor fakes a fork here
+        // the delete left the head's `seqNr` at 2, so seqNr 3 follows it and is not a fork
         _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp0, none, Nel.of(event2))
         _ <- journal.append(key, Partition.min, Offset.unsafe(5), timestamp1, none, Nel.of(event3))
       } yield {}
@@ -2149,7 +2147,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val forks = state.forks
 
       forks.map(_.seqNr) shouldEqual List(SeqNr.unsafe(2))
-      forks.map(_.consequence) shouldEqual List(JournalFork.Consequence.BelowDeleteTo)
+      forks.map(_.duplicateProven) shouldEqual List(false)
     }
   }
 }

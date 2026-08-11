@@ -180,14 +180,15 @@ object ReplicatedJournal {
     def setSchemaVersion(version: Int): F[Unit]
 
     /**
-     * Accounts a journal fork, i.e. an event replicated with a `seqNr` which is already occupied by
-     * another event of the same journal. Deliberately not labelled by the persistence id, which
-     * would explode the cardinality: the id is in the accompanying log record.
+     * Accounts a journal fork, i.e. an event replicated with a `seqNr` which did not increase over
+     * what the journal already had.
      *
-     * @param consequence
-     *   what the fork means for the journal. A label value, so the set of them is small and stable.
+     * @param duplicateProven
+     *   whether a record is known to occupy the `seqNr` already, or it merely failed to increase.
+     *   Deliberately a fact rather than a severity - what a fork costs depends on how the journal
+     *   is used, which is not known here.
      */
-    def journalForkDetected(topic: Topic, consequence: String): F[Unit]
+    def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit]
   }
 
   object Metrics {
@@ -214,7 +215,7 @@ object ReplicatedJournal {
 
         def setSchemaVersion(version: Int): F[Unit] = unit
 
-        def journalForkDetected(topic: Topic, consequence: String): F[Unit] = unit
+        def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit] = unit
       }
     }
 
@@ -259,7 +260,7 @@ object ReplicatedJournal {
       val forkDetectedCounter = registry.counter(
         name = s"${ prefix }_fork_detected_total",
         help = "Number of journal forks detected, i.e. events replicated with an already occupied seqNr",
-        labels = LabelNames("topic", "consequence"),
+        labels = LabelNames("topic", "kind"),
       )
 
       for {
@@ -315,8 +316,10 @@ object ReplicatedJournal {
           def setSchemaVersion(version: Int): F[Unit] =
             schemaVersionInfo.labels(s"$version").set()
 
-          def journalForkDetected(topic: Topic, consequence: String): F[Unit] =
-            forkDetectedCounter.labels(topic, consequence).inc()
+          def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit] = {
+            val kind = if (duplicateProven) "duplicate" else "regression"
+            forkDetectedCounter.labels(topic, kind).inc()
+          }
 
         }
       }
