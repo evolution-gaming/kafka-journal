@@ -157,8 +157,7 @@ private[journal] object ReplicatedCassandra {
                         def partitionOffset = PartitionOffset(partition, offset)
 
                         /**
-                         * Events which are not covered by `offset` yet, i.e. genuinely new ones
-                         * rather than a re-delivered batch.
+                         * Genuinely new events, rather than a re-delivered batch.
                          */
                         def newEvents(offset: Option[Offset]) = {
                           offset.fold {
@@ -169,9 +168,8 @@ private[journal] object ReplicatedCassandra {
                         }
 
                         /**
-                         * Reports the [[JournalFork]]s among the events about to be appended. Free
-                         * of extra Cassandra reads: `journalHead` is the one already loaded for the
-                         * append itself.
+                         * Free of extra Cassandra reads: `journalHead` is the one already loaded
+                         * for the append itself.
                          */
                         def detectForks(journalHead: Option[JournalHead]) = {
                           val events = newEvents(journalHead.map(_.partitionOffset.offset))
