@@ -7,45 +7,4 @@ on:
 
 jobs:
   test:
-
-    runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        scala:
-          - 2.13.18
-          - 3.3.8
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: coursier/cache-action@v8
-
-      - name: setup Java 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'sbt'
-
-      - name: setup SBT
-        uses: sbt/setup-sbt@v1
-
-      - name: check code ${{ matrix.scala }}
-        run: sbt "++${{ matrix.scala }}; clean; check"
-
-      - name: build ${{ matrix.scala }}
-        run: sbt "++${{ matrix.scala }}; clean; coverage; testFull; coverageAggregate"
-
-      - name: locate coverage report
-        id: coverage
-        if: success()
-        run: echo "file=$(find . -path '*/coverage-report/cobertura.xml' | head -1)" >> "$GITHUB_OUTPUT"
-
-      - name: test coverage
-        if: success()
-        uses: coverallsapp/github-action@v2
-        with:
-          file: ${{ steps.coverage.outputs.file }}
-          format: cobertura
-          flag-name: Scala ${{ matrix.scala }}
+    uses: evolution-gaming/scala-github-actions/.github/workflows/ci.yml@e9f3a8d1d95e9ed5b762627a28a1ce93fad45f0a # v6.2.0
