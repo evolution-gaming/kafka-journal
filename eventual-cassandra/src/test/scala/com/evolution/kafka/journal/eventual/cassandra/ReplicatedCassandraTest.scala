@@ -2023,13 +2023,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       state.journal.values.flatMap(_.keys).toSet shouldEqual
         Set((SeqNr.min, timestamp0), (SeqNr.min, timestamp1))
 
+      forks.map(_.key) shouldEqual List(key)
       forks.map(_.seqNr) shouldEqual List(SeqNr.min)
       forks.map(_.consequence) shouldEqual List(JournalFork.Consequence.BreaksRecovery)
-      forks.head.show shouldEqual
-        "Data integrity violated: seqNr 1 duplicated by a journal fork, key: topic0:id, " +
-        "later: seqNr: 1, partition: 0, offset: 2, origin: origin1, " +
-        "earlier: seqNr: 1, partition: 0, offset: 1, " +
-        "consequence: the next recovery of the entity will fail on it"
+      forks.map(_.laterRecord) shouldEqual List(JournalFork.Record(SeqNr.min, event1.partitionOffset, Some(origin1)))
+      // the earlier record comes from the `metajournal` head, which does not carry the writer's origin
+      forks.map(_.earlierRecord) shouldEqual List(JournalFork.Record(SeqNr.min, event0.partitionOffset, none))
     }
 
     test(s"detect a journal fork appended within one batch, $suffix") {
@@ -2072,11 +2071,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       forks.map(_.seqNr) shouldEqual List(SeqNr.unsafe(1))
       forks.map(_.consequence) shouldEqual List(JournalFork.Consequence.SuspectedRegression)
-      forks.head.show shouldEqual
-        "Suspected journal fork: seqNr 1 did not increase, key: topic0:id, " +
-        "later: seqNr: 1, partition: 0, offset: 3, origin: origin1, " +
-        "earlier: seqNr: 2, partition: 0, offset: 2, " +
-        "consequence: a duplicate is likely but unproven - only a `journal` table read for this seqNr can tell"
+      // the fork's `seqNr` and the earlier one differ - the live incarnation got past what this
+      // event duplicates, so nothing here proves seqNr 1 is occupied
+      forks.map(_.earlierRecord.seqNr) shouldEqual List(SeqNr.unsafe(2))
     }
 
     test(s"do not report a re-delivered batch as a journal fork, $suffix") {

@@ -185,9 +185,7 @@ object ReplicatedJournal {
      * would explode the cardinality: the id is in the accompanying log record.
      *
      * @param consequence
-     *   what the fork means for the journal - whether it will fail the entity's next recovery, or
-     *   is merely suspected or harmless. A metric label value, so the set of them is small and
-     *   stable.
+     *   what the fork means for the journal. A label value, so the set of them is small and stable.
      */
     def journalForkDetected(topic: Topic, consequence: String): F[Unit]
   }

@@ -31,9 +31,8 @@ import com.evolution.kafka.journal.{DeleteTo, EventRecord, Key, Origin, Partitio
  *   the event being appended right now, the one whose `seqNr` failed to increase
  * @param earlierRecord
  *   the record with the highest `seqNr` at a lower offset - either the journal's last replicated
- *   event, see [[JournalFork.Record.fromJournalHead]], or an earlier event of this very batch,
- *   which is not in Cassandra yet at this point. This is the invariant that was violated; it is the
- *   record actually duplicated only when `duplicateProven` was established by comparing against it.
+ *   event, see [[JournalFork.Record.fromJournalHead]], or an earlier event of the same batch. It is
+ *   the record actually duplicated only when `duplicateProven` came from comparing against it.
  * @param deleteTo
  *   the journal's delete watermark at the time
  * @param duplicateProven
@@ -51,14 +50,13 @@ private[journal] final case class JournalFork(
 ) {
 
   /**
-   * The `seqNr` at stake, i.e. the one which failed to increase.
+   * The `seqNr` which failed to increase.
    */
   def seqNr: SeqNr = laterRecord.seqNr
 
   /**
-   * What this means for the journal, see [[JournalFork.Consequence]]. A `seqNr` at or below
-   * `deleteTo` is harmless whether it is duplicated or not: the record it would duplicate is gone
-   * from the `journal` table and [[EventualCassandra]] starts reading above `deleteTo`.
+   * A `seqNr` at or below `deleteTo` is harmless whether it is duplicated or not: the record it
+   * would duplicate is gone from the `journal` table and [[EventualCassandra]] reads above it.
    */
   def consequence: JournalFork.Consequence = {
     if (deleteTo.exists(_.value >= seqNr)) JournalFork.Consequence.BelowDeleteTo
@@ -66,17 +64,8 @@ private[journal] final case class JournalFork(
     else JournalFork.Consequence.SuspectedRegression
   }
 
-  /**
-   * The `seqNr ... duplicated` wording of the recovery side error is repeated on purpose, so that a
-   * single grep finds both the fork and the recoveries it later breaks - but only where the
-   * duplicate is proven, so that the phrase keeps meaning what it says.
-   */
   def show: String = {
-    val what =
-      if (duplicateProven) s"Data integrity violated: seqNr $seqNr duplicated by a journal fork"
-      else s"Suspected journal fork: seqNr $seqNr did not increase"
-    s"$what, key: $key, later: ${ laterRecord.show }, " +
-      s"earlier: ${ earlierRecord.show }, consequence: ${ consequence.explanation }"
+    s"key: $key, later: ${ laterRecord.show }, earlier: ${ earlierRecord.show }"
   }
 }
 
@@ -84,10 +73,6 @@ private[journal] object JournalFork {
 
   /**
    * The forks among `events`, in the order the events appear.
-   *
-   * The `seqNr`s of a journal strictly increase, so an event claiming one at or below the `seqNr`
-   * of a record ahead of it - the last one replicated per `journalHead`, or an earlier event of
-   * `events` - means one `seqNr` written twice.
    *
    * @param events
    *   the events about to be appended, in Kafka offset order, already filtered down to the ones not
@@ -168,17 +153,14 @@ private[journal] object JournalFork {
   }
 
   /**
-   * As much of one of the two records claiming the same `seqNr` as is needed to find it again: the
-   * [[EventRecord]] fields identifying where it sits in Kafka and which node appended it.
+   * Where one of the two records claiming the same `seqNr` sits in Kafka, and which node appended
+   * it.
    *
    * Notably not the `writerUuid` of the entity incarnation behind it, which is what decides the
    * surviving branch - that lives in the payload and is left to the repair tool.
    */
   final case class Record(seqNr: SeqNr, partitionOffset: PartitionOffset, origin: Option[Origin]) {
 
-    /**
-     * Renders the record for [[JournalFork.show]].
-     */
     def show: String = {
       val originStr = origin.foldMap { origin => s", origin: $origin" }
       s"seqNr: $seqNr, partition: ${ partitionOffset.partition }, offset: ${ partitionOffset.offset }$originStr"
