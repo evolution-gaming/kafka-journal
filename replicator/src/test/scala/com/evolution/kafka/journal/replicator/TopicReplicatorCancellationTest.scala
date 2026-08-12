@@ -11,6 +11,7 @@ import com.evolutiongaming.catshelper.{Log, MeasureDuration}
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, RebalanceListener1, WithSize}
 import com.evolutiongaming.sstream.Stream
+import org.scalatest.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
@@ -24,23 +25,33 @@ class TopicReplicatorCancellationTest extends AsyncFunSuite with Matchers {
 
   import TopicReplicatorCancellationTest.*
 
-  test("key failure does not cancel other keys of the same partition") {
-    replicateOkAndBad { Map((Partition.min, Nel.of(record("ok", 0, 0), record("bad", 0, 1)))) }
+  test("key failure does not cancel other keys on the same partition") {
+    val partition = Partition.unsafe(0)
+    replicateOkAndBad {
+      Map(
+        partition ->
+          Nel.of(
+            record(key = "ok", partition = partition.value, offset = 0),
+            record(key = "bad", partition = partition.value, offset = 1),
+          ),
+      )
+    }
       .unsafeToFuture()
   }
 
-  test("key failure does not cancel keys of other partitions") {
-    val records = Map(
-      (Partition.unsafe(0), Nel.of(record("bad", 0, 0))),
-      (Partition.unsafe(1), Nel.of(record("ok", 1, 0))),
-    )
-    pendingUntilFixed {
-      replicateOkAndBad(records).unsafeRunSync()
-      ()
+  test("key failure does not cancel keys on other partitions") {
+    val partition0 = Partition.unsafe(0)
+    val partition1 = Partition.unsafe(1)
+    replicateOkAndBad {
+      Map(
+        partition0 -> Nel.of(record(key = "bad", partition = partition0.value, offset = 0)),
+        partition1 -> Nel.of(record(key = "ok", partition = partition1.value, offset = 0)),
+      )
     }
+      .unsafeToFuture()
   }
 
-  private def replicateOkAndBad(records: Map[Partition, Nel[ConsRecord]]) = {
+  private def replicateOkAndBad(records: Map[Partition, Nel[ConsRecord]]): IO[Assertion] = {
     for {
       started <- Deferred[IO, Unit]
       finished <- Deferred[IO, Unit]
@@ -73,19 +84,17 @@ object TopicReplicatorCancellationTest {
   implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock(Clock[IO])
 
   val consRecordToActionRecord: ConsRecordToActionRecord[IO] = { (record: ConsRecord) =>
-    {
-      record
-        .key
-        .traverse { key =>
-          val action = Action.delete(
-            key = Key(id = key.value, topic = record.topic),
-            timestamp = Instant.EPOCH,
-            header = ActionHeader.Delete(SeqNr.min.toDeleteTo, none, none),
-          )
-          val partitionOffset = PartitionOffset(record.topicPartition.partition, record.offset)
-          ActionRecord(action, partitionOffset).pure[IO]
-        }
-    }
+    record
+      .key
+      .traverse { key =>
+        val action = Action.delete(
+          key = Key(id = key.value, topic = record.topic),
+          timestamp = Instant.EPOCH,
+          header = ActionHeader.Delete(SeqNr.min.toDeleteTo, none, none),
+        )
+        val partitionOffset = PartitionOffset(record.topicPartition.partition, record.offset)
+        ActionRecord(action, partitionOffset).pure[IO]
+      }
   }
 
   val kafkaRead: KafkaRead[IO, Unit] = { (_: PayloadAndType) =>
