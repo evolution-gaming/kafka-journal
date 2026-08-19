@@ -1,77 +1,77 @@
-package com.evolution.kafka.journal
+package com.evolution.kafka.journal.app
 
-import cats.Parallel
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
-import cats.effect.syntax.resource.*
-import cats.syntax.all.*
+import cats.effect.implicits.*
+import cats.implicits.*
+import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.conversions.KafkaWrite
 import com.evolution.kafka.journal.eventual.EventualJournal
 import com.evolution.kafka.journal.pekko.persistence.KafkaJournalConfig
 import com.evolution.kafka.journal.replicator.{Replicator, ReplicatorConfig}
-import com.evolution.kafka.journal.util.*
 import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
-import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.pekko.actor.ActorSystem
 import pureconfig.ConfigSource
 
 import scala.concurrent.duration.*
 
 object AppendReplicateApp extends IOApp {
+  import cats.effect.unsafe.implicits.global
+
+  private val topic = "journal.AppendReplicate"
 
   def run(args: List[String]): IO[ExitCode] = {
-    import cats.effect.unsafe.implicits.global
-
-    val config = ConfigFactory.load("AppendReplicate.conf")
-    val system = ActorSystem("AppendReplicateApp", config)
-    implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock(Clock[IO])
-
-    val topic = "journal.AppendReplicate"
-
-    val result = ActorSystemOf[IO](system).use { implicit system => runF[IO](topic) }
-    result.as(ExitCode.Success)
+    for {
+      config <- IO { ConfigFactory.load("AppendReplicateApp.conf") }
+      _ <- makeActorSystemResource(config).use(runIo)
+    } yield ExitCode.Success
   }
 
-  private def runF[F[_]: Async: Parallel: FromGFuture: MeasureDuration: FromAttempt: FromTry: ToTry: Fail](
-    topic: Topic,
-  )(implicit
-    system: ActorSystem,
-  ): F[Unit] = {
+  private def makeActorSystemResource(config: Config): ResourceIO[ActorSystem] = {
+    Resource.make(IO {
+      ActorSystem("AppendReplicateApp", config)
+    }) { system =>
+      IO.fromFuture(IO {
+        system.terminate()
+      }).void
+    }
+  }
 
-    implicit val logOf: LogOf[F] = LogOfFromPekko[F](system)
-    implicit val randomIdOf: RandomIdOf[F] = RandomIdOf.uuid[F]
+  private def runIo(system: ActorSystem): IO[Unit] = {
+
+    implicit val logOf: LogOf[IO] = LogOfFromPekko[IO](system)
+    implicit val randomIdOf: RandomIdOf[IO] = RandomIdOf.uuid
 
     val kafkaJournalConfig = ConfigSource
       .fromConfig(system.settings.config)
       .at("evolutiongaming.kafka-journal.persistence.journal")
       .load[KafkaJournalConfig]
-      .liftTo[F]
+      .liftTo[IO]
 
     def journal(
       config: JournalConfig,
       hostName: Option[HostName],
-      log: Log[F],
+      log: Log[IO],
     )(implicit
-      kafkaConsumerOf: KafkaConsumerOf[F],
-      kafkaProducerOf: KafkaProducerOf[F],
+      kafkaConsumerOf: KafkaConsumerOf[IO],
+      kafkaProducerOf: KafkaProducerOf[IO],
     ) = {
 
       for {
-        producer <- Journals.Producer.make[F](config.kafka.producer)
+        producer <- Journals.Producer.make[IO](config.kafka.producer)
       } yield {
-        Journals[F](
+        Journals(
           origin = hostName.map(Origin.fromHostName),
           producer = producer,
-          consumer = Journals.Consumer.make[F](config.kafka.consumer, config.pollTimeout),
-          eventualJournal = EventualJournal.empty[F],
-          headCache = HeadCache.empty[F],
+          consumer = Journals.Consumer.make[IO](config.kafka.consumer, config.pollTimeout),
+          eventualJournal = EventualJournal.empty[IO],
+          headCache = HeadCache.empty[IO],
           log = log,
           conversionMetrics = none,
         )
@@ -81,21 +81,21 @@ object AppendReplicateApp extends IOApp {
     def replicator(
       hostName: Option[HostName],
     )(implicit
-      kafkaConsumerOf: KafkaConsumerOf[F],
+      kafkaConsumerOf: KafkaConsumerOf[IO],
     ) = {
       for {
-        cassandraClusterOf <- CassandraClusterOf.of[F].toResource
-        config <- ReplicatorConfig.fromConfig[F](system.settings.config).toResource
-        result <- Replicator.make[F](config, cassandraClusterOf, hostName)
+        cassandraClusterOf <- CassandraClusterOf.of[IO].toResource
+        config <- ReplicatorConfig.fromConfig[IO](system.settings.config).toResource
+        result <- Replicator.make[IO](config, cassandraClusterOf, hostName)
       } yield result
     }
 
     val resource = for {
-      log <- LogOf[F].apply(Journals.getClass).toResource
+      log <- LogOf[IO].apply(Journals.getClass).toResource
       kafkaJournalConfig <- kafkaJournalConfig.toResource
-      kafkaConsumerOf = KafkaConsumerOf[F]()
-      kafkaProducerOf = KafkaProducerOf[F]()
-      hostName <- HostName.of[F]().toResource
+      kafkaConsumerOf = KafkaConsumerOf[IO]()
+      kafkaProducerOf = KafkaProducerOf[IO]()
+      hostName <- HostName.of[IO]().toResource
       replicate <- replicator(hostName)(kafkaConsumerOf)
       journal <- journal(kafkaJournalConfig.journal, hostName, log)(kafkaConsumerOf, kafkaProducerOf)
     } yield {
@@ -104,15 +104,15 @@ object AppendReplicateApp extends IOApp {
 
     resource.use {
       case (journal, replicate) =>
-        Concurrent[F].race(append[F](topic, journal), replicate).void
+        IO.race(append(topic, journal), replicate).void
     }
   }
 
-  private def append[F[_]: Concurrent: Sleep: Parallel](
+  private def append(
     topic: Topic,
-    journals: Journals[F],
+    journals: Journals[IO],
   )(implicit
-    kafkaWrite: KafkaWrite[F, Payload],
+    kafkaWrite: KafkaWrite[IO, Payload],
   ) = {
 
     def append(id: String) = {
@@ -123,9 +123,9 @@ object AppendReplicateApp extends IOApp {
 
         for {
           _ <- journals(key).append(Nel.of(event))
-          result <- seqNr.next[Option].fold(().asRight[SeqNr].pure[F]) { seqNr =>
+          result <- seqNr.next[Option].fold(().asRight[SeqNr].pure[IO]) { seqNr =>
             for {
-              _ <- Sleep[F].sleep(100.millis)
+              _ <- IO.sleep(100.millis)
             } yield {
               seqNr.asLeft[Unit]
             }

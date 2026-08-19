@@ -1,0 +1,3 @@
+package com.evolution.kafka.journal.it.pekko
+
+class PekkoJournalPluginCirceSpec extends BasePekkoJournalPluginSpec[PekkoJournalPluginCirceSpec]
