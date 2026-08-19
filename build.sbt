@@ -5,8 +5,8 @@ import sbt.Package.ManifestAttributes
 lazy val commonSettings = Seq(
   organization := "com.evolution",
   organizationName := "Evolution",
-  organizationHomepage := Some(uri("https://evolution.com")),
-  homepage := Some(uri("https://github.com/evolution-gaming/kafka-journal")),
+  organizationHomepage := Some(url("https://evolution.com")),
+  homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
   crossScalaVersions := Seq("2.13.18", "3.3.8"),
   scalaVersion := crossScalaVersions.value.head,
@@ -37,19 +37,8 @@ lazy val commonSettings = Seq(
   ),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
-  // Under sbt 2 the compile cache can skip re-creating scoverage's data directory after `clean`.
-  // When a module's instrumented code runs inside another module's forked test JVM (before that
-  // module's own tests, if any, have run), scoverage.Invoker then crashes writing measurements to
-  // the missing directory. Ensure it always exists after compile whenever coverage is enabled.
-  Compile / compile := Def.uncached {
-    val compiled = (Compile / compile).value
-    if (coverageEnabled.value) {
-      val _ = (crossTarget.value / "scoverage-data").mkdirs()
-    }
-    compiled
-  },
   publishTo := Some(Resolver.evolutionReleases),
-  licenses := Seq(("MIT", uri("https://opensource.org/licenses/MIT"))),
+  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   // set up compiler plugins:
   libraryDependencies ++= crossSettings(
     scalaVersion = scalaVersion.value,
@@ -94,12 +83,11 @@ val alias: Seq[sbt.Def.Setting[?]] =
       "check", // check is called with + from the release action
       "all versionPolicyCheck Compile/doc scalafmtCheckRepo",
     ) ++
-    addCommandAlias("build", "all compile testFull")
+    addCommandAlias("build", "+all compile test")
 
 lazy val root = project
   .in(file("."))
   .settings(name := "kafka-journal")
-  .settings(normalizedName := "root")
   .settings(commonSettings)
   .settings(publish / skip := true)
   .settings(alias)
