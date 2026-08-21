@@ -74,7 +74,7 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "2.5.0"
+    private val version = "3.0.0"
     val SMetrics = "com.evolutiongaming" %% "smetrics" % version
     val Prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }
