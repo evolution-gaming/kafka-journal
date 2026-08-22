@@ -122,7 +122,7 @@ private[journal] object TopicReplicator {
                 timestamp <- Clock[F].instant
                 _ <- records.parFoldMap1 {
                   case (partition, records) =>
-                    for {
+                    val replicatePartition = for {
                       partitionFlow <- cache.getOrUpdate(partition) {
                         for {
                           journal <- journal(partition)
@@ -205,7 +205,11 @@ private[journal] object TopicReplicator {
                       }
                       result <- partitionFlow(timestamp, records)
                     } yield result
+                    // TODO remove `attempt` after CE merges https://github.com/typelevel/cats-effect/pull/4451
+                    replicatePartition.attempt
                 }
+                  // TODO remove `flatMap` after CE merges https://github.com/typelevel/cats-effect/pull/4451
+                  .flatMap { Concurrent[F].fromEither }
                 duration <- duration
                 _ <- metrics.round(duration, records.foldLeft(0) { _ + _.size })
               } yield {
