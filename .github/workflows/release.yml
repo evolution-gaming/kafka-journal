@@ -5,7 +5,10 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write # can delete tag on failed release attempt
+
 jobs:
   release:
-    uses: evolution-gaming/scala-github-actions/.github/workflows/release.yml@v5
+    uses: evolution-gaming/scala-github-actions/.github/workflows/release.yml@f02d2d572f3070fba1fd22edfb02070e57a0651b # v7.0.0
     secrets: inherit

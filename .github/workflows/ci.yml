@@ -5,6 +5,9 @@ on:
     branches: [ master ]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
-    uses: evolution-gaming/scala-github-actions/.github/workflows/ci.yml@dde27b9bd793d41d5aacf8fb74403c9de5da1146 # v6.3.0
+    uses: evolution-gaming/scala-github-actions/.github/workflows/ci.yml@f02d2d572f3070fba1fd22edfb02070e57a0651b # v7.0.0
