@@ -171,11 +171,7 @@ private[journal] object TopicReplicator {
                                             result <- keyFlow(timestamp, records)
                                           } yield result
                                         }
-                                          // TODO remove `attempt` after CE merges https://github.com/typelevel/cats-effect/pull/4451
-                                          .attempt
                                     }
-                                    // TODO remove `flatMap` after CE merges https://github.com/typelevel/cats-effect/pull/4451
-                                    .flatMap { Concurrent[F].fromEither }
                                 }
                               result <- {
                                 val offset1 = records.maximumBy { _.offset }.offset
