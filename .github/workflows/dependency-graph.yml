@@ -9,4 +9,4 @@ permissions:
 
 jobs:
   submit:
-    uses: evolution-gaming/scala-github-actions/.github/workflows/dependency-graph.yml@2a50f1819b6fef2657ba802fd62612b7fc8450f0 # v6.4.0
+    uses: evolution-gaming/scala-github-actions/.github/workflows/dependency-graph.yml@f02d2d572f3070fba1fd22edfb02070e57a0651b # v7.0.0
