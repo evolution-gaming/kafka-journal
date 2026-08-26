@@ -73,15 +73,6 @@ lazy val commonSettings = Seq(
   versionPolicyIgnored ++= Seq(
     // add libraries here that are known to be binary compatible, like:
 //    "com.evolutiongaming" %% "smetrics",
-    // transitive dependencis from `scassandra`, aren't exposed on public API
-    "com.google.guava" % "guava",
-    "io.netty" % "netty-buffer",
-    "io.netty" % "netty-codec",
-    "io.netty" % "netty-common",
-    "io.netty" % "netty-handler",
-    "io.netty" % "netty-resolver",
-    "io.netty" % "netty-transport",
-    "io.netty" % "netty-transport-native-unix-common",
   ),
 )
 
