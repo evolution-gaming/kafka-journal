@@ -43,7 +43,7 @@ private[it] trait SuiteScopedResources extends BeforeAndAfterAll { this: Suite =
   private[this] val releaseIoDeque = new ConcurrentLinkedDeque[IO[Unit]]
 
   /**
-   * Allocates a test-suite-scoped resource with automatic destruction.
+   * Allocates a test-suite-scoped resource with automatic release.
    *
    * See [[SuiteScopedResources]] documentation for usage details.
    *
