@@ -119,6 +119,7 @@ lazy val root = project
     pekkoPersistenceCirce,
     pekkoTests,
     ScalaTestIO,
+    demo,
   )
 
 lazy val core = project
@@ -344,6 +345,28 @@ lazy val ScalaTestIO = project
   .settings(commonSettings)
   .settings(publish / skip := true)
   .settings(libraryDependencies ++= Seq(ScalaTest, Smetrics.SMetrics, CatsHelper, Cats.Core, Cats.Effect))
+
+/**
+ * A resting ground for sample demo apps which used to reside alongside integration tests
+ */
+lazy val demo = project
+  .in(file("demo"))
+  .settings(name := "kafka-journal-demo")
+  .settings(commonSettings)
+  .settings(
+    Seq(
+      publish / skip := true,
+    ),
+  )
+  .dependsOn(
+    journal,
+    eventualCassandra,
+    replicator,
+  )
+  .settings(libraryDependencies ++= Seq(
+    Logback.Core,
+    Logback.Classic,
+  ))
 
 // not part of aggregate, tests can be run only manually
 lazy val benchmark = project
