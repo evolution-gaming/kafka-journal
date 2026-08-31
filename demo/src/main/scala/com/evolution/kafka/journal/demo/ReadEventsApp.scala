@@ -1,12 +1,12 @@
-package com.evolution.kafka.journal
+package com.evolution.kafka.journal.demo
 
 import cats.Parallel
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
+import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig
-import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.cassandra.KeyspaceConfig
 import com.evolution.kafka.journal.eventual.cassandra.*
 import com.evolution.kafka.journal.util.Fail
@@ -20,6 +20,8 @@ import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 import scala.concurrent.duration.*
 
 object ReadEventsApp extends IOApp {
+
+  private implicit def jsonCodec[F[_]: ApplicativeThrowable: FromTry]: JsonCodec[F] = JsonCodec.default[F]
 
   def run(args: List[String]): IO[ExitCode] = {
     import cats.effect.unsafe.implicits.global

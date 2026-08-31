@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{10} %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="CONSOLE-ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="CONSOLE"/>
+    </appender>
+
+    <!--
+    Preserving the same root log level for the demo apps as when they resided with the integration test code
+    -->
+    <root level="WARN">
+        <appender-ref ref="CONSOLE-ASYNC"/>
+    </root>
+</configuration>

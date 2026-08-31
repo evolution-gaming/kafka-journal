@@ -1,14 +1,13 @@
-package com.evolution.kafka.journal
+package com.evolution.kafka.journal.demo
 
 import cats.Parallel
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
-import com.evolution.kafka.journal.TestJsonCodec.instance
+import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.conversions.KafkaWrite
 import com.evolution.kafka.journal.eventual.EventualJournal
-import com.evolution.kafka.journal.pekko.persistence.KafkaJournalConfig
 import com.evolution.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolution.kafka.journal.util.*
 import com.evolution.kafka.journal.util.PureConfigHelper.*
@@ -18,40 +17,43 @@ import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
-import com.typesafe.config.ConfigFactory
-import org.apache.pekko.actor.ActorSystem
+import com.typesafe.config.{Config, ConfigFactory}
 import pureconfig.ConfigSource
 
 import scala.concurrent.duration.*
 
 object AppendReplicateApp extends IOApp {
 
+  private implicit def jsonCodec[F[_]: ApplicativeThrowable: FromTry]: JsonCodec[F] = JsonCodec.default[F]
+
   def run(args: List[String]): IO[ExitCode] = {
     import cats.effect.unsafe.implicits.global
 
-    val config = ConfigFactory.load("AppendReplicate.conf")
-    val system = ActorSystem("AppendReplicateApp", config)
+    val config = ConfigFactory.load("AppendReplicateApp.conf")
     implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock(Clock[IO])
 
     val topic = "journal.AppendReplicate"
 
-    val result = ActorSystemOf[IO](system).use { implicit system => runF[IO](topic) }
-    result.as(ExitCode.Success)
+    for {
+      logOf <- LogOf.slf4j[IO]
+      _ <- {
+        implicit val logOf1: LogOf[IO] = logOf
+        runF[IO](topic, config)
+      }
+    } yield ExitCode.Success
   }
 
-  private def runF[F[_]: Async: Parallel: FromGFuture: MeasureDuration: FromAttempt: FromTry: ToTry: Fail](
+  private def runF[F[_]: Async: Parallel: FromGFuture: MeasureDuration: FromAttempt: FromTry: ToTry: Fail: LogOf](
     topic: Topic,
-  )(implicit
-    system: ActorSystem,
+    config: Config,
   ): F[Unit] = {
 
-    implicit val logOf: LogOf[F] = LogOfFromPekko[F](system)
     implicit val randomIdOf: RandomIdOf[F] = RandomIdOf.uuid[F]
 
-    val kafkaJournalConfig = ConfigSource
-      .fromConfig(system.settings.config)
+    val journalConfig = ConfigSource
+      .fromConfig(config)
       .at("evolutiongaming.kafka-journal.persistence.journal")
-      .load[KafkaJournalConfig]
+      .load[JournalConfig]
       .liftTo[F]
 
     def journal(
@@ -85,19 +87,19 @@ object AppendReplicateApp extends IOApp {
     ) = {
       for {
         cassandraClusterOf <- CassandraClusterOf.of[F].toResource
-        config <- ReplicatorConfig.fromConfig[F](system.settings.config).toResource
+        config <- ReplicatorConfig.fromConfig[F](config).toResource
         result <- Replicator.make[F](config, cassandraClusterOf, hostName)
       } yield result
     }
 
     val resource = for {
       log <- LogOf[F].apply(Journals.getClass).toResource
-      kafkaJournalConfig <- kafkaJournalConfig.toResource
+      journalConfig <- journalConfig.toResource
       kafkaConsumerOf = KafkaConsumerOf[F]()
       kafkaProducerOf = KafkaProducerOf[F]()
       hostName <- HostName.of[F]().toResource
       replicate <- replicator(hostName)(kafkaConsumerOf)
-      journal <- journal(kafkaJournalConfig.journal, hostName, log)(kafkaConsumerOf, kafkaProducerOf)
+      journal <- journal(journalConfig, hostName, log)(kafkaConsumerOf, kafkaProducerOf)
     } yield {
       (journal, replicate)
     }
