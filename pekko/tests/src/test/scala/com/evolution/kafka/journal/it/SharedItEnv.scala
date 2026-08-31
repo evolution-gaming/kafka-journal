@@ -99,6 +99,7 @@ private[it] object SharedItEnv {
 
   private lazy val memoizedStartEnvResult: Either[Throwable, SharedItEnv] = {
     Try {
+      // see SharedItEnv doc on why the release IO is discarded here
       val (env, _) = runEnvResource.allocated.unsafeRunSync()
       env
     }.toEither
