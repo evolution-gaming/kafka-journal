@@ -31,7 +31,7 @@ import scala.util.control.NonFatal
  * }}}
  *
  * In case allocation fails for one of the resources, all previously created resources are
- * deallocated and the failure is propagated to the suite constructor.
+ * released and the failure is propagated to the suite constructor.
  *
  * It is highly suggested not to assign allocateSuiteScoped result values to lazy val's, because on
  * Scala 2.13 it might result in deadlocks.
