@@ -7,7 +7,6 @@ import com.evolution.kafka.journal.HostName
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.catshelper.*
-import com.evolutiongaming.smetrics.CollectorRegistry
 import com.typesafe.config.{Config, ConfigFactory}
 import org.slf4j.{Logger, LoggerFactory}
 import org.testcontainers.cassandra.CassandraContainer
@@ -146,9 +145,8 @@ private[it] object SharedItEnv {
   private def replicatorResource(config: ReplicatorConfig): ResourceIO[Unit] = {
     logResourceStart(name = "replicator") {
       for {
-        metrics <- Replicator.Metrics.make[IO](CollectorRegistry.empty[IO], "fake-client-id")
         hostName <- HostName.of[IO]().toResource
-        replicatorRunIo <- Replicator.make[IO](config, cassandraClusterOf, hostName, metrics.some)
+        replicatorRunIo <- Replicator.make[IO](config, cassandraClusterOf, hostName, metrics = none)
         _ <- replicatorRunIo.onError { t =>
           logIo.error(s"[replicator] died prematurely: ${ t.getMessage }", t)
         }.background
