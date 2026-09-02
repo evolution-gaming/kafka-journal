@@ -1,10 +1,10 @@
 package com.evolution.kafka.journal
 
 import cats.data.NonEmptyList as Nel
-import cats.effect.IO
-import cats.syntax.all.*
+import cats.effect.*
+import cats.effect.implicits.*
+import cats.implicits.*
 import com.evolution.kafka.journal.IOSuite.*
-import com.evolution.kafka.journal.TestJsonCodec.instance
 import com.evolution.kafka.journal.eventual.EventualJournal
 import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.catshelper.DataHelper.*
@@ -12,23 +12,22 @@ import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 import scala.concurrent.duration.*
 
 class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
+  import IntegrationTestInstances.*
   import JournalSuite.*
 
   private val many = 100
   private val events = 1000
   private val origin = Origin("JournalPerfSpec")
-  private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 
-  import cats.effect.unsafe.implicits.global
+  private def makeJournalTest(journal: Journal[IO]): JournalTest =
+    new JournalTest(journal, readRecordTimestampOverride = None)
 
   private val journalOf = { (eventualJournal: EventualJournal[IO]) =>
     {
-      implicit val logOf: LogOf[IO] = LogOf.empty[IO]
+      implicit val logOf: LogOf[IO] = LogOf.empty
       val log = Log.empty[IO]
       val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)
       for {
@@ -72,7 +71,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
     def append(journals: Journals[IO]) = {
 
-      val journal = JournalTest(journals(key), timestamp)
+      val journal = makeJournalTest(journals(key))
 
       val expected = {
         val expected = for {
@@ -92,7 +91,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
             for {
               _ <- journal.append(Nel.of(e))
               key <- Key.random[IO]("journal")
-              journal = JournalTest(journals(key), timestamp)
+              journal = makeJournalTest(journals(key))
               _ <- journal.append(Nel.of(e))
             } yield {}
           }
@@ -122,7 +121,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
       lazy val (journal, release) = {
         val (journals, release) = journalOf(eventual()).allocated.unsafeRunSync()
-        (JournalTest(journals(key), timestamp), release)
+        (makeJournalTest(journals(key)), release)
       }
 
       s"measure pointer $many times, $name" in {

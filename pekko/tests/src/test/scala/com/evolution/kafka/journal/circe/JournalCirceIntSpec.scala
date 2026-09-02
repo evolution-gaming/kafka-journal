@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.circe
 
 import cats.effect.IO
-import cats.syntax.all.*
+import cats.implicits.*
 import com.evolution.kafka.journal.circe.Instances.*
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.EventualRead

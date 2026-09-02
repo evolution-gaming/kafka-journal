@@ -1,10 +1,10 @@
 package com.evolution.kafka.journal
 
-import TestJsonCodec.instance
 import cats.Foldable
 import cats.data.NonEmptyList as Nel
-import cats.effect.{IO, Resource}
-import cats.syntax.all.*
+import cats.effect.*
+import cats.effect.implicits.*
+import cats.implicits.*
 import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.akka.persistence.KafkaJournalConfig
@@ -23,8 +23,8 @@ import java.time.temporal.ChronoUnit
 import scala.concurrent.duration.*
 
 abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
+  import IntegrationTestInstances.*
   import JournalIntSpec.*
-  import JournalSuite.*
 
   def event(seqNr: SeqNr): Event[A]
 
@@ -32,11 +32,9 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
   implicit val kafkaWrite: KafkaWrite[IO, A]
   implicit val eventualRead: EventualRead[IO, A]
 
-  import cats.effect.unsafe.implicits.global
-
   private val journalsOf = { (eventualJournal: EventualJournal[IO], headCache: Boolean) =>
     {
-      implicit val logOf: LogOf[IO] = LogOf.empty[IO]
+      implicit val logOf: LogOf[IO] = LogOf.empty
       val log = Log.empty[IO]
 
       def headCacheOf(config: KafkaJournalConfig) = if (headCache) {
@@ -88,7 +86,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
         s"append, delete, read, purge, lastSeqNr, $name1" in {
           val result = for {
             key <- key
-            journal = JournalTest(journals(key), timestamp)
+            journal = makeJournalTest(journals(key))
             pointer <- journal.pointer
             _ = pointer shouldEqual None
             events <- journal.read
@@ -143,7 +141,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
 
           val result = for {
             key <- key
-            journal = JournalTest(journals(key), timestamp)
+            journal = makeJournalTest(journals(key))
             read = for {
               events1 <- journal.read
               _ = events1.map(_.event) shouldEqual events
@@ -167,7 +165,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
 
           val appends = for {
             key <- key
-            journal = JournalTest(journals(key), timestamp)
+            journal = makeJournalTest(journals(key))
             events <- journal.read
             _ = events shouldEqual Nil
             pointer <- journal.pointer
@@ -199,7 +197,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
 
           val result = for {
             key <- key
-            journal = JournalTest(journals(key), timestamp)
+            journal = makeJournalTest(journals(key))
             pointer <- journal.pointer
             _ = pointer shouldEqual None
             events <- journal.read
@@ -269,13 +267,14 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
 }
 
 object JournalIntSpec {
+  import JournalSuite.*
+
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
   private val origin = Origin("JournalIntSpec")
   private val version = Version.current
   private val recordMetadata = RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata.empty)
   private val headers = Headers(("key", "value"))
 
-  implicit class EventRecordOps[A](val self: EventRecord[A]) extends AnyVal {
-    def fix: EventRecord[A] = self.copy(timestamp = timestamp)
-  }
+  private def makeJournalTest(journal: Journal[IO]): JournalTest =
+    new JournalTest(journal, readRecordTimestampOverride = timestamp.some)
 }
