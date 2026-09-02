@@ -101,16 +101,24 @@ object JournalSuite {
       }
     }
 
-    def pointer: IO[Option[SeqNr]] = journal.pointer
+    def pointer: IO[Option[SeqNr]] = {
+      journal.pointer
+    }
 
-    def delete(to: DeleteTo): IO[Option[PartitionOffset]] = journal.delete(to)
+    def delete(to: DeleteTo): IO[Option[PartitionOffset]] = {
+      journal.delete(to)
+    }
 
-    def purge: IO[Option[PartitionOffset]] = journal.purge
+    def purge: IO[Option[PartitionOffset]] = {
+      journal.purge
+    }
 
     def size[A](
       implicit
       kafkaRead: KafkaRead[IO, A],
       eventualRead: EventualRead[IO, A],
-    ): IO[Long] = journal.read().length
+    ): IO[Long] = {
+      journal.read().length
+    }
   }
 }
