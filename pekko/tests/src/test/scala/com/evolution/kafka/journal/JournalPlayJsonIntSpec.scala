@@ -1,13 +1,13 @@
 package com.evolution.kafka.journal
 
-import TestJsonCodec.instance
-import cats.effect.IO
-import cats.syntax.all.*
+import cats.effect.*
+import cats.implicits.*
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.EventualRead
 import play.api.libs.json.Json
 
 class JournalPlayJsonIntSpec extends JournalIntSpec[Payload] {
+  import IntegrationTestInstances.*
 
   override def event(seqNr: SeqNr): Event[Payload] =
     Event(seqNr, payload = Payload.json(Json.obj("key" -> "value")).some)

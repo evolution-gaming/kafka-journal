@@ -1,22 +1,18 @@
 package com.evolution.kafka.journal.replicator
 
-import cats.Parallel
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
-import cats.effect.syntax.resource.*
-import cats.syntax.all.*
+import cats.effect.implicits.*
+import cats.implicits.*
 import com.evolution.kafka.journal.*
-import com.evolution.kafka.journal.CassandraSuite.*
 import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig
 import com.evolution.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolution.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolution.kafka.journal.util.PureConfigHelper.*
-import com.evolution.kafka.journal.util.{ActorSystemOf, Fail}
 import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.retry.{Retry, Strategy}
-import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.skafka.Offset
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.BeforeAndAfterAll
@@ -30,87 +26,69 @@ import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
 class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
-  import TestJsonCodec.instance
-  import cats.effect.unsafe.implicits.global
+  import IntegrationTestInstances.*
 
   private val origin = Origin("ReplicatorIntSpec")
   private val version = Version.current
-
   private val recordMetadata = RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata.empty)
-
   private val headers = Headers(("key", "value"))
 
-  private implicit val randomIdOf: RandomIdOf[IO] = RandomIdOf.uuid[IO]
-
-  private def resources[F[_]: Async: LogOf: Parallel: FromFuture: RandomIdOf: MeasureDuration: FromTry: ToTry: Fail](
-    cassandraClusterOf: CassandraClusterOf[F],
-  ) = {
+  private def resources: ResourceIO[(EventualJournal[IO], Journals[IO])] = {
+    implicit val logOf: LogOf[IO] = LogOf.empty
 
     def eventualJournal(conf: Config) = {
       val config = ConfigSource
         .fromConfig(conf)
         .at("cassandra")
         .load[EventualCassandraConfig]
-        .liftTo[F]
+        .liftTo[IO]
       for {
         config <- config.toResource
         eventualJournal <-
-          EventualCassandra.make[F](config, origin.some, none, cassandraClusterOf, DataIntegrityConfig.Default)
+          EventualCassandra.make[IO](config, origin.some, none, cassandraClusterOf, DataIntegrityConfig.Default)
       } yield eventualJournal
     }
 
     def journal(
       conf: Config,
-      eventualJournal: EventualJournal[F],
+      eventualJournal: EventualJournal[IO],
     ) = {
 
       val config = ConfigSource
         .fromConfig(conf)
         .load[JournalConfig]
-        .liftTo[F]
-
-      implicit val kafkaConsumerOf: KafkaConsumerOf[F] = KafkaConsumerOf[F]()
-      implicit val kafkaProducerOf: KafkaProducerOf[F] = KafkaProducerOf[F]()
+        .liftTo[IO]
 
       for {
         config <- config.toResource
-        producer <- Journals.Producer.make[F](config.kafka.producer)
-        consumer = Journals.Consumer.make[F](config.kafka.consumer, config.pollTimeout)
-        log <- LogOf[F].apply(Journals.getClass).toResource
+        producer <- Journals.Producer.make[IO](config.kafka.producer)
+        consumer = Journals.Consumer.make[IO](config.kafka.consumer, config.pollTimeout)
+        log <- LogOf[IO].apply(Journals.getClass).toResource
       } yield {
-        Journals[F](
+        Journals[IO](
           origin = origin.some,
           producer = producer,
           consumer = consumer,
           eventualJournal = eventualJournal,
-          headCache = HeadCache.empty[F],
+          headCache = HeadCache.empty[IO],
           log = log,
           conversionMetrics = none,
         )
       }
     }
 
-    val system = {
-      val config = Sync[F].delay { ConfigFactory.load("replicator.conf") }
-      for {
-        config <- config.toResource
-        system <- ActorSystemOf[F](getClass.getSimpleName, config.some)
-      } yield system
-    }
-
     for {
-      system <- system
-      conf <- Sync[F].delay { system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator") }.toResource
-      eventualJournal <- eventualJournal(conf)
-      journal <- journal(conf, eventualJournal)
+      config <- IO.blocking { ConfigFactory.load("replicator.conf") }.toResource
+      replicatorConfig <- IO { config.getConfig("evolutiongaming.kafka-journal.replicator") }.toResource
+      eventualJournal <- eventualJournal(replicatorConfig)
+      journal <- journal(replicatorConfig, eventualJournal)
     } yield {
       (eventualJournal, journal)
     }
   }
 
   lazy val ((eventualJournal, journals), release) = {
-    implicit val logOf: LogOf[IO] = LogOf.empty[IO]
-    resources[IO](cassandraClusterOf).allocated.unsafeRunSync()
+    resources.allocated.unsafeRunSync()
   }
 
   override protected def beforeAll(): Unit = {
