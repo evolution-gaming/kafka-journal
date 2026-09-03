@@ -65,31 +65,34 @@ private[journal] object JournalFork {
     events: List[EventRecord[A]],
   ): List[JournalFork] = {
 
-    val headSeqNr = journalHead.map(_.seqNr)
+    val earlierRecord = journalHead.map(Record.fromJournalHead)
 
-    // `seqNr`s of the batch walked so far: needed on top of `earlier` because two *equal* `seqNr`s
-    // both below the running maximum would otherwise never be compared to each other
-    val (_, _, forks) = events.foldLeft(
-      (journalHead.map(Record.fromJournalHead), Set.empty[SeqNr], List.empty[JournalFork]),
-    ) {
-      case ((earlier, seen, forks), event) =>
-        val record = Record.fromEventRecord(event)
-        val seen1 = seen + record.seqNr
-        earlier match {
-          case Some(earlier) if record.seqNr <= earlier.seqNr =>
+    // `seqNr`s known to be occupied - the journal head's, plus those of the batch walked so far.
+    // Needed on top of `earlierRecord` because two *equal* `seqNr`s both below the running maximum
+    // would otherwise never be compared to each other
+    val occupied = journalHead.map(_.seqNr).toSet
+
+    val forks = List.empty[JournalFork]
+
+    val (_, _, reversedForks) = events.foldLeft((earlierRecord, occupied, forks)) {
+      case ((earlierRecord, occupied, forks), event) =>
+        val laterRecord = Record.fromEventRecord(event)
+        val occupied1 = occupied + laterRecord.seqNr
+        earlierRecord match {
+          case Some(earlierRecord) if laterRecord.seqNr <= earlierRecord.seqNr =>
             val fork = JournalFork(
               key,
-              laterRecord = record,
-              earlierRecord = earlier,
-              duplicateProven = seen.contains(record.seqNr) || headSeqNr.contains(record.seqNr),
+              laterRecord,
+              earlierRecord,
+              duplicateProven = occupied.contains(laterRecord.seqNr),
             )
-            (Some(earlier), seen1, fork :: forks)
+            (Some(earlierRecord), occupied1, fork :: forks)
           case _ =>
-            (Some(record), seen1, forks)
+            (Some(laterRecord), occupied1, forks)
         }
     }
 
-    forks.reverse
+    reversedForks.reverse
   }
 
   /**
