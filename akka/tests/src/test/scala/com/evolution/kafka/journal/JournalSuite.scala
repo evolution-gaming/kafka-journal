@@ -10,39 +10,35 @@ import com.evolution.kafka.journal.akka.persistence.KafkaJournalConfig
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.EventualRead
 import com.evolution.kafka.journal.eventual.cassandra.EventualCassandra
-import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
-import org.scalatest.Suite
 import org.scalatest.matchers.should.Matchers
-import pureconfig.{ConfigReader, ConfigSource}
+import org.scalatest.{BeforeAndAfterAll, Suite}
+import pureconfig.ConfigSource
 
 import java.time.Instant
 import scala.concurrent.Promise
 
-trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
+trait JournalSuite extends BeforeAndAfterAll with Matchers { self: Suite =>
 
   import IntegrationTestInstances.*
 
-  lazy val config: ConfigReader.Result[KafkaJournalConfig] = {
-    ConfigSource
-      .fromConfig(actorSystem.settings.config)
+  protected final val kafkaJournalConfig: KafkaJournalConfig =
+    ConfigSource.default
       .at("evolutiongaming.kafka-journal.persistence.journal")
-      .load[KafkaJournalConfig]
-  }
+      .loadOrThrow[KafkaJournalConfig]
 
   lazy val ((eventualJournal, producer), release) = {
     implicit val logOf: LogOf[IO] = LogOf.empty
     val resource = for {
-      config <- config.liftTo[IO].toResource
       origin <- Origin.hostName[IO].toResource
       eventualJournal <- EventualCassandra.make[IO](
-        config.cassandra,
+        kafkaJournalConfig.cassandra,
         origin,
         none,
         cassandraClusterOf,
         DataIntegrityConfig.Default,
       )
-      producer <- Journals.Producer.make[IO](config.journal.kafka.producer)
+      producer <- Journals.Producer.make[IO](kafkaJournalConfig.journal.kafka.producer)
     } yield {
       (eventualJournal, producer)
     }

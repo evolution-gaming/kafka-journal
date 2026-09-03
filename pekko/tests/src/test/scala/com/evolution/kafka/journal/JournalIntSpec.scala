@@ -9,8 +9,6 @@ import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.{EventualJournal, EventualRead}
-import com.evolution.kafka.journal.pekko.persistence.KafkaJournalConfig
-import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.retry.{Retry, Strategy}
@@ -37,21 +35,24 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
       implicit val logOf: LogOf[IO] = LogOf.empty
       val log = Log.empty[IO]
 
-      def headCacheOf(config: KafkaJournalConfig) = if (headCache) {
-        val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)
-        headCacheOf(config.journal.kafka.consumer, eventualJournal)
-      } else {
-        Resource.pure[IO, HeadCache[IO]](HeadCache.empty[IO])
-      }
+      val journalConfig = kafkaJournalConfig.journal
+
+      val headCacheResource =
+        if (headCache) {
+          val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)
+          headCacheOf(journalConfig.kafka.consumer, eventualJournal)
+        } else {
+          Resource.pure[IO, HeadCache[IO]](HeadCache.empty[IO])
+        }
+
+      val consumerResource = Journals.Consumer.make[IO](journalConfig.kafka.consumer, journalConfig.pollTimeout)
 
       for {
-        config <- config.liftTo[IO].toResource
-        consumer = Journals.Consumer.make[IO](config.journal.kafka.consumer, config.journal.pollTimeout)
-        headCache <- headCacheOf(config)
+        headCache <- headCacheResource
         journal = Journals[IO](
           producer = producer,
           origin = origin.some,
-          consumer = consumer,
+          consumer = consumerResource,
           eventualJournal = eventualJournal,
           headCache = headCache,
           log = log,
