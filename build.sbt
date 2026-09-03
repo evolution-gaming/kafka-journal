@@ -114,11 +114,11 @@ lazy val root = project
     circe,
     akkaPersistence,
     akkaPersistenceCirce,
-    akkaTests,
+    akkaIntegrationTests,
     pekkoPersistence,
     pekkoPersistenceCirce,
-    pekkoTests,
-    ScalaTestIO,
+    pekkoIntegrationTests,
+    scalaTestIO,
     demo,
   )
 
@@ -126,7 +126,7 @@ lazy val core = project
   .in(file("core"))
   .settings(name := "kafka-journal-core")
   .settings(commonSettings)
-  .dependsOn(ScalaTestIO % Test)
+  .dependsOn(scalaTestIO % Test)
   .settings(
     libraryDependencies ++= Seq(
       SKafka,
@@ -151,7 +151,7 @@ lazy val journal = project
   .in(file("journal"))
   .settings(name := "kafka-journal")
   .settings(commonSettings)
-  .dependsOn(core % "test->test;compile->compile", ScalaTestIO % Test)
+  .dependsOn(core % "test->test;compile->compile", scalaTestIO % Test)
   .settings(
     libraryDependencies ++= Seq(
       KafkaClients,
@@ -218,59 +218,27 @@ lazy val pekkoPersistence = project
     ),
   )
 
-lazy val akkaTests = project
-  .in(file("akka/tests"))
-  .settings(name := "kafka-journal-akka-tests")
-  .settings(commonSettings)
-  .settings(
-    Seq(
-      publish / skip := true,
-      Test / fork := true,
-      Test / parallelExecution := false,
-      Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
-    ),
-  )
+lazy val akkaIntegrationTests = project
+  .in(file("akka/integration-tests"))
+  .configure(asIntegrationTestModule)
+  .settings(name := "kafka-journal-akka-integration-tests")
   .dependsOn(akkaPersistence % "test->test;compile->compile", akkaPersistenceCirce, replicator)
   .settings(
     libraryDependencies ++= Seq(
-      CatsHelper,
-      TestContainers.Cassandra % Test,
-      TestContainers.Kafka % Test,
-      ScalaTest % Test,
-      Akka.PersistenceTck % Test,
       Akka.Slf4j % Test,
-      Slf4j.Log4jOverSlf4j % Test,
-      Logback.Core % Test,
-      Logback.Classic % Test,
-      ScalaTest % Test,
+      Akka.PersistenceTck % Test,
     ),
   )
 
-lazy val pekkoTests = project
-  .in(file("pekko/tests"))
-  .settings(name := "kafka-journal-pekko-tests")
-  .settings(commonSettings)
-  .settings(
-    Seq(
-      publish / skip := true,
-      Test / fork := true,
-      Test / parallelExecution := false,
-      Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
-    ),
-  )
+lazy val pekkoIntegrationTests = project
+  .in(file("pekko/integration-tests"))
+  .configure(asIntegrationTestModule)
+  .settings(name := "kafka-journal-pekko-integration-tests")
   .dependsOn(pekkoPersistence % "test->test;compile->compile", pekkoPersistenceCirce, replicator)
   .settings(
     libraryDependencies ++= Seq(
-      CatsHelper,
-      TestContainers.Cassandra % Test,
-      TestContainers.Kafka % Test,
-      ScalaTest % Test,
-      Pekko.PersistenceTck % Test,
       Pekko.Slf4j % Test,
-      Slf4j.Log4jOverSlf4j % Test,
-      Logback.Core % Test,
-      Logback.Classic % Test,
-      ScalaTest % Test,
+      Pekko.PersistenceTck % Test,
     ),
   )
 
@@ -281,7 +249,7 @@ lazy val replicator = project
   .dependsOn(
     journal % "test->test",
     eventualCassandra,
-    ScalaTestIO % Test,
+    scalaTestIO % Test,
   )
   .settings(libraryDependencies ++= Seq(
     CatsHelper,
@@ -294,7 +262,7 @@ lazy val cassandra = project
   .in(file("cassandra"))
   .settings(name := "kafka-journal-cassandra")
   .settings(commonSettings)
-  .dependsOn(core, ScalaTestIO % Test)
+  .dependsOn(core, scalaTestIO % Test)
   .settings(
     libraryDependencies ++= Seq(
       SCache,
@@ -339,7 +307,7 @@ lazy val pekkoPersistenceCirce = project
   .settings(commonSettings)
   .dependsOn(circe, pekkoPersistence % "test->test;compile->compile")
 
-lazy val ScalaTestIO = project
+lazy val scalaTestIO = project
   .in(file("scalatest-io"))
   .settings(name := "kafka-journal-scalatest-io")
   .settings(commonSettings)
@@ -384,4 +352,34 @@ def crossSettings[T](scalaVersion: String, if3: T, if2: T): T = {
     case version if version.startsWith("3") => if3
     case _ => if2
   }
+}
+
+/**
+ * Configures submodule for running integration tests
+ *
+ * Parallel test execution is disabled on both individual test suite level and between integration
+ * test modules (with `fork := true`), so the tests do not interfere with each other.
+ *
+ * The forking is also enabled to ensure the correct cleanup of statically allocated resources, like
+ * test containers.
+ */
+def asIntegrationTestModule(p: Project): Project = {
+  p
+    .settings(commonSettings)
+    .settings(
+      publish / skip := true,
+      Test / fork := true,
+      Test / parallelExecution := false,
+      Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
+
+      libraryDependencies ++= Seq(
+        ScalaTest % Test,
+        TestContainers.Cassandra % Test,
+        TestContainers.Kafka % Test,
+        Slf4j.Api % Test,
+        Slf4j.Log4jOverSlf4j % Test,
+        Logback.Core % Test,
+        Logback.Classic % Test,
+      ),
+    )
 }
