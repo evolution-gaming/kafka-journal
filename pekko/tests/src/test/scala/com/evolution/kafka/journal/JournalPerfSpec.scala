@@ -6,7 +6,6 @@ import cats.effect.implicits.*
 import cats.implicits.*
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.eventual.EventualJournal
-import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration}
@@ -29,16 +28,17 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
     {
       implicit val logOf: LogOf[IO] = LogOf.empty
       val log = Log.empty[IO]
+      val journalConfig = kafkaJournalConfig.journal
       val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)
+      val consumerResource = Journals.Consumer.make[IO](journalConfig.kafka.consumer, journalConfig.pollTimeout)
+
       for {
-        config <- config.liftTo[IO].toResource
-        consumer = Journals.Consumer.make[IO](config.journal.kafka.consumer, config.journal.pollTimeout)
-        headCache <- headCacheOf(config.journal.kafka.consumer, eventualJournal)
+        headCache <- headCacheOf(journalConfig.kafka.consumer, eventualJournal)
       } yield {
         Journals(
           producer = producer,
           origin = origin.some,
-          consumer = consumer,
+          consumer = consumerResource,
           eventualJournal = eventualJournal,
           headCache = headCache,
           log = log,
