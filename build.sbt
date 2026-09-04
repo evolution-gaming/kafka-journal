@@ -8,7 +8,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(uri("https://evolution.com")),
   homepage := Some(uri("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
-  crossScalaVersions := Seq("2.13.18", "3.3.8"),
+  crossScalaVersions := Seq("3.9.0", "3.3.8"),
   scalaVersion := crossScalaVersions.value.head,
   scalacOptions ++= Seq(
     "-release:17",
