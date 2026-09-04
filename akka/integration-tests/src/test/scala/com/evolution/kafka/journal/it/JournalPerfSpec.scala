@@ -2,54 +2,65 @@ package com.evolution.kafka.journal.it
 
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
-import cats.effect.implicits.*
 import cats.implicits.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.IOSuite.*
 import com.evolution.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.MeasureDuration
 import com.evolutiongaming.catshelper.ParallelHelper.*
-import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration}
-import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.freespec.AsyncFreeSpec
 
 import scala.concurrent.duration.*
 
-class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
+class JournalPerfSpec extends AsyncFreeSpec with JournalSuite {
   import IntegrationTestInstances.*
   import JournalSuite.*
 
   private val many = 100
   private val events = 1000
-  private val origin = Origin("JournalPerfSpec")
 
-  private def makeJournalTest(journal: Journal[IO]): JournalTest =
-    new JournalTest(journal, readRecordTimestampOverride = None)
+  private val eventualCassandra = allocateSuiteScoped(eventualCassandraResource)
+  private val journalProducer = allocateSuiteScoped(journalProducerResource)
+  private val journalConsumerPool = allocateSuiteScoped(journalConsumerPoolResource)
 
-  private val journalOf = { (eventualJournal: EventualJournal[IO]) =>
-    {
-      implicit val logOf: LogOf[IO] = LogOf.empty
-      val log = Log.empty[IO]
-      val journalConfig = kafkaJournalConfig.journal
-      val headCacheOf = HeadCacheOf[IO](metrics = none)
-      val consumerResource = Journals.Consumer.make[IO](journalConfig.kafka.consumer, journalConfig.pollTimeout)
+  private val journalImplsToTest: Vector[TestJournalImpl] = Vector(
+    new TestJournalImpl(
+      eventualJournalImplName = "empty",
+      eventualJournalImpl = EventualJournal.empty[IO],
+      avgReadOpTimeAcceptanceThreshold = 2.seconds,
+    ),
+    new TestJournalImpl(
+      eventualJournalImplName = "cassandra",
+      eventualJournalImpl = eventualCassandra,
+      avgReadOpTimeAcceptanceThreshold = 1.seconds,
+    ),
+  )
 
-      for {
-        headCache <- headCacheOf(journalConfig.kafka.consumer, eventualJournal)
-      } yield {
-        Journals(
-          producer = producer,
-          origin = origin.some,
-          consumer = consumerResource,
-          eventualJournal = eventualJournal,
-          headCache = headCache,
-          log = log,
-          conversionMetrics = none,
-        )
-      }
+  private final class TestJournalImpl(
+    val eventualJournalImplName: String,
+    val eventualJournalImpl: EventualJournal[IO],
+    val avgReadOpTimeAcceptanceThreshold: FiniteDuration,
+  ) {
+    val describe: String = s"[eventual=$eventualJournalImplName]"
+
+    val journalsResource: ResourceIO[Journals[IO]] = makeJournalsResource(eventualJournalImpl)
+  }
+
+  private def makeJournalsResource(eventualJournal: EventualJournal[IO]): ResourceIO[Journals[IO]] = {
+    for {
+      headCache <- makeHeadCacheResource(eventualJournal, useHeadCache = true)
+    } yield {
+      makeJournals(
+        producer = journalProducer,
+        consumerResource = journalConsumerPool,
+        eventualJournal = eventualJournal,
+        headCache = headCache,
+      )
     }
   }
 
-  def measure[A](fa: IO[A]): IO[FiniteDuration] = {
+  private def measure[A](fa: IO[A]): IO[FiniteDuration] = {
     for {
       durations <- (0 to many).foldLeft(List.empty[Long].pure[IO]) { (durations, _) =>
         for {
@@ -66,13 +77,13 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
     }
   }
 
-  "Journal" should {
+  "Journal performance" - {
 
     val key = Key.random[IO]("journal").unsafeRunSync()
 
     def append(journals: Journals[IO]) = {
 
-      val journal = makeJournalTest(journals(key))
+      val journal = new JournalTest(journals(key))
 
       val expected = {
         val expected = for {
@@ -92,7 +103,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
             for {
               _ <- journal.append(Nel.of(e))
               key <- Key.random[IO]("journal")
-              journal = makeJournalTest(journals(key))
+              journal = new JournalTest(journals(key))
               _ <- journal.append(Nel.of(e))
             } yield {}
           }
@@ -105,49 +116,44 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
       } yield {}
     }
 
-    val appendToJournal = for {
-      _ <- awaitResources
-      _ <- journalOf(eventualJournal).use(append)
-    } yield {}
+    val appendToJournal = makeJournalsResource(eventualCassandra).use(append)
 
-    appendToJournal.start.void.unsafeRunSync()
+    appendToJournal.unsafeRunSync()
 
-    for {
-      (eventualName, expected, eventual) <- List(
-        ("empty", 2.second, () => EventualJournal.empty[IO]),
-        ("non-empty", 1.second, () => eventualJournal),
-      )
-    } {
-      val name = s"events: $events, eventual: $eventualName"
+    journalImplsToTest.foreach { testJournalImpl =>
+      s"for impl ${ testJournalImpl.describe }" - {
 
-      lazy val (journal, release) = {
-        val (journals, release) = journalOf(eventual()).allocated.unsafeRunSync()
-        (makeJournalTest(journals(key)), release)
-      }
+        // msokolov:
+        // Journal release logic here is broken, it was broken before my changes, and I'm not sure how to fix it.
+        // release is called in the last test case, and it is not properly released if the last test case is
+        // skipped.
+        val (journals, release) = testJournalImpl.journalsResource.allocated.unsafeRunSync()
+        val journal = new JournalTest(journals(key))
 
-      s"measure pointer $many times, $name" in {
-        val result = for {
-          _ <- journal.pointer
-          average <- measure { journal.pointer }
-        } yield {
-          info(s"pointer measured $many times for $events events returned on average in $average")
-          average should be <= expected
+        s"measure pointer $many times" in {
+          val result = for {
+            _ <- journal.pointer
+            average <- measure { journal.pointer }
+          } yield {
+            info(s"pointer measured $many times for $events events returned on average in $average")
+            average should be <= testJournalImpl.avgReadOpTimeAcceptanceThreshold
+          }
+
+          result.run(5.minutes)
         }
 
-        result.run(5.minutes)
-      }
+        s"measure read $many times" in {
+          val result = for {
+            _ <- journal.size
+            average <- measure { journal.size }
+            _ <- release
+          } yield {
+            info(s"read measured $many times for $events events returned on average in $average")
+            average should be <= testJournalImpl.avgReadOpTimeAcceptanceThreshold
+          }
 
-      s"measure read $many times, $name" in {
-        val result = for {
-          _ <- journal.size
-          average <- measure { journal.size }
-          _ <- release
-        } yield {
-          info(s"read measured $many times for $events events returned on average in $average")
-          average should be <= expected
+          result.run(5.minutes)
         }
-
-        result.run(5.minutes)
       }
     }
   }
