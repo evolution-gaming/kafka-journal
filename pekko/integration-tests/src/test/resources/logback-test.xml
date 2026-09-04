@@ -1,33 +1,41 @@
 <?xml version="1.0" encoding="UTF-8" ?>
+<configuration>
 
-<configuration scan="true" scanPeriod="5 seconds">
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{10} %msg%n</pattern>
+        </encoder>
+    </appender>
 
-	<statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+    <!--
+    Setting default level to WARN so we don't see Kafka-Journal, Cassandra driver and kafka-clients
+    init messages polluting the logs and slowing down the integration tests.
+    -->
+    <root level="WARN">
+        <appender-ref ref="console"/>
+    </root>
 
-	<appender name="console" class="ch.qos.logback.core.ConsoleAppender">
-		<encoder>
-			<pattern>%d{HH:mm:ss.SSS} %-5level %logger{10} %msg%n</pattern>
-		</encoder>
-	</appender>
+    <!--
+    recommended logback config for testcontainers:
+    https://java.testcontainers.org/supported_docker_environment/logging_config/
+    -->
+    <logger name="org.testcontainers" level="INFO"/>
+    <!-- The following logger can be used for containers logs since 1.18.0 -->
+    <logger name="tc" level="INFO"/>
+    <logger name="com.github.dockerjava" level="WARN"/>
+    <logger name="com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.wire" level="OFF"/>
 
-	<logger name="kafka" level="WARN"/>
-	<logger name="kafka.network.Processor" level="ERROR"/>
-	<logger name="kafka.server.BrokerMetadataCheckpoint" level="ERROR"/>
-	<logger name="org.apache.kafka" level="WARN"/>
-	<logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
-	<logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
-	<logger name="org.apache.zookeeper.ClientCnxn" level="ERROR"/>
-	<logger name="org.apache.zookeeper" level="WARN"/>
-	<logger name="org.apache.cassandra" level="WARN"/>
-	<logger name="org.apache.cassandra.config.DatabaseDescriptor" level="ERROR"/>
-	<logger name="org.apache.cassandra.service.StartupChecks" level="ERROR"/>
-	<logger name="org.apache.cassandra.db.SystemKeyspace" level="ERROR"/>
-	<!--<logger name="com.evolution.kafka.journal" level="DEBUG"/>-->
-	<!--<logger name="com.evolution.kafka.journal.replicator.TopicReplicator" level="WARN"/>-->
-	<!--<logger name="com.evolution.kafka.journal.Settings" level="DEBUG"/>-->
-	<!--<logger name="com.evolution.kafka.journal.eventual.cassandra.SettingsCassandra" level="DEBUG"/>-->
+    <!--
+    Normal integration test lifecycle messages are logged at INFO.
+    Lower to DEBUG if you want to see detailed int test run info, like timings for heavy operations,
+    e.g. journal reads.
+    -->
+    <logger name="com.evolution.kafka.journal.it" level="INFO"/>
 
-	<root level="WARN">
-		<appender-ref ref="console"/>
-	</root>
+    <!--
+    To remove log messages like this when new Kafka topics are created in tests:
+    17:46:47.010 WARN  o.a.k.c.NetworkClient [Producer clientId=journal] The metadata response from the cluster
+    reported a recoverable issue with correlation id 5 : {journal-integration-circe=UNKNOWN_TOPIC_OR_PARTITION}
+    -->
+    <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
 </configuration>

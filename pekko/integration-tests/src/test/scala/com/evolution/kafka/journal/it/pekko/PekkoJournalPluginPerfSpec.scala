@@ -1,12 +1,11 @@
 package com.evolution.kafka.journal.it.pekko
 
-import com.typesafe.config.ConfigFactory
+import com.evolution.kafka.journal.it.SharedItEnv
 import org.apache.pekko.persistence.journal.JournalPerfSpec
 
-class PekkoJournalPluginPerfSpec extends JournalPerfSpec(ConfigFactory.load("perf.conf")) with KafkaPluginSpec {
-
-  def supportsRejectingNonSerializableObjects = false
-  override def supportsSerialization = false
+class PekkoJournalPluginPerfSpec extends JournalPerfSpec(
+  config = SharedItEnv.require().loadSuiteConfig[PekkoJournalPluginPerfSpec].unparsed,
+) with KafkaJournalCapabilityFlags {
   override def eventsCount = 100
   override def measurementIterations = 5
 }
