@@ -30,7 +30,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
       implicit val logOf: LogOf[IO] = LogOf.empty
       val log = Log.empty[IO]
       val journalConfig = kafkaJournalConfig.journal
-      val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)
+      val headCacheOf = HeadCacheOf[IO](metrics = none)
       val consumerResource = Journals.Consumer.make[IO](journalConfig.kafka.consumer, journalConfig.pollTimeout)
 
       for {

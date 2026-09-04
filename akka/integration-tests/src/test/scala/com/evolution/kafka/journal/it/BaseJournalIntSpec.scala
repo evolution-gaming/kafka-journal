@@ -40,7 +40,7 @@ private[it] abstract class BaseJournalIntSpec[A] extends AsyncWordSpec with Jour
 
       val headCacheResource =
         if (headCache) {
-          val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)
+          val headCacheOf = HeadCacheOf[IO](metrics = none)
           headCacheOf(journalConfig.kafka.consumer, eventualJournal)
         } else {
           Resource.pure[IO, HeadCache[IO]](HeadCache.empty[IO])
