@@ -1,70 +1,43 @@
 package com.evolution.kafka.journal.it
 
 import cats.effect.*
-import cats.effect.implicits.*
 import cats.implicits.*
-import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.IOSuite.*
-import com.evolution.kafka.journal.cassandra.{CassandraConsistencyConfig, SettingsCassandra as SettingsCassandra2}
+import com.evolution.kafka.journal.cassandra.{CassandraConsistencyConfig, SettingsCassandra}
 import com.evolution.kafka.journal.eventual.cassandra.*
-import com.evolution.kafka.journal.util.PureConfigHelper.*
-import com.evolutiongaming.catshelper.LogOf
-import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.matchers.should.Matchers
+import com.evolution.kafka.journal.{Setting, Settings}
 import org.scalatest.wordspec.AsyncWordSpec
-import pureconfig.ConfigSource
 
-class SettingsCassandraIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
-
+class SettingsCassandraIntSpec extends AsyncWordSpec with JournalSuite {
   import IntegrationTestInstances.*
 
-  override protected def beforeAll(): Unit = {
-    IntegrationSuite.start()
-    super.beforeAll()
-  }
-
-  private def resources(origin: Option[Origin]): ResourceIO[Settings[IO]] = {
-    implicit val logOf: LogOf[IO] = LogOf.empty
-
-    def settings(
-      config: SchemaConfig,
-    )(implicit
-      cassandraCluster: CassandraCluster[IO],
-      cassandraSession: CassandraSession[IO],
-    ) = {
-
-      for {
-        schema <- SetupSchema[IO](config, origin, CassandraConsistencyConfig.default)
-        settings <- SettingsCassandra2.of[IO](schema.setting, origin, CassandraConsistencyConfig.default)
-      } yield settings
-    }
-
-    def loadConfigIo: IO[EventualCassandraConfig] = {
-      for {
-        rawConfig <- IO.blocking { ConfigFactory.load("replicator.conf") }
-        config <- ConfigSource
-          .fromConfig(rawConfig)
-          .at("evolutiongaming.kafka-journal.replicator.cassandra")
-          .load[EventualCassandraConfig]
-          .liftTo[IO]
-      } yield config
-    }
-
+  private def setupSchemaAndMakeSettings(implicit
+    cassandraCluster: CassandraCluster[IO],
+    cassandraSession: CassandraSession[IO],
+  ): IO[Settings[IO]] = {
     for {
-      config <- loadConfigIo.toResource
-      cassandraCluster <- CassandraCluster.make[IO](config.client, cassandraClusterOf, config.retries)
-      cassandraSession <- cassandraCluster.session
-      settings <- settings(config.schema)(cassandraCluster, cassandraSession).toResource
+      schema <- SetupSchema[IO](config.eventualCassandra.schema, origin.some, CassandraConsistencyConfig.default)
+      settings <- SettingsCassandra.of[IO](schema.setting, origin.some, CassandraConsistencyConfig.default)
     } yield settings
   }
 
-  private def runTestIo: IO[Unit] = {
+  private def resources: ResourceIO[Settings[IO]] = {
     for {
-      origin <- Origin.hostName[IO]
-      timestamp <- IO.realTimeInstant
-      result <- resources(origin).use { settings =>
-        val setting = Setting(key = "key", value = "value", timestamp = timestamp, origin = origin)
+      cassandraCluster <- CassandraCluster.make(
+        config.eventualCassandra.client,
+        cassandraClusterOf,
+        config.eventualCassandra.retries,
+      )
+      cassandraSession <- cassandraCluster.session
+      settings <- setupSchemaAndMakeSettings(cassandraCluster, cassandraSession).toResource
+    } yield settings
+  }
+
+  private def testProgramIo: IO[Unit] = {
+    for {
+      timestamp <- Clock[IO].realTimeInstant
+      result <- resources.use { settings =>
+        val setting = Setting(key = "key", value = "value", timestamp = timestamp, origin = origin.some)
 
         def fix(setting: Setting) = {
           setting.copy(timestamp = timestamp)
@@ -101,27 +74,27 @@ class SettingsCassandraIntSpec extends AsyncWordSpec with BeforeAndAfterAll with
 
         for {
           a <- get(setting.key)
-          _ <- IO { a shouldEqual None }
+          _ = a shouldEqual None
           a <- all
-          _ <- IO { a shouldEqual Nil }
+          _ = a shouldEqual Nil
           a <- remove(setting.key)
-          _ <- IO { a shouldEqual None }
+          _ = a shouldEqual None
 
           a <- settings.set(setting.key, setting.value)
-          _ <- IO { a shouldEqual None }
+          _ = a shouldEqual None
           a <- get(setting.key)
-          _ <- IO { a shouldEqual setting.some }
+          _ = a shouldEqual setting.some
           a <- all
-          _ <- IO { a shouldEqual List(setting) }
+          _ = a shouldEqual List(setting)
 
           a <- remove(setting.key)
-          _ <- IO { a shouldEqual setting.some }
+          _ = a shouldEqual setting.some
           a <- get(setting.key)
-          _ <- IO { a shouldEqual None }
+          _ = a shouldEqual None
           a <- all
-          _ <- IO { a shouldEqual Nil }
+          _ = a shouldEqual Nil
           a <- remove(setting.key)
-          _ <- IO { a shouldEqual None }
+          _ = a shouldEqual None
 
           // clean up the database
           _ <- remove(setting.key)
@@ -134,7 +107,7 @@ class SettingsCassandraIntSpec extends AsyncWordSpec with BeforeAndAfterAll with
 
   "SettingsCassandra" should {
     "set, get, all, remove" in {
-      runTestIo.run()
+      testProgramIo.run()
     }
   }
 

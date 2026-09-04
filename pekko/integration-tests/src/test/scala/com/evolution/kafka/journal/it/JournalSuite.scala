@@ -2,71 +2,85 @@ package com.evolution.kafka.journal.it
 
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
-import cats.effect.implicits.*
 import cats.implicits.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.IOSuite.*
-import com.evolution.kafka.journal.Journal.DataIntegrityConfig
+import com.evolution.kafka.journal.Journal.{ConsumerPoolConfig, DataIntegrityConfig}
 import com.evolution.kafka.journal.conversions.{KafkaRead, KafkaWrite}
-import com.evolution.kafka.journal.eventual.EventualRead
 import com.evolution.kafka.journal.eventual.cassandra.EventualCassandra
-import com.evolution.kafka.journal.pekko.persistence.KafkaJournalConfig
-import com.evolutiongaming.catshelper.{FromFuture, LogOf}
+import com.evolution.kafka.journal.eventual.{EventualJournal, EventualRead}
+import com.evolutiongaming.catshelper.{Log, LogOf}
+import org.scalatest.Suite
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAll, Suite}
-import pureconfig.ConfigSource
 
 import java.time.Instant
-import scala.concurrent.Promise
 
-private[it] trait JournalSuite extends BeforeAndAfterAll with Matchers { self: Suite =>
+/**
+ * Base trait for Kafka-Journal integration tests not using Pekko and working with journal
+ * interfaces below the Pekko persistence plugin.
+ */
+private[it] trait JournalSuite extends SuiteScopedResources with Matchers with IntegrationTestOrigin { this: Suite =>
 
   import IntegrationTestInstances.*
 
-  protected final val kafkaJournalConfig: KafkaJournalConfig =
-    ConfigSource.default
-      .at("evolutiongaming.kafka-journal.persistence.journal")
-      .loadOrThrow[KafkaJournalConfig]
+  protected final val config: JournalItConfig = SharedItEnv.require().defaultConfig
 
-  lazy val ((eventualJournal, producer), release) = {
-    implicit val logOf: LogOf[IO] = LogOf.empty
-    val resource = for {
-      origin <- Origin.hostName[IO].toResource
-      eventualJournal <- EventualCassandra.make[IO](
-        kafkaJournalConfig.cassandra,
-        origin,
-        none,
-        cassandraClusterOf,
-        DataIntegrityConfig.Default,
-      )
-      producer <- Journals.Producer.make[IO](kafkaJournalConfig.journal.kafka.producer)
-    } yield {
-      (eventualJournal, producer)
+  // Helpers for constructing Kafka-Journal component graphs in integration tests:
+
+  protected final def eventualCassandraResource: ResourceIO[EventualJournal[IO]] = EventualCassandra.make[IO](
+    config = config.eventualCassandra,
+    origin = origin.some,
+    metrics = none,
+    cassandraClusterOf = cassandraClusterOf,
+    dataIntegrity = DataIntegrityConfig.Default,
+  )
+
+  protected final def journalProducerResource: ResourceIO[Journals.Producer[IO]] =
+    Journals.Producer.make[IO](config.journal.kafka.producer)
+
+  protected final def journalConsumerPoolResource: ResourceIO[ResourceIO[Journals.Consumer[IO]]] = {
+    val consumerResource = Journals.Consumer.make[IO](config.journal.kafka.consumer, config.journal.pollTimeout)
+    ConsumerPool.make[IO](
+      poolConfig = ConsumerPoolConfig.Default,
+      metrics = none,
+      consumer = consumerResource,
+    )
+  }
+
+  protected final def makeHeadCacheResource(
+    eventualJournal: EventualJournal[IO],
+    useHeadCache: Boolean,
+  ): ResourceIO[HeadCache[IO]] = {
+    if (useHeadCache) {
+      HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some).apply(config.journal.kafka.consumer, eventualJournal)
+    } else {
+      Resource.pure[IO, HeadCache[IO]](HeadCache.empty[IO])
     }
-
-    resource
-      .allocated
-      .unsafeRunSync()
   }
 
-  private val await = Promise[Unit]()
-  val awaitResources: IO[Unit] = FromFuture[IO].apply(await.future)
-
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-    IntegrationSuite.start()
-    await.success {}
-    //    eventual
-    //    producer
-  }
-
-  override def afterAll(): Unit = {
-    release.unsafeRunSync()
-    super.afterAll()
+  protected final def makeJournals(
+    producer: Journals.Producer[IO],
+    consumerResource: ResourceIO[Journals.Consumer[IO]],
+    eventualJournal: EventualJournal[IO],
+    headCache: HeadCache[IO],
+  ): Journals[IO] = {
+    Journals[IO](
+      producer = producer,
+      origin = origin.some,
+      consumer = consumerResource,
+      eventualJournal = eventualJournal,
+      headCache = headCache,
+      log = JournalSuite.journalsLog,
+      conversionMetrics = none,
+    )
   }
 }
 
 private[it] object JournalSuite {
+  import IntegrationTestInstances.*
+
+  private[this] val log = LogOf[IO].apply(classOf[JournalSuite]).unsafeRunSync()
+  private val journalsLog: Log[IO] = LogOf[IO].apply(classOf[Journals[IO]]).unsafeRunSync()
 
   /**
    * Test wrapper for `Journal[IO]` with an ability to override read records timestamp with the
@@ -90,7 +104,10 @@ private[it] object JournalSuite {
       eventualRead: EventualRead[IO, A],
     ): IO[List[EventRecord[A]]] = {
       for {
+        startTime <- IO.realTimeInstant
         records <- journal.read().toList
+        endTime <- IO.realTimeInstant
+        _ <- log.debug(s"journal read took ${ java.time.Duration.between(startTime, endTime) }")
       } yield {
         readRecordTimestampOverride.fold(records) { newTimestamp =>
           records.map(_.copy(timestamp = newTimestamp))

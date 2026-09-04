@@ -3,17 +3,19 @@ package com.evolution.kafka.journal.it.akka
 import akka.actor.{ActorRef, ActorSystem, Props, Terminated}
 import akka.persistence.*
 import akka.persistence.journal.JournalSpec
+import akka.testkit.DefaultTimeout
 import cats.data.NonEmptyList as Nel
 import com.evolution.kafka.journal.akka.persistence.PersistenceId
-import com.typesafe.config.ConfigFactory
+import com.evolution.kafka.journal.it.SharedItEnv
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Promise}
 
-class AkkaJournalPluginConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
-with KafkaPluginSpec {
+class AkkaJournalPluginConsistencySpec extends PluginSpec(
+  config = SharedItEnv.require().loadSuiteConfig[AkkaJournalPluginConsistencySpec].unparsed,
+) with DefaultTimeout {
 
-  implicit lazy val system: ActorSystem =
+  override implicit lazy val system: ActorSystem =
     ActorSystem("AkkaJournalPluginConsistencySpec", config.withFallback(JournalSpec.config))
 
   "KafkaJournal" should {
