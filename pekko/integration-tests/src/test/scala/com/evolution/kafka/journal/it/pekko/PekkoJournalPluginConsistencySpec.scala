@@ -1,19 +1,21 @@
 package com.evolution.kafka.journal.it.pekko
 
 import cats.data.NonEmptyList as Nel
+import com.evolution.kafka.journal.it.SharedItEnv
 import com.evolution.kafka.journal.pekko.persistence.PersistenceId
-import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.{ActorRef, ActorSystem, Props, Terminated}
 import org.apache.pekko.persistence.*
 import org.apache.pekko.persistence.journal.JournalSpec
+import org.apache.pekko.testkit.DefaultTimeout
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Promise}
 
-class PekkoJournalPluginConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
-with KafkaPluginSpec {
+class PekkoJournalPluginConsistencySpec extends PluginSpec(
+  config = SharedItEnv.require().loadSuiteConfig[PekkoJournalPluginConsistencySpec].unparsed,
+) with DefaultTimeout {
 
-  implicit lazy val system: ActorSystem =
+  override implicit lazy val system: ActorSystem =
     ActorSystem("PekkoJournalPluginConsistencySpec", config.withFallback(JournalSpec.config))
 
   "KafkaJournal" should {
