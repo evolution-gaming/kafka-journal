@@ -72,6 +72,7 @@ abstract class BaseJournalIntSpec[A] extends AsyncFreeSpec with JournalSuite {
 
         val key = Key.random[IO]("journal")
 
+        // https://github.com/evolution-gaming/kafka-journal/issues/998
         // msokolov:
         // Journal release logic here is broken, it was broken before my changes, and I'm not sure how to fix it.
         // release is called in the last test case, and it is not properly released if the last test case is

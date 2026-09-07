@@ -123,6 +123,7 @@ class JournalPerfSpec extends AsyncFreeSpec with JournalSuite {
     journalImplsToTest.foreach { testJournalImpl =>
       s"for impl ${ testJournalImpl.describe }" - {
 
+        // https://github.com/evolution-gaming/kafka-journal/issues/998
         // msokolov:
         // Journal release logic here is broken, it was broken before my changes, and I'm not sure how to fix it.
         // release is called in the last test case, and it is not properly released if the last test case is
