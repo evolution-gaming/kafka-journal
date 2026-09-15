@@ -65,34 +65,29 @@ private[journal] object JournalFork {
     events: List[EventRecord[A]],
   ): List[JournalFork] = {
 
-    val earlierRecord = journalHead.map(Record.fromJournalHead)
+    val earlierRecord0 = journalHead.map(Record.fromJournalHead)
+    val occupiedNrs0 = journalHead.map(_.seqNr).toSet
+    val forks0 = List.empty[JournalFork]
 
-    // `seqNr`s known to be occupied - the journal head's, plus those of the batch walked so far.
-    // Needed on top of `earlierRecord` because two *equal* `seqNr`s both below the running maximum
-    // would otherwise never be compared to each other
-    val occupied = journalHead.map(_.seqNr).toSet
-
-    val forks = List.empty[JournalFork]
-
-    val (_, _, reversedForks) = events.foldLeft((earlierRecord, occupied, forks)) {
-      case ((earlierRecord, occupied, forks), event) =>
+    val (_, _, forks) = events.foldLeft((earlierRecord0, occupiedNrs0, forks0)) {
+      case ((earlierRecord, occupiedNrs, forks), event) =>
         val laterRecord = Record.fromEventRecord(event)
-        val occupied1 = occupied + laterRecord.seqNr
+        val occupiedNrs1 = occupiedNrs + laterRecord.seqNr
         earlierRecord match {
           case Some(earlierRecord) if laterRecord.seqNr <= earlierRecord.seqNr =>
             val fork = JournalFork(
-              key,
-              laterRecord,
-              earlierRecord,
-              duplicateProven = occupied.contains(laterRecord.seqNr),
+              key = key,
+              laterRecord = laterRecord,
+              earlierRecord = earlierRecord,
+              duplicateProven = occupiedNrs.contains(laterRecord.seqNr),
             )
-            (Some(earlierRecord), occupied1, fork :: forks)
+            (Some(earlierRecord), occupiedNrs1, fork :: forks)
           case _ =>
-            (Some(laterRecord), occupied1, forks)
+            (Some(laterRecord), occupiedNrs1, forks)
         }
     }
 
-    reversedForks.reverse
+    forks.reverse
   }
 
   /**
