@@ -4,8 +4,8 @@ import cats.syntax.all.*
 import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, SeqNr}
 
 /**
- * A possible journal fork: an event whose `seqNr` is not greater than the `seqNr` of the journal
- * head, or of an earlier event of the same batch.
+ * A possible journal fork: an event with a repeated or out-of-order `seqNr`, compared to the
+ * journal head and to the earlier events of the same batch.
  *
  * Happens when an entity is restarted on another node while its previous instance still has an
  * append to Kafka in flight: the new instance does not see that event, and appends a different one
@@ -15,7 +15,7 @@ import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, S
  * [[com.evolution.kafka.journal.eventual.cassandra.EventualCassandra]].
  *
  * @param laterRecord
- *   the event whose `seqNr` failed to increase
+ *   the event with a repeated or out-of-order `seqNr`
  * @param earlierRecord
  *   the record with the highest `seqNr` before `laterRecord`: either the journal head, see
  *   [[JournalFork.Record.fromJournalHead]], or an earlier event of the same batch
