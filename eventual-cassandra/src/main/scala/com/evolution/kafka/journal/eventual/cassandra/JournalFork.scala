@@ -92,9 +92,6 @@ private[journal] object JournalFork {
 
   /**
    * Where one of a fork's two records sits in Kafka, and which node appended it.
-   *
-   * Notably not the `writerUuid` of the entity incarnation behind it, which is what decides the
-   * surviving branch - that lives in the payload and is left to the repair tool.
    */
   final case class Record(seqNr: SeqNr, partitionOffset: PartitionOffset, origin: Option[Origin]) {
 
