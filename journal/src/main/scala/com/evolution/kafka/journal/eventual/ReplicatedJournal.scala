@@ -180,8 +180,7 @@ object ReplicatedJournal {
     def setSchemaVersion(version: Int): F[Unit]
 
     /**
-     * Called for every detected journal fork, i.e. an event replicated with a `seqNr` which did not
-     * increase over the ones the journal already had.
+     * Called for every detected journal fork, i.e. an event whose `seqNr` did not increase.
      *
      * @param duplicateProven
      *   true if the `seqNr` is known to be used already, false if the `seqNr` only went down
@@ -257,7 +256,7 @@ object ReplicatedJournal {
 
       val forkDetectedCounter = registry.counter(
         name = s"${ prefix }_fork_detected_total",
-        help = "Number of journal forks detected, i.e. events replicated with a seqNr which did not increase",
+        help = "Number of journal forks detected, i.e. events whose seqNr did not increase",
         labels = LabelNames("topic", "kind"),
       )
 
