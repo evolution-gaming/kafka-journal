@@ -17,12 +17,12 @@ import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, S
  * @param laterRecord
  *   the event whose `seqNr` failed to increase
  * @param earlierRecord
- *   the record with the highest `seqNr` before `laterRecord`: either the last event replicated to
- *   the journal, see [[JournalFork.Record.fromJournalHead]], or an earlier event of the same batch
+ *   the record with the highest `seqNr` before `laterRecord`: either the journal head, see
+ *   [[JournalFork.Record.fromJournalHead]], or an earlier event of the same batch
  * @param duplicateProven
- *   true if another record with the same `seqNr` is known to exist: the last replicated event, or
- *   an earlier event of the same batch. False if the `seqNr` only went down, which also happens
- *   when distinct `seqNr`s of one key are appended concurrently.
+ *   true if the `seqNr` is known to be used already: by the journal head, or by an earlier event of
+ *   the same batch. False if the `seqNr` only went down, which also happens when distinct `seqNr`s
+ *   of one key are appended concurrently.
  */
 private[journal] final case class JournalFork(
   key: Key,
@@ -97,11 +97,8 @@ private[journal] object JournalFork {
     }
 
     /**
-     * The last event replicated to the journal, built from its `metajournal` entry to avoid reading
-     * the `journal` table. So it is less precise than [[fromEventRecord]]: `partitionOffset` is the
-     * offset of the last Kafka record replicated for the journal, not necessarily of this event,
-     * and `origin` is not set, because `metajournal` stores the origin of the writer which created
-     * the entry, not of the last one.
+     * `origin` is not set, as `JournalHead` does not carry one, and `partitionOffset` is the one of
+     * the last append or delete of the journal.
      */
     def fromJournalHead(journalHead: JournalHead): Record = {
       Record(journalHead.seqNr, journalHead.partitionOffset, none)
