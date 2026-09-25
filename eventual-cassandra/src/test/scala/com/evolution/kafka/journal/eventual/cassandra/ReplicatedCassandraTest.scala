@@ -2006,7 +2006,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"detect a journal fork appended in a later batch, $suffix") {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
-      // the stale write of the previous incarnation of the entity
+      // a late write from the previous instance of the entity
       val event1 = eventOf(SeqNr.unsafe(1), Offset.unsafe(2)).copy(origin = Some(origin1), timestamp = timestamp1)
 
       val program = for {
@@ -2029,8 +2029,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
     test(s"detect a journal fork appended within one batch, $suffix") {
       val key = Key("id", topic0)
-      // `Batch.of` merges consecutive appends without comparing their `seqNr`s, so both branches of
-      // a fork can arrive in a single `append`
+      // `Batch.of` merges consecutive appends without checking their `seqNr`s, so both events of a
+      // fork can arrive in one `append`
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(1), Offset.unsafe(2)).copy(origin = Some(origin1), timestamp = timestamp1)
 
@@ -2051,7 +2051,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
-      // the stale write landed after the live incarnation got past its `seqNr`
+      // a late write from the previous instance, arriving after the new one wrote a higher `seqNr`
       val event2 = eventOf(SeqNr.unsafe(1), Offset.unsafe(3)).copy(origin = Some(origin1), timestamp = timestamp1)
 
       val program = for {
@@ -2075,10 +2075,10 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
-        // the very same batch again, as after a rebalance which lost the consumer offset
+        // the same batch delivered again, e.g. after a rebalance before the consumer offset was committed
         changed <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
         _ = changed shouldEqual false
-        // and again, this time extended by a genuinely new event
+        // delivered again, with one new event added
         changed <- journal.append(
           key,
           Partition.min,
@@ -2100,7 +2100,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
-      // after a purge the journal legitimately restarts from `SeqNr.min`
+      // after a purge the journal starts again from `SeqNr.min`, which is not a fork
       val event2 =
         eventOf(SeqNr.unsafe(1), Offset.unsafe(4)).copy(timestamp = timestamp1)
 
@@ -2129,7 +2129,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
         _ <- journal.delete(key, Partition.min, Offset.unsafe(3), timestamp0, SeqNr.unsafe(2).toDeleteTo, none)
-        // the delete left the head's `seqNr` at 2, so seqNr 3 follows it and is not a fork
+        // the head's `seqNr` stays 2 after the delete, so seqNr 3 is not a fork
         _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp0, none, Nel.of(event2))
         _ <- journal.append(key, Partition.min, Offset.unsafe(5), timestamp1, none, Nel.of(event3))
       } yield {}
