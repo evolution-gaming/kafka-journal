@@ -5,7 +5,7 @@ import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, S
 
 /**
  * A candidate journal fork: an event whose `seqNr` is not above every `seqNr` replicated to that
- * journal before it, which the `seqNr`s of a journal are supposed to be.
+ * journal before it.
  *
  * Happens when a persistent actor's append to Kafka is still in flight while the entity is
  * restarted elsewhere: the new incarnation does not see the in-flight event, so it appends a
@@ -14,27 +14,15 @@ import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, S
  * seqNr ... duplicated in multiple records`, see
  * [[com.evolution.kafka.journal.eventual.cassandra.EventualCassandra]].
  *
- * Detected, but not acted upon, and deliberately says nothing about what it costs: that depends on
- * how the journal is used, which is not known here. Which of the two branches survives is a
- * decision for a human or a repair tool, as it depends on the `writerUuid` of the events which
- * follow.
- *
- * The two records are named by their Kafka offset order, because that is all they always have in
- * common: `earlierRecord` may be the journal's last replicated event, but it may equally be another
- * event of the same batch, still being appended alongside `laterRecord`.
- *
- * @param key
- *   the journal
  * @param laterRecord
- *   the event being appended right now, the one whose `seqNr` failed to increase
+ *   the event whose `seqNr` failed to increase
  * @param earlierRecord
  *   the record with the highest `seqNr` at a lower offset - either the journal's last replicated
  *   event, see [[JournalFork.Record.fromJournalHead]], or an earlier event of the same batch.
  * @param duplicateProven
  *   whether a record is known to occupy `seqNr` already - true when `laterRecord` repeats the
  *   `seqNr` of the journal head or of an earlier event of the same batch. False means the `seqNr`
- *   merely regressed: a duplicate is likely, but concurrent appends of *distinct* `seqNr`s to one
- *   key regress too, so it is not proof.
+ *   merely regressed: concurrent appends of *distinct* `seqNr`s to one key regress too.
  */
 private[journal] final case class JournalFork(
   key: Key,
