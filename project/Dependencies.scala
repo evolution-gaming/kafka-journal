@@ -6,6 +6,7 @@ object Dependencies {
   val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.5"
   val KafkaClients = "org.apache.kafka" % "kafka-clients" % "4.3.1"
   val PlayJson = "org.playframework" %% "play-json" % "3.0.6"
+  val Lz4 = "at.yawk.lz4" % "lz4-java" % "1.11.4"
 
   private val PekkoExtensionVersion = "2.1.0"
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.5.0"
@@ -28,6 +29,14 @@ object Dependencies {
   object Cats {
     val Core = "org.typelevel" %% "cats-core" % "2.13.0"
     val Effect = "org.typelevel" %% "cats-effect" % "3.7.1"
+  }
+
+  object Jackson {
+    private val version = "2.18.11"
+    val Core = "com.fasterxml.jackson.core" % "jackson-core" % version
+    val Databind = "com.fasterxml.jackson.core" % "jackson-databind" % version
+    val Jdk8 = "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8" % version
+    val Jsr310 = "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % version
   }
 
   object Logback {

@@ -130,9 +130,14 @@ lazy val core = project
   .settings(
     libraryDependencies ++= Seq(
       SKafka,
+      Lz4,
       CatsHelper,
       PlayJson,
       PlayJsonJsoniter,
+      Jackson.Core,
+      Jackson.Databind,
+      Jackson.Jdk8,
+      Jackson.Jsr310,
       SStream,
       Hostname,
       Pureconfig.Core,
