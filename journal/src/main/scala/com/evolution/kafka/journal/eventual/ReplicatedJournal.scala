@@ -184,8 +184,7 @@ object ReplicatedJournal {
      * increase over the ones the journal already had.
      *
      * @param duplicateProven
-     *   true if another record with the same `seqNr` is known to exist, false if the `seqNr` only
-     *   went down
+     *   true if the `seqNr` is known to be used already, false if the `seqNr` only went down
      */
     def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit]
   }
