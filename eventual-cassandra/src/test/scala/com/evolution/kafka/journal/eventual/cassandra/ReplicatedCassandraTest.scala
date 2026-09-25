@@ -2006,8 +2006,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"detect a journal fork appended in a later batch, $suffix") {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
-      // the stale write of the previous incarnation of the entity, landed after `event0` was already
-      // replicated: same `seqNr`, higher offset, different node and Cassandra timestamp
+      // the stale write of the previous incarnation of the entity
       val event1 = eventOf(SeqNr.unsafe(1), Offset.unsafe(2)).copy(origin = Some(origin1), timestamp = timestamp1)
 
       val program = for {
@@ -2018,7 +2017,6 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
 
-      // `journal` clusters on `(seq_nr, timestamp)`, so both branches of the fork end up stored
       state.journal.values.flatMap(_.keys).toSet shouldEqual
         Set((SeqNr.min, timestamp0), (SeqNr.min, timestamp1))
 
@@ -2026,7 +2024,6 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks.map(_.seqNr) shouldEqual List(SeqNr.min)
       forks.map(_.duplicateProven) shouldEqual List(true)
       forks.map(_.laterRecord) shouldEqual List(JournalFork.Record(SeqNr.min, event1.partitionOffset, Some(origin1)))
-      // the earlier record comes from the `metajournal` head, which does not carry the writer's origin
       forks.map(_.earlierRecord) shouldEqual List(JournalFork.Record(SeqNr.min, event0.partitionOffset, none))
     }
 
@@ -2046,7 +2043,6 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       forks.map(_.seqNr) shouldEqual List(SeqNr.min)
       forks.map(_.duplicateProven) shouldEqual List(true)
-      // unlike a fork against the journal head, both origins are at hand within one batch
       forks.map(_.laterRecord.origin) shouldEqual List(Some(origin1))
       forks.map(_.earlierRecord.origin) shouldEqual List(Some(origin))
     }
@@ -2055,9 +2051,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
-      // the dead incarnation had both events in flight, so the live one replicated past the `seqNr`
-      // this one duplicates. Nothing here proves seqNr 1 is occupied - the head says 2 - so it is
-      // reported as suspected only, which is also what a legitimate out-of-order append looks like
+      // the stale write landed after the live incarnation got past its `seqNr`
       val event2 = eventOf(SeqNr.unsafe(1), Offset.unsafe(3)).copy(origin = Some(origin1), timestamp = timestamp1)
 
       val program = for {
@@ -2070,8 +2064,6 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       forks.map(_.seqNr) shouldEqual List(SeqNr.unsafe(1))
       forks.map(_.duplicateProven) shouldEqual List(false)
-      // the fork's `seqNr` and the earlier one differ - the live incarnation got past what this
-      // event duplicates, so nothing here proves seqNr 1 is occupied
       forks.map(_.earlierRecord.seqNr) shouldEqual List(SeqNr.unsafe(2))
     }
 
@@ -2131,7 +2123,6 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
       val event2 = eventOf(SeqNr.unsafe(3), Offset.unsafe(4))
-      // a `seqNr` below the head again, reported as a regression like any other
       val event3 =
         eventOf(SeqNr.unsafe(2), Offset.unsafe(5)).copy(timestamp = timestamp1)
 
