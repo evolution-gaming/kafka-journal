@@ -67,8 +67,8 @@ private[journal] object ReplicatedCassandra {
 
   /**
    * @param forkReporter
-   *   told about every [[JournalFork]] observed while appending. Reporting only: forks are appended
-   *   exactly as if they were not detected.
+   *   receives every [[JournalFork]] detected while appending. Detection does not change what is
+   *   appended: forked events are stored as before.
    */
   def apply[F[_]: Sync: Parallel: SecureRandom: Fail](
     segmentSizeDefault: SegmentSize,
@@ -157,7 +157,8 @@ private[journal] object ReplicatedCassandra {
                         def partitionOffset = PartitionOffset(partition, offset)
 
                         /**
-                         * Genuinely new events, rather than a re-delivered batch.
+                         * Events after `offset`, i.e. not replicated yet. Events at or below it are
+                         * delivered again, e.g. after a rebalance.
                          */
                         def newEvents(offset: Option[Offset]) = {
                           offset.fold {
@@ -168,8 +169,8 @@ private[journal] object ReplicatedCassandra {
                         }
 
                         /**
-                         * Free of extra Cassandra reads: `journalHead` is the one already loaded
-                         * for the append itself.
+                         * Does not read Cassandra: uses the `journalHead` already loaded for the
+                         * append.
                          */
                         def detectForks(journalHead: Option[JournalHead]) = {
                           val events = newEvents(journalHead.map(_.partitionOffset.offset))

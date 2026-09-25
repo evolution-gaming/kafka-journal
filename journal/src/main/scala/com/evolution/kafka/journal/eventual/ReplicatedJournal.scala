@@ -180,11 +180,12 @@ object ReplicatedJournal {
     def setSchemaVersion(version: Int): F[Unit]
 
     /**
-     * Accounts a journal fork, i.e. an event replicated with a `seqNr` which did not increase over
-     * what the journal already had.
+     * Called for every detected journal fork, i.e. an event replicated with a `seqNr` which did not
+     * increase over the ones the journal already had.
      *
      * @param duplicateProven
-     *   whether a record is known to occupy the `seqNr` already, or it merely failed to increase
+     *   true if another record with the same `seqNr` is known to exist, false if the `seqNr` only
+     *   went down
      */
     def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit]
   }

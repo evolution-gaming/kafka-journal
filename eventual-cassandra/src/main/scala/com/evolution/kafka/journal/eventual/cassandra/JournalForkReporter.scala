@@ -6,7 +6,7 @@ import com.evolution.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.catshelper.Log
 
 /**
- * Where a detected [[JournalFork]] goes.
+ * Reports a detected [[JournalFork]], e.g. to logs and metrics.
  */
 private[journal] trait JournalForkReporter[F[_]] {
 
@@ -21,9 +21,8 @@ private[journal] object JournalForkReporter {
     metrics: ReplicatedJournal.Metrics[F],
     log: Log[F],
   ): JournalForkReporter[F] = { fork =>
-    // the headline repeats the `seqNr ... duplicated` wording of the recovery side error, so that a
-    // single grep finds both the fork and the recoveries it later breaks - but only where the
-    // duplicate is proven
+    // for a proven duplicate, reuse the `seqNr ... duplicated` wording of the recovery error in
+    // `EventualCassandra`, so that one search finds both the fork and the recoveries it breaks
     val headline =
       if (fork.duplicateProven) s"Data integrity violated: seqNr ${ fork.seqNr } duplicated by a journal fork"
       else s"Suspected journal fork: seqNr ${ fork.seqNr } did not increase"
