@@ -178,6 +178,14 @@ object ReplicatedJournal {
     def purge(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def setSchemaVersion(version: Int): F[Unit]
+
+    /**
+     * Called for every detected journal fork: an event with a repeated or out-of-order `seqNr`.
+     *
+     * @param duplicateProven
+     *   true if the `seqNr` is known to be used already, false if the `seqNr` only went down
+     */
+    def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit]
   }
 
   object Metrics {
@@ -203,6 +211,8 @@ object ReplicatedJournal {
         def purge(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
         def setSchemaVersion(version: Int): F[Unit] = unit
+
+        def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit] = unit
       }
     }
 
@@ -244,6 +254,12 @@ object ReplicatedJournal {
         labels = LabelNames("topic"),
       )
 
+      val forkDetectedCounter = registry.counter(
+        name = s"${ prefix }_fork_detected_total",
+        help = "Number of journal forks detected, i.e. events with a repeated or out-of-order seqNr",
+        labels = LabelNames("topic", "kind"),
+      )
+
       for {
         versionGauge <- versionGauge
         _ <- versionGauge.labels(Version.current.value).set().toResource
@@ -251,6 +267,7 @@ object ReplicatedJournal {
         latencySummary <- latencySummary
         topicLatencySummary <- topicLatencySummary
         eventsSummary <- eventsSummary
+        forkDetectedCounter <- forkDetectedCounter
       } yield {
 
         def observeTopicLatency(name: String, topic: Topic, latency: FiniteDuration): F[Unit] = {
@@ -295,6 +312,11 @@ object ReplicatedJournal {
 
           def setSchemaVersion(version: Int): F[Unit] =
             schemaVersionInfo.labels(s"$version").set()
+
+          def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit] = {
+            val kind = if (duplicateProven) "duplicate" else "regression"
+            forkDetectedCounter.labels(topic, kind).inc()
+          }
 
         }
       }
