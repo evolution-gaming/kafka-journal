@@ -4,25 +4,25 @@ import cats.syntax.all.*
 import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, SeqNr}
 
 /**
- * A candidate journal fork: an event whose `seqNr` is not above every `seqNr` replicated to that
- * journal before it.
+ * A possible journal fork: an event whose `seqNr` is not greater than the highest `seqNr`
+ * replicated to the journal before it.
  *
- * Happens when a persistent actor's append to Kafka is still in flight while the entity is
- * restarted elsewhere: the new incarnation does not see the in-flight event, so it appends a
- * different event with the same `seqNr`. Both are replicated (the `journal` table clusters on
- * `(seq_nr, timestamp)`), and a recovery of the entity can then fail with `Data integrity violated:
- * seqNr ... duplicated in multiple records`, see
+ * Happens when an entity is restarted on another node while its previous instance still has an
+ * append to Kafka in flight: the new instance does not see that event, and appends a different one
+ * with the same `seqNr`. As `(seq_nr, timestamp)` is the clustering key of the `journal` table,
+ * both events are stored, and the next recovery of the entity may fail with `Data integrity
+ * violated: seqNr ... duplicated in multiple records`, see
  * [[com.evolution.kafka.journal.eventual.cassandra.EventualCassandra]].
  *
  * @param laterRecord
  *   the event whose `seqNr` failed to increase
  * @param earlierRecord
- *   the record with the highest `seqNr` at a lower offset - either the journal's last replicated
- *   event, see [[JournalFork.Record.fromJournalHead]], or an earlier event of the same batch.
+ *   the record with the highest `seqNr` before `laterRecord`: either the last event replicated to
+ *   the journal, see [[JournalFork.Record.fromJournalHead]], or an earlier event of the same batch
  * @param duplicateProven
- *   whether a record is known to occupy `seqNr` already - true when `laterRecord` repeats the
- *   `seqNr` of the journal head or of an earlier event of the same batch. False means the `seqNr`
- *   merely regressed: concurrent appends of *distinct* `seqNr`s to one key regress too.
+ *   true if another record with the same `seqNr` is known to exist: the last replicated event, or
+ *   an earlier event of the same batch. False if the `seqNr` only went down, which also happens
+ *   when distinct `seqNr`s of one key are appended concurrently.
  */
 private[journal] final case class JournalFork(
   key: Key,
@@ -41,11 +41,12 @@ private[journal] final case class JournalFork(
 private[journal] object JournalFork {
 
   /**
-   * The forks among `events`, in the order the events appear.
+   * Finds the forks among `events`, in event order.
    *
    * @param events
-   *   the events about to be appended, in Kafka offset order, already filtered down to the ones not
-   *   covered by `journalHead`'s offset - a re-delivered batch is not a fork
+   *   the events about to be appended, in Kafka offset order, without the ones at or below the
+   *   offset of `journalHead`: those were replicated already, and delivering them again is not a
+   *   fork
    */
   def fromEvents[A](
     key: Key,
@@ -96,10 +97,11 @@ private[journal] object JournalFork {
     }
 
     /**
-     * The last event replicated to a journal, as far as its `metajournal` entry tells without
-     * reading the `journal` table: `partitionOffset` is the one of the entry as a whole rather than
-     * of that single event, and `origin` is unknown - the one stored in `metajournal` belongs to
-     * whoever created the entry, not to the last writer.
+     * The last event replicated to the journal, built from its `metajournal` entry to avoid reading
+     * the `journal` table. So it is less precise than [[fromEventRecord]]: `partitionOffset` is the
+     * offset of the last Kafka record replicated for the journal, not necessarily of this event,
+     * and `origin` is not set, because `metajournal` stores the origin of the writer which created
+     * the entry, not of the last one.
      */
     def fromJournalHead(journalHead: JournalHead): Record = {
       Record(journalHead.seqNr, journalHead.partitionOffset, none)

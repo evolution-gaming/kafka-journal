@@ -7,10 +7,6 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.time.Instant
 
-/**
- * [[JournalFork.fromEvents]] in isolation. The same detection is also exercised end to end, against
- * the whole append, in [[ReplicatedCassandraTest]].
- */
 class JournalForkTest extends AnyFunSuite {
 
   private val key = Key(id = "id", topic = "topic")
@@ -87,8 +83,7 @@ class JournalForkTest extends AnyFunSuite {
   }
 
   test("a fork does not advance the earlier seqNr") {
-    // seqNr 4 follows the head, so it is not a fork itself, but it does become what the events after
-    // it are compared against
+    // seqNr 4 is above the head, so it is not a fork, and the following events are compared with it
     val events = List(event(seqNr = 1, offset = 4), event(seqNr = 4, offset = 5), event(seqNr = 4, offset = 6))
     val forks = JournalFork.fromEvents(key, journalHead(seqNr = 3, offset = 3), events)
 
