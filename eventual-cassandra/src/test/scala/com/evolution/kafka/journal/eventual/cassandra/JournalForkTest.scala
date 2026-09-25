@@ -70,8 +70,6 @@ class JournalForkTest extends AnyFunSuite {
   }
 
   test("a bare regression is only suspected - concurrent appends of distinct seqNrs look the same") {
-    // what `JournalPerfSpec.appendNoise` does: distinct seqNrs appended to one key in parallel, so
-    // they arrive out of order without any of them being written twice
     val events1 = List(event(seqNr = 2, offset = 6))
     val events2 = List(event(seqNr = 3, offset = 1), event(seqNr = 1, offset = 2), event(seqNr = 2, offset = 3))
     val forks1 = JournalFork.fromEvents(key, journalHead(seqNr = 5, offset = 5), events1)
@@ -106,8 +104,6 @@ class JournalForkTest extends AnyFunSuite {
   }
 
   test("equal seqNrs within one batch prove a duplicate even below the running maximum") {
-    // both 1s are below the batch's largest seqNr, so comparing against that maximum alone would call
-    // them mere regressions - they are compared against the seqNrs already seen instead
     val events = List(event(seqNr = 9, offset = 1), event(seqNr = 1, offset = 2), event(seqNr = 1, offset = 3))
     val forks = JournalFork.fromEvents(key, none, events)
 
@@ -124,8 +120,6 @@ class JournalForkTest extends AnyFunSuite {
     assert(withinBatch.map(_.laterRecord.origin) == List(Some(Origin("later"))))
     assert(withinBatch.map(_.earlierRecord.origin) == List(Some(Origin("earlier"))))
 
-    // against the journal head the origin of the earlier writer is not at hand, see
-    // `JournalFork.Record.fromJournalHead`
     assert(againstHead.map(_.earlierRecord.origin) == List(none))
   }
 }
