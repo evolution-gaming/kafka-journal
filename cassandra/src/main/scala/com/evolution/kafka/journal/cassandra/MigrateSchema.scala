@@ -89,7 +89,8 @@ private[journal] object MigrateSchema {
                 .foldLeftM(version) { (version, migration) =>
                   val version1 = version + 1
                   for {
-                    _ <- migration.execute.first.void.voidError
+                    // Errors are purposefully not swallowed to prevent the stored version to advance
+                    _ <- migration.execute.first.void
                     _ <- setVersion(version1)
                   } yield version1
                 }
