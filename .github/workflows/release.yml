@@ -10,5 +10,5 @@ permissions:
 
 jobs:
   release:
-    uses: evolution-gaming/scala-github-actions/.github/workflows/release.yml@999c04ccae0d79a8a0c12ed7d71136762b2ae8c1 # v7.1.0
+    uses: evolution-gaming/scala-github-actions/.github/workflows/release.yml@c5149c701542c233773574b6428155377b36eea8 # v7.1.0
     secrets: inherit
