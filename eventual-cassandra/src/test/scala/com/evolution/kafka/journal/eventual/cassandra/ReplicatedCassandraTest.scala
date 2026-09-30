@@ -35,12 +35,13 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   private val topic1 = "topic1"
   private val partitionOffset = PartitionOffset.empty
   private val origin = Origin("origin")
+  private val origin1 = Origin("origin1")
   private val version = Version.current
   private val recordId = RecordId(UUID.fromString("13131313-1313-4313-9313-131313131313"))
   private val record = eventRecordOf(SeqNr.min, partitionOffset)
 
-  private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
-    val event = EventRecord(
+  private def eventOf(seqNr: SeqNr, partitionOffset: PartitionOffset): EventRecord[EventualPayloadAndType] = {
+    EventRecord(
       event = Event[EventualPayloadAndType](seqNr),
       timestamp = timestamp0,
       partitionOffset = partitionOffset,
@@ -49,7 +50,14 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       metadata = RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata.empty),
       headers = Headers(("key", "value")),
     )
-    JournalRecord(event, recordId.some)
+  }
+
+  private def eventOf(seqNr: SeqNr, offset: Offset): EventRecord[EventualPayloadAndType] = {
+    eventOf(seqNr, PartitionOffset(Partition.min, offset))
+  }
+
+  private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset): JournalRecord = {
+    JournalRecord(eventOf(seqNr, partitionOffset), recordId.some)
   }
 
   for {
@@ -67,6 +75,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         segmentNrsOf,
         statements,
         ExpiryService(ZoneOffset.UTC),
+        forkReporter,
       ).toFlat
     }
 
@@ -1993,6 +2002,144 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val actual = stateT.run(initial)
       actual shouldEqual (expected, false).pure[Try]
     }
+
+    test(s"detect a journal fork appended in a later batch, $suffix") {
+      val key = Key("id", topic0)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      // a late write from the previous instance of the entity
+      val event1 = eventOf(SeqNr.unsafe(1), Offset.unsafe(2)).copy(origin = Some(origin1), timestamp = timestamp1)
+
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp1, none, Nel.of(event1))
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
+
+      state.journal.values.flatMap(_.keys).toSet shouldEqual
+        Set((SeqNr.min, timestamp0), (SeqNr.min, timestamp1))
+
+      forks.map(_.key) shouldEqual List(key)
+      forks.map(_.seqNr) shouldEqual List(SeqNr.min)
+      forks.map(_.duplicateProven) shouldEqual List(true)
+      forks.map(_.laterRecord) shouldEqual List(JournalFork.Record(SeqNr.min, event1.partitionOffset, Some(origin1)))
+      forks.map(_.earlierRecord) shouldEqual List(JournalFork.Record(SeqNr.min, event0.partitionOffset, none))
+    }
+
+    test(s"detect a journal fork appended within one batch, $suffix") {
+      val key = Key("id", topic0)
+      // `Batch.of` merges consecutive appends without checking their `seqNr`s, so both events of a
+      // fork can arrive in one `append`
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(1), Offset.unsafe(2)).copy(origin = Some(origin1), timestamp = timestamp1)
+
+      val program = journal
+        .append(key, Partition.min, Offset.unsafe(2), timestamp1, none, Nel.of(event0, event1))
+        .void
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
+
+      forks.map(_.seqNr) shouldEqual List(SeqNr.min)
+      forks.map(_.duplicateProven) shouldEqual List(true)
+      forks.map(_.laterRecord.origin) shouldEqual List(Some(origin1))
+      forks.map(_.earlierRecord.origin) shouldEqual List(Some(origin))
+    }
+
+    test(s"detect a journal fork which regresses `seqNr` by more than one event, $suffix") {
+      val key = Key("id", topic0)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
+      // a late write from the previous instance, arriving after the new one wrote a higher `seqNr`
+      val event2 = eventOf(SeqNr.unsafe(1), Offset.unsafe(3)).copy(origin = Some(origin1), timestamp = timestamp1)
+
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(3), timestamp1, none, Nel.of(event2))
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
+
+      forks.map(_.seqNr) shouldEqual List(SeqNr.unsafe(1))
+      forks.map(_.duplicateProven) shouldEqual List(false)
+      forks.map(_.earlierRecord.seqNr) shouldEqual List(SeqNr.unsafe(2))
+    }
+
+    test(s"do not report a re-delivered batch as a journal fork, $suffix") {
+      val key = Key("id", topic0)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
+      val event2 = eventOf(SeqNr.unsafe(3), Offset.unsafe(3))
+
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
+        // the same batch delivered again, e.g. after a rebalance before the consumer offset was committed
+        changed <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
+        _ = changed shouldEqual false
+        // delivered again, with one new event added
+        changed <- journal.append(
+          key,
+          Partition.min,
+          Offset.unsafe(3),
+          timestamp0,
+          none,
+          Nel.of(event0, event1, event2),
+        )
+        _ = changed shouldEqual true
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
+
+      forks shouldEqual List.empty
+    }
+
+    test(s"do not report a purged and recreated journal as a journal fork, $suffix") {
+      val key = Key("id", topic0)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
+      // after a purge the journal starts again from `SeqNr.min`, which is not a fork
+      val event2 =
+        eventOf(SeqNr.unsafe(1), Offset.unsafe(4)).copy(timestamp = timestamp1)
+
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event1))
+        changed <- journal.purge(key, Partition.min, Offset.unsafe(3), timestamp0)
+        _ = changed shouldEqual true
+        _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp1, none, Nel.of(event2))
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
+
+      forks shouldEqual List.empty
+    }
+
+    test(s"`delete` does not reset `seqNr`, so it does not fake a journal fork, $suffix") {
+      val key = Key("id", topic0)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
+      val event2 = eventOf(SeqNr.unsafe(3), Offset.unsafe(4))
+      val event3 =
+        eventOf(SeqNr.unsafe(2), Offset.unsafe(5)).copy(timestamp = timestamp1)
+
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
+        _ <- journal.delete(key, Partition.min, Offset.unsafe(3), timestamp0, SeqNr.unsafe(2).toDeleteTo, none)
+        // the head's `seqNr` stays 2 after the delete, so seqNr 3 is not a fork
+        _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp0, none, Nel.of(event2))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(5), timestamp1, none, Nel.of(event3))
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
+
+      forks.map(_.seqNr) shouldEqual List(SeqNr.unsafe(2))
+      forks.map(_.duplicateProven) shouldEqual List(false)
+    }
   }
 }
 
@@ -2383,6 +2530,12 @@ object ReplicatedCassandraTest {
     final case class DeleteMetaJournal(key: Key, segment: SegmentNr) extends Action
 
     final case class DeleteExpiry(key: Key, segment: SegmentNr) extends Action
+
+    final case class DetectedFork(fork: JournalFork) extends Action
+  }
+
+  val forkReporter: JournalForkReporter[StateT] = { fork =>
+    StateT.unit { state => state.append(Action.DetectedFork(fork)) }
   }
 
   final case class State(
@@ -2399,6 +2552,11 @@ object ReplicatedCassandraTest {
     implicit class StateOps(val self: State) extends AnyVal {
 
       def append(action: Action): State = self.copy(actions = action :: self.actions)
+
+      /**
+       * Journal forks reported while the state was built, in the order they were reported.
+       */
+      def forks: List[JournalFork] = self.actions.reverse.collect { case Action.DetectedFork(fork) => fork }
 
       def updateMetaJournal(key: Key, segment: SegmentNr)(f: MetaJournalEntry => MetaJournalEntry): State = {
         val state = for {
