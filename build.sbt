@@ -138,6 +138,8 @@ lazy val core = project
       Jackson.Databind,
       Jackson.Jdk8,
       Jackson.Jsr310,
+      Jackson.ParameterNames,
+      Jackson.Scala,
       SStream,
       Hostname,
       Pureconfig.Core,
