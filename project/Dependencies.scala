@@ -37,6 +37,8 @@ object Dependencies {
     val Databind = "com.fasterxml.jackson.core" % "jackson-databind" % version
     val Jdk8 = "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8" % version
     val Jsr310 = "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % version
+    val ParameterNames = "com.fasterxml.jackson.module" % "jackson-module-parameter-names" % version
+    val Scala = "com.fasterxml.jackson.module" %% "jackson-module-scala" % version
   }
 
   object Logback {
