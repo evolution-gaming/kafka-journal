@@ -14,27 +14,36 @@ import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, S
  * violated: seqNr ... duplicated in multiple records`, see
  * [[com.evolution.kafka.journal.eventual.cassandra.EventualCassandra]].
  *
- * @param laterRecord
- *   the event with a repeated or out-of-order `seqNr`
- * @param earlierRecord
- *   the record with the highest `seqNr` before `laterRecord`: either the journal head, see
- *   [[JournalFork.Record.fromJournalHead]], or an earlier event of the same batch
- * @param duplicateProven
- *   true if the `seqNr` is known to be used already: by the journal head, or by an earlier event of
- *   the same batch. False if the `seqNr` only went down, which also happens when distinct `seqNr`s
- *   of one key are appended concurrently.
+ * @param detectedAtOffset
+ *   where the event with a repeated or out-of-order `seqNr` is in Kafka. One Kafka record often
+ *   holds several events, so several forks may have the same offset.
+ * @param conflictsWithOffset
+ *   where the record the event is compared with is in Kafka: the journal head (the offset of its
+ *   last append or delete), or, if there is one, the last event before it in the same batch which
+ *   was not a fork
+ * @param origin
+ *   the origin of the event at `detectedAtOffset`
  */
 private[journal] final case class JournalFork(
   key: Key,
-  laterRecord: JournalFork.Record,
-  earlierRecord: JournalFork.Record,
-  duplicateProven: Boolean,
+  detectedAtOffset: PartitionOffset,
+  detectedAtSeqNr: SeqNr,
+  conflictsWithOffset: PartitionOffset,
+  conflictsWithSeqNr: SeqNr,
+  origin: Option[Origin],
 ) {
 
-  def seqNr: SeqNr = laterRecord.seqNr
+  /**
+   * True if the event repeats the `seqNr` of the record it is compared with. False if its `seqNr`
+   * is lower: it may still repeat an earlier `seqNr`, but concurrent appends of distinct `seqNr`s
+   * to one key look the same.
+   */
+  def isDuplicate: Boolean = detectedAtSeqNr == conflictsWithSeqNr
 
   def show: String = {
-    s"key: $key, later: ${ laterRecord.show }, earlier: ${ earlierRecord.show }"
+    val originStr = origin.foldMap { origin => s", origin: $origin" }
+    s"key: $key, detectedAtOffset: $detectedAtOffset, detectedAtSeqNr: $detectedAtSeqNr, " +
+      s"conflictsWithOffset: $conflictsWithOffset, conflictsWithSeqNr: $conflictsWithSeqNr$originStr"
   }
 }
 
@@ -54,54 +63,27 @@ private[journal] object JournalFork {
     events: List[EventRecord[A]],
   ): List[JournalFork] = {
 
-    val earlierRecord0 = journalHead.map(Record.fromJournalHead)
-    val occupiedNrs0 = journalHead.map(_.seqNr).toSet
+    val state0 = journalHead.map { journalHead => (journalHead.partitionOffset, journalHead.seqNr) }
     val forks0 = List.empty[JournalFork]
 
-    val (_, _, forks) = events.foldLeft((earlierRecord0, occupiedNrs0, forks0)) {
-      case ((earlierRecord, occupiedNrs, forks), event) =>
-        val laterRecord = Record.fromEventRecord(event)
-        val occupiedNrs1 = occupiedNrs + laterRecord.seqNr
-        earlierRecord match {
-          case Some(earlierRecord) if laterRecord.seqNr <= earlierRecord.seqNr =>
+    val (_, forks) = events.foldLeft((state0, forks0)) {
+      case ((state, forks), event) =>
+        state match {
+          case Some((partitionOffset, seqNr)) if event.seqNr <= seqNr =>
             val fork = JournalFork(
               key = key,
-              laterRecord = laterRecord,
-              earlierRecord = earlierRecord,
-              duplicateProven = occupiedNrs.contains(laterRecord.seqNr),
+              detectedAtOffset = event.partitionOffset,
+              detectedAtSeqNr = event.seqNr,
+              conflictsWithOffset = partitionOffset,
+              conflictsWithSeqNr = seqNr,
+              origin = event.origin,
             )
-            (Some(earlierRecord), occupiedNrs1, fork :: forks)
+            (state, fork :: forks)
           case _ =>
-            (Some(laterRecord), occupiedNrs1, forks)
+            (Some((event.partitionOffset, event.seqNr)), forks)
         }
     }
 
     forks.reverse
-  }
-
-  /**
-   * Where one of a fork's two records sits in Kafka, and which node appended it.
-   */
-  final case class Record(seqNr: SeqNr, partitionOffset: PartitionOffset, origin: Option[Origin]) {
-
-    def show: String = {
-      val originStr = origin.foldMap { origin => s", origin: $origin" }
-      s"seqNr: $seqNr, partition: ${ partitionOffset.partition }, offset: ${ partitionOffset.offset }$originStr"
-    }
-  }
-
-  object Record {
-
-    def fromEventRecord[A](event: EventRecord[A]): Record = {
-      Record(event.seqNr, event.partitionOffset, event.origin)
-    }
-
-    /**
-     * `origin` is not set, as `JournalHead` does not carry one, and `partitionOffset` is the one of
-     * the last append or delete of the journal.
-     */
-    def fromJournalHead(journalHead: JournalHead): Record = {
-      Record(journalHead.seqNr, journalHead.partitionOffset, none)
-    }
   }
 }

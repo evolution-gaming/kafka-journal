@@ -24,12 +24,12 @@ private[journal] object JournalForkReporter {
     // for a proven duplicate, reuse the `seqNr ... duplicated` wording of the recovery error in
     // `EventualCassandra`, so that one search finds both the fork and the recoveries it breaks
     val headline =
-      if (fork.duplicateProven) s"Data integrity violated: seqNr ${ fork.seqNr } duplicated by a journal fork"
-      else s"Suspected journal fork: seqNr ${ fork.seqNr } did not increase"
+      if (fork.isDuplicate) s"Data integrity violated: seqNr ${ fork.detectedAtSeqNr } duplicated by a journal fork"
+      else s"Suspected journal fork: seqNr ${ fork.detectedAtSeqNr } did not increase"
     val message = s"$headline, ${ fork.show }"
 
-    val logFork = if (fork.duplicateProven) log.error(message) else log.warn(message)
-    val updateMetrics = metrics.journalForkDetected(fork.key.topic, fork.duplicateProven)
+    val logFork = if (fork.isDuplicate) log.error(message) else log.warn(message)
+    val updateMetrics = metrics.journalForkDetected(fork.key.topic, fork.isDuplicate)
 
     logFork *> updateMetrics
   }
