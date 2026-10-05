@@ -2020,11 +2020,16 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       state.journal.values.flatMap(_.keys).toSet shouldEqual
         Set((SeqNr.min, timestamp0), (SeqNr.min, timestamp1))
 
-      forks.map(_.key) shouldEqual List(key)
-      forks.map(_.seqNr) shouldEqual List(SeqNr.min)
-      forks.map(_.duplicateProven) shouldEqual List(true)
-      forks.map(_.laterRecord) shouldEqual List(JournalFork.Record(SeqNr.min, event1.partitionOffset, Some(origin1)))
-      forks.map(_.earlierRecord) shouldEqual List(JournalFork.Record(SeqNr.min, event0.partitionOffset, none))
+      val fork = JournalFork(
+        key = key,
+        detectedAtOffset = event1.partitionOffset,
+        detectedAtSeqNr = SeqNr.min,
+        conflictsWithOffset = event0.partitionOffset,
+        conflictsWithSeqNr = SeqNr.min,
+        origin = Some(origin1),
+      )
+      forks shouldEqual List(fork)
+      forks.map(_.isDuplicate) shouldEqual List(true)
     }
 
     test(s"detect a journal fork appended within one batch, $suffix") {
@@ -2041,10 +2046,10 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
 
-      forks.map(_.seqNr) shouldEqual List(SeqNr.min)
-      forks.map(_.duplicateProven) shouldEqual List(true)
-      forks.map(_.laterRecord.origin) shouldEqual List(Some(origin1))
-      forks.map(_.earlierRecord.origin) shouldEqual List(Some(origin))
+      forks.map(_.detectedAtSeqNr) shouldEqual List(SeqNr.min)
+      forks.map(_.isDuplicate) shouldEqual List(true)
+      forks.map(_.detectedAtOffset) shouldEqual List(event1.partitionOffset)
+      forks.map(_.conflictsWithOffset) shouldEqual List(event0.partitionOffset)
     }
 
     test(s"detect a journal fork which regresses `seqNr` by more than one event, $suffix") {
@@ -2062,9 +2067,63 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
 
-      forks.map(_.seqNr) shouldEqual List(SeqNr.unsafe(1))
-      forks.map(_.duplicateProven) shouldEqual List(false)
-      forks.map(_.earlierRecord.seqNr) shouldEqual List(SeqNr.unsafe(2))
+      forks.map(_.detectedAtSeqNr) shouldEqual List(SeqNr.unsafe(1))
+      forks.map(_.isDuplicate) shouldEqual List(false)
+      forks.map(_.conflictsWithSeqNr) shouldEqual List(SeqNr.unsafe(2))
+    }
+
+    test(s"detect a journal fork from a stale Kafka record of several events, $suffix") {
+      val key = Key("id", topic0)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(1))
+      val event2 = eventOf(SeqNr.unsafe(3), Offset.unsafe(2))
+      val event3 = eventOf(SeqNr.unsafe(4), Offset.unsafe(2))
+      // a late write from the previous instance: one Kafka record with two events
+      val event4 = eventOf(SeqNr.unsafe(3), Offset.unsafe(3)).copy(origin = Some(origin1), timestamp = timestamp1)
+      val event5 = eventOf(SeqNr.unsafe(4), Offset.unsafe(3)).copy(origin = Some(origin1), timestamp = timestamp1)
+
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0, event1))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event2, event3))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(3), timestamp1, none, Nel.of(event4, event5))
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
+
+      forks.map(_.detectedAtSeqNr) shouldEqual List(SeqNr.unsafe(3), SeqNr.unsafe(4))
+      forks.map(_.detectedAtOffset) shouldEqual List(event4.partitionOffset, event4.partitionOffset)
+      forks.map(_.conflictsWithOffset) shouldEqual List(event3.partitionOffset, event3.partitionOffset)
+      forks.map(_.isDuplicate) shouldEqual List(false, true)
+    }
+
+    test(s"miss a journal fork once an earlier fork lowered the head `seqNr`, $suffix") {
+      val key = Key("id", topic0)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(1))
+      val event2 = eventOf(SeqNr.unsafe(3), Offset.unsafe(1))
+      val event3 = eventOf(SeqNr.unsafe(4), Offset.unsafe(2))
+      val event4 = eventOf(SeqNr.unsafe(5), Offset.unsafe(2))
+      // two late writes from the previous instance, each arriving in a separate poll
+      val event5 = eventOf(SeqNr.unsafe(4), Offset.unsafe(3)).copy(origin = Some(origin1), timestamp = timestamp1)
+      val event6 = eventOf(SeqNr.unsafe(5), Offset.unsafe(4)).copy(origin = Some(origin1), timestamp = timestamp1)
+
+      val program = for {
+        _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0, event1, event2))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event3, event4))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(3), timestamp1, none, Nel.of(event5))
+        _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp1, none, Nel.of(event6))
+      } yield {}
+
+      val (state, _) = program.run(State.empty).get
+      val forks = state.forks
+
+      // seqNr 5 is stored twice, so it is a fork
+      state.journal.values.flatMap(_.keys).count { case (seqNr, _) => seqNr == SeqNr.unsafe(5) } shouldEqual 2
+
+      // the head takes the `seqNr` of the last appended event, so the fork at offset 3 lowers it to 4,
+      // and seqNr 5 at offset 4 is compared with 4 and looks in order
+      forks.map(_.detectedAtSeqNr) shouldEqual List(SeqNr.unsafe(4))
     }
 
     test(s"do not report a re-delivered batch as a journal fork, $suffix") {
@@ -2137,8 +2196,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
 
-      forks.map(_.seqNr) shouldEqual List(SeqNr.unsafe(2))
-      forks.map(_.duplicateProven) shouldEqual List(false)
+      forks.map(_.detectedAtSeqNr) shouldEqual List(SeqNr.unsafe(2))
+      forks.map(_.isDuplicate) shouldEqual List(false)
     }
   }
 }

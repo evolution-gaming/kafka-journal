@@ -11,11 +11,13 @@ class JournalForkTest extends AnyFunSuite {
 
   private val key = Key(id = "id", topic = "topic")
 
+  private def partitionOffset(offset: Int) = PartitionOffset(Partition.min, Offset.unsafe(offset))
+
   private def event(seqNr: Long, offset: Int, origin: Origin = Origin("origin")) = {
     EventRecord(
       event = Event[Unit](SeqNr.unsafe(seqNr)),
       timestamp = Instant.parse("2019-12-12T10:10:10.00Z"),
-      partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(offset)),
+      partitionOffset = partitionOffset(offset),
       origin = Some(origin),
       version = none,
       metadata = RecordMetadata.empty,
@@ -26,7 +28,7 @@ class JournalForkTest extends AnyFunSuite {
   private def journalHead(seqNr: Long, offset: Int) = {
     Some(
       JournalHead(
-        partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(offset)),
+        partitionOffset = partitionOffset(offset),
         segmentSize = SegmentSize.default,
         seqNr = SeqNr.unsafe(seqNr),
       ),
@@ -57,64 +59,103 @@ class JournalForkTest extends AnyFunSuite {
     assert(forks.isEmpty)
   }
 
-  test("repeating the journal head seqNr proves a duplicate") {
+  test("repeating the journal head seqNr is a duplicate") {
     val events = List(event(seqNr = 2, offset = 3))
     val forks = JournalFork.fromEvents(key, journalHead(seqNr = 2, offset = 2), events)
 
-    assert(forks.map(_.seqNr.value) == List(2L))
-    assert(forks.map(_.duplicateProven) == List(true))
+    val fork = JournalFork(
+      key = key,
+      detectedAtOffset = partitionOffset(3),
+      detectedAtSeqNr = SeqNr.unsafe(2),
+      conflictsWithOffset = partitionOffset(2),
+      conflictsWithSeqNr = SeqNr.unsafe(2),
+      origin = Some(Origin("origin")),
+    )
+    assert(forks == List(fork))
+    assert(forks.map(_.isDuplicate) == List(true))
   }
 
-  test("a bare regression is only suspected - concurrent appends of distinct seqNrs look the same") {
+  test("a lower seqNr is out of order - concurrent appends of distinct seqNrs look the same") {
     val events1 = List(event(seqNr = 2, offset = 6))
     val events2 = List(event(seqNr = 3, offset = 1), event(seqNr = 1, offset = 2), event(seqNr = 2, offset = 3))
     val forks1 = JournalFork.fromEvents(key, journalHead(seqNr = 5, offset = 5), events1)
     val forks2 = JournalFork.fromEvents(key, none, events2)
 
-    assert(forks1.map(_.duplicateProven) == List(false))
-    assert(forks2.map(_.duplicateProven) == List(false, false))
+    assert(forks1.map(_.isDuplicate) == List(false))
+    assert(forks2.map(_.isDuplicate) == List(false, false))
   }
 
   test("every fork of a batch is reported, in event order") {
     val events = List(event(seqNr = 2, offset = 4), event(seqNr = 3, offset = 5), event(seqNr = 1, offset = 6))
     val forks = JournalFork.fromEvents(key, journalHead(seqNr = 3, offset = 3), events)
 
-    assert(forks.map(_.seqNr.value) == List(2L, 3L, 1L))
+    assert(forks.map(_.detectedAtSeqNr.value) == List(2L, 3L, 1L))
   }
 
-  test("a fork does not advance the earlier seqNr") {
-    // seqNr 4 is above the head, so it is not a fork, and the following events are compared with it
-    val events = List(event(seqNr = 1, offset = 4), event(seqNr = 4, offset = 5), event(seqNr = 4, offset = 6))
-    val forks = JournalFork.fromEvents(key, journalHead(seqNr = 3, offset = 3), events)
+  test("only a higher seqNr changes what the next events are compared with") {
+    val events = List(
+      event(seqNr = 2, offset = 6),
+      event(seqNr = 3, offset = 7),
+      event(seqNr = 7, offset = 8),
+      event(seqNr = 7, offset = 9),
+    )
+    val forks = JournalFork.fromEvents(key, journalHead(seqNr = 5, offset = 5), events)
 
-    assert(forks.map(_.seqNr.value) == List(1L, 4L))
-    assert(forks.map(_.earlierRecord.seqNr.value) == List(3L, 4L))
+    assert(forks.map(_.detectedAtSeqNr.value) == List(2L, 3L, 7L))
+    assert(forks.map(_.conflictsWithSeqNr.value) == List(5L, 5L, 7L))
+    assert(forks.map(_.conflictsWithOffset) == List(partitionOffset(5), partitionOffset(5), partitionOffset(8)))
   }
 
   test("a fork within one batch is reported without a journal head") {
     val events = List(event(seqNr = 1, offset = 1), event(seqNr = 1, offset = 2))
     val forks = JournalFork.fromEvents(key, none, events)
 
-    assert(forks.map(_.duplicateProven) == List(true))
+    assert(forks.map(_.isDuplicate) == List(true))
   }
 
-  test("equal seqNrs within one batch prove a duplicate even below the running maximum") {
+  test("a repeated seqNr below the highest one is reported as out of order") {
     val events = List(event(seqNr = 9, offset = 1), event(seqNr = 1, offset = 2), event(seqNr = 1, offset = 3))
     val forks = JournalFork.fromEvents(key, none, events)
 
-    assert(forks.map(_.duplicateProven) == List(false, true))
+    assert(forks.map(_.isDuplicate) == List(false, false))
   }
 
-  test("origins of both records are carried over where known") {
-    val later = event(seqNr = 1, offset = 2, origin = Origin("later"))
+  test("the origin is the one of the detected event") {
     val earlier = event(seqNr = 1, offset = 1, origin = Origin("earlier"))
+    val later = event(seqNr = 1, offset = 2, origin = Origin("later"))
+    val forks = JournalFork.fromEvents(key, none, List(earlier, later))
 
-    val withinBatch = JournalFork.fromEvents(key, none, List(earlier, later))
-    val againstHead = JournalFork.fromEvents(key, journalHead(seqNr = 1, offset = 1), List(later))
+    assert(forks.map(_.origin) == List(Some(Origin("later"))))
+  }
 
-    assert(withinBatch.map(_.laterRecord.origin) == List(Some(Origin("later"))))
-    assert(withinBatch.map(_.earlierRecord.origin) == List(Some(Origin("earlier"))))
+  test("events of one Kafka record are not forks of each other") {
+    val events = List(event(seqNr = 1, offset = 1), event(seqNr = 2, offset = 1), event(seqNr = 3, offset = 1))
+    val forks = JournalFork.fromEvents(key, none, events)
 
-    assert(againstHead.map(_.earlierRecord.origin) == List(none))
+    assert(forks.isEmpty)
+  }
+
+  test("a stale Kafka record of several events is reported once per event, all at its offset") {
+    val events = List(event(seqNr = 6, offset = 6), event(seqNr = 7, offset = 6), event(seqNr = 8, offset = 6))
+    val forks = JournalFork.fromEvents(key, journalHead(seqNr = 8, offset = 5), events)
+
+    assert(forks.map(_.detectedAtSeqNr.value) == List(6L, 7L, 8L))
+    assert(forks.map(_.detectedAtOffset) == List(partitionOffset(6), partitionOffset(6), partitionOffset(6)))
+    assert(forks.map(_.conflictsWithOffset) == List(partitionOffset(5), partitionOffset(5), partitionOffset(5)))
+    assert(forks.map(_.isDuplicate) == List(false, false, true))
+  }
+
+  test("two Kafka records of one batch can conflict with each other") {
+    val events = List(
+      event(seqNr = 1, offset = 1),
+      event(seqNr = 2, offset = 1),
+      event(seqNr = 1, offset = 2),
+      event(seqNr = 2, offset = 2),
+    )
+    val forks = JournalFork.fromEvents(key, none, events)
+
+    assert(forks.map(_.detectedAtOffset) == List(partitionOffset(2), partitionOffset(2)))
+    assert(forks.map(_.conflictsWithOffset) == List(partitionOffset(1), partitionOffset(1)))
+    assert(forks.map(_.isDuplicate) == List(false, true))
   }
 }
