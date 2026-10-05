@@ -8,7 +8,7 @@ object Dependencies {
   val PlayJson = "org.playframework" %% "play-json" % "3.0.6"
   val Lz4 = "at.yawk.lz4" % "lz4-java" % "1.12.0"
 
-  private val PekkoExtensionVersion = "2.1.1"
+  private val PekkoExtensionVersion = "2.1.2"
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.5.1"
   val ExecutorTools = "com.evolutiongaming" %% "executor-tools" % "1.0.5"
   val AkkaSerialization = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
@@ -62,7 +62,7 @@ object Dependencies {
   }
 
   object Pekko {
-    private val version = "1.7.0"
+    private val version = "1.7.1"
     val Actor = "org.apache.pekko" %% "pekko-actor" % version
     val Testkit = "org.apache.pekko" %% "pekko-testkit" % version
     val Stream = "org.apache.pekko" %% "pekko-stream" % version
