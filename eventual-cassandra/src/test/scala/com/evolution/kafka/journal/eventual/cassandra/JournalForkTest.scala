@@ -75,7 +75,7 @@ class JournalForkTest extends AnyFunSuite {
     assert(forks.map(_.isDuplicate) == List(true))
   }
 
-  test("a lower seqNr is out of order - concurrent appends of distinct seqNrs look the same") {
+  test("a lower seqNr is reported as out of order") {
     val events1 = List(event(seqNr = 2, offset = 6))
     val events2 = List(event(seqNr = 3, offset = 1), event(seqNr = 1, offset = 2), event(seqNr = 2, offset = 3))
     val forks1 = JournalFork.fromEvents(key, journalHead(seqNr = 5, offset = 5), events1)

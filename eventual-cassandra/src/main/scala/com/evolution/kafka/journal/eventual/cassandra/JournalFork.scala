@@ -35,8 +35,8 @@ private[journal] final case class JournalFork(
 
   /**
    * True if the event repeats the `seqNr` of the record it is compared with. False if its `seqNr`
-   * is lower: it may still repeat an earlier `seqNr`, but concurrent appends of distinct `seqNr`s
-   * to one key look the same.
+   * is lower: then it may still be a duplicate, but it may also be a valid event written out of
+   * order, e.g. by parallel appends to the same key.
    */
   def isDuplicate: Boolean = detectedAtSeqNr == conflictsWithSeqNr
 
