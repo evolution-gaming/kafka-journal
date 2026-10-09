@@ -47,7 +47,9 @@ private[journal] object ReplicatedCassandra {
     } yield {
       implicit val sr: SecureRandom[F] = secureRandom
       val segmentOf = SegmentNrs.Of[F](first = Segments.default, second = Segments.old)
-      val journal = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
+      val forkReporter = JournalForkReporter.fromMetrics(metrics.getOrElse(ReplicatedJournal.Metrics.empty[F]), log)
+      val journal =
+        apply[F](config.segmentSize, segmentOf, statements, expiryService, forkReporter).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -59,6 +61,21 @@ private[journal] object ReplicatedCassandra {
     segmentNrsOf: SegmentNrs.Of[F],
     statements: Statements[F],
     expiryService: ExpiryService[F],
+  ): ReplicatedJournal[F] = {
+    apply[F](segmentSizeDefault, segmentNrsOf, statements, expiryService, JournalForkReporter.empty[F])
+  }
+
+  /**
+   * @param forkReporter
+   *   receives every [[JournalFork]] detected while appending. Detection does not change what is
+   *   appended: forked events are stored as before.
+   */
+  def apply[F[_]: Sync: Parallel: SecureRandom: Fail](
+    segmentSizeDefault: SegmentSize,
+    segmentNrsOf: SegmentNrs.Of[F],
+    statements: Statements[F],
+    expiryService: ExpiryService[F],
+    forkReporter: JournalForkReporter[F],
   ): ReplicatedJournal[F] = {
 
     new Main with ReplicatedJournal[F] {
@@ -139,6 +156,29 @@ private[journal] object ReplicatedCassandra {
 
                         def partitionOffset = PartitionOffset(partition, offset)
 
+                        /**
+                         * Events after `offset`, i.e. not replicated yet. Events at or below it are
+                         * delivered again, e.g. after a rebalance.
+                         */
+                        def newEvents(offset: Option[Offset]) = {
+                          offset.fold {
+                            events.toList
+                          } { offset =>
+                            events.filter { event => event.partitionOffset.offset > offset }
+                          }
+                        }
+
+                        /**
+                         * Does not read Cassandra: uses the `journalHead` already loaded for the
+                         * append.
+                         */
+                        def detectForks(journalHead: Option[JournalHead]) = {
+                          val events = newEvents(journalHead.map(_.partitionOffset.offset))
+                          JournalFork
+                            .fromEvents(key, journalHead, events)
+                            .traverse_(forkReporter.report)
+                        }
+
                         def append(journalHead: JournalHead, offset: Option[Offset]) = {
 
                           @tailrec
@@ -175,12 +215,7 @@ private[journal] object ReplicatedCassandra {
                             }
                           }
 
-                          val events1 = offset.fold {
-                            events.toList
-                          } { offset =>
-                            events.filter { event => event.partitionOffset.offset > offset }
-                          }
-                          loop(events1, None, ().pure[F])
+                          loop(newEvents(offset), None, ().pure[F])
                         }
 
                         def appendAndSave(journalHead: Option[JournalHead]) = {
@@ -260,12 +295,12 @@ private[journal] object ReplicatedCassandra {
                           }
 
                           journalHead.fold {
-                            appendAndSave
+                            detectForks(none) *> appendAndSave
                           } { journalHead =>
                             if (offset <= journalHead.partitionOffset.offset) {
                               none[JournalHead].pure[F]
                             } else {
-                              appendAndSave
+                              detectForks(Some(journalHead)) *> appendAndSave
                             }
                           }
                         }
