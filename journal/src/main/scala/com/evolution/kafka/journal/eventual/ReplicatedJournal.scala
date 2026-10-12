@@ -183,7 +183,8 @@ object ReplicatedJournal {
      * Called for every detected journal fork: an event with a repeated or out-of-order `seqNr`.
      *
      * @param duplicateProven
-     *   true if the `seqNr` is known to be used already, false if the `seqNr` only went down
+     *   `true` if the `seqNr` is repeated, which proves a duplicate, `false` if it is out of order,
+     *   which may be a duplicate too, but is not proven
      */
     def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit]
   }
