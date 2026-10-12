@@ -2017,8 +2017,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
 
-      state.journal.values.flatMap(_.keys).toSet shouldEqual
-        Set((SeqNr.min, timestamp0), (SeqNr.min, timestamp1))
+      val stored = state.journal.values.flatMap(_.values).map(_.event)
+      stored.toSet shouldEqual Set(event0, event1)
 
       val fork = JournalFork(
         key = key,
@@ -2118,8 +2118,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
 
-      // seqNr 5 is stored twice, so it is a fork
-      state.journal.values.flatMap(_.keys).count { case (seqNr, _) => seqNr == SeqNr.unsafe(5) } shouldEqual 2
+      // both late writes are stored, next to the events they duplicate
+      val stored = state.journal.values.flatMap(_.values).map(_.event)
+      stored.toSet shouldEqual Set(event0, event1, event2, event3, event4, event5, event6)
 
       // the head takes the `seqNr` of the last appended event, so the fork at offset 3 lowers it to 4,
       // and seqNr 5 at offset 4 is compared with 4 and looks in order
@@ -2153,6 +2154,26 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val forks = state.forks
 
       forks shouldEqual List.empty
+    }
+
+    test(s"do not report a re-delivered batch as a journal fork when its head was not saved, $suffix") {
+      val key = Key("id", topic0)
+      val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
+      val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
+      val event2 = eventOf(SeqNr.unsafe(3), Offset.unsafe(3))
+
+      val append0 = journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
+      val append1 = journal.append(key, Partition.min, Offset.unsafe(3), timestamp0, none, Nel.of(event1, event2))
+
+      val (state0, _) = append0.run(State.empty).get
+      val (state1, _) = append1.run(state0).get
+      // the rows of the second batch are written, but saving the head failed, so it is as before the batch
+      val headNotSaved = state1.copy(metaJournal = state0.metaJournal)
+      val (state2, changed) = append1.run(headNotSaved).get
+
+      // the batch is above the old head's offset, so it passes the filter and is checked again
+      changed shouldEqual true
+      state2.forks shouldEqual List.empty
     }
 
     test(s"do not report a purged and recreated journal as a journal fork, $suffix") {
@@ -2589,12 +2610,10 @@ object ReplicatedCassandraTest {
     final case class DeleteMetaJournal(key: Key, segment: SegmentNr) extends Action
 
     final case class DeleteExpiry(key: Key, segment: SegmentNr) extends Action
-
-    final case class DetectedFork(fork: JournalFork) extends Action
   }
 
   val forkReporter: JournalForkReporter[StateT] = { fork =>
-    StateT.unit { state => state.append(Action.DetectedFork(fork)) }
+    StateT.unit { state => state.copy(forks = state.forks :+ fork) }
   }
 
   final case class State(
@@ -2602,6 +2621,7 @@ object ReplicatedCassandraTest {
     pointers: Map[Topic, Map[Partition, PointerEntry]] = Map.empty,
     metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]] = Map.empty,
     journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), JournalRecord]] = Map.empty,
+    forks: List[JournalFork] = List.empty,
   )
 
   object State {
@@ -2611,11 +2631,6 @@ object ReplicatedCassandraTest {
     implicit class StateOps(val self: State) extends AnyVal {
 
       def append(action: Action): State = self.copy(actions = action :: self.actions)
-
-      /**
-       * Journal forks reported while the state was built, in the order they were reported.
-       */
-      def forks: List[JournalFork] = self.actions.reverse.collect { case Action.DetectedFork(fork) => fork }
 
       def updateMetaJournal(key: Key, segment: SegmentNr)(f: MetaJournalEntry => MetaJournalEntry): State = {
         val state = for {
