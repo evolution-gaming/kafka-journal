@@ -157,25 +157,12 @@ private[journal] object ReplicatedCassandra {
                         def partitionOffset = PartitionOffset(partition, offset)
 
                         /**
-                         * Events after `offset`, i.e. not replicated yet. Events at or below it are
-                         * delivered again, e.g. after a rebalance.
-                         */
-                        def newEvents(offset: Option[Offset]) = {
-                          offset.fold {
-                            events.toList
-                          } { offset =>
-                            events.filter { event => event.partitionOffset.offset > offset }
-                          }
-                        }
-
-                        /**
                          * Does not read Cassandra: uses the `journalHead` already loaded for the
                          * append.
                          */
                         def detectForks(journalHead: Option[JournalHead]) = {
-                          val events = newEvents(journalHead.map(_.partitionOffset.offset))
                           JournalFork
-                            .fromEvents(key, journalHead, events)
+                            .fromEvents(key, journalHead, events.toList)
                             .traverse_(forkReporter.report)
                         }
 
@@ -215,7 +202,12 @@ private[journal] object ReplicatedCassandra {
                             }
                           }
 
-                          loop(newEvents(offset), None, ().pure[F])
+                          val events1 = offset.fold {
+                            events.toList
+                          } { offset =>
+                            events.filter { event => event.partitionOffset.offset > offset }
+                          }
+                          loop(events1, None, ().pure[F])
                         }
 
                         def appendAndSave(journalHead: Option[JournalHead]) = {
