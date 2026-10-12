@@ -52,10 +52,13 @@ private[journal] object JournalFork {
   /**
    * Finds the forks among `events`, in event order.
    *
+   * Events at or below the offset of `journalHead` are skipped: they were replicated already, and
+   * delivering them again is not a fork.
+   *
    * @param events
-   *   the events about to be appended, in Kafka offset order, without the ones at or below the
-   *   offset of `journalHead`: those were replicated already, and delivering them again is not a
-   *   fork
+   *   the events of consecutive appends of one journal from one Kafka `poll`, in offset order. They
+   *   may come from several Kafka records written by different writers, so both events of a fork
+   *   can be among them.
    */
   def fromEvents[A](
     key: Key,
@@ -63,10 +66,14 @@ private[journal] object JournalFork {
     events: List[EventRecord[A]],
   ): List[JournalFork] = {
 
+    val newEvents = journalHead.fold(events) { journalHead =>
+      events.filter { event => event.partitionOffset.offset > journalHead.partitionOffset.offset }
+    }
+
     val state0 = journalHead.map { journalHead => (journalHead.partitionOffset, journalHead.seqNr) }
     val forks0 = List.empty[JournalFork]
 
-    val (_, forks) = events.foldLeft((state0, forks0)) {
+    val (_, forks) = newEvents.foldLeft((state0, forks0)) {
       case ((state, forks), event) =>
         state match {
           case Some((partitionOffset, seqNr)) if event.seqNr <= seqNr =>

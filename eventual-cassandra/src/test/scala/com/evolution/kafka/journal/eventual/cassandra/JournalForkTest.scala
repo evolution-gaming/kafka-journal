@@ -158,4 +158,19 @@ class JournalForkTest extends AnyFunSuite {
     assert(forks.map(_.conflictsWithOffset) == List(partitionOffset(1), partitionOffset(1)))
     assert(forks.map(_.isDuplicate) == List(false, true))
   }
+
+  test("re-delivering the journal head is not a fork") {
+    val events = List(event(seqNr = 2, offset = 2))
+    val forks = JournalFork.fromEvents(key, journalHead(seqNr = 2, offset = 2), events)
+
+    assert(forks.isEmpty)
+  }
+
+  test("re-delivered events are skipped, the new ones are still checked") {
+    val events = List(event(seqNr = 1, offset = 1), event(seqNr = 2, offset = 2), event(seqNr = 2, offset = 3))
+    val forks = JournalFork.fromEvents(key, journalHead(seqNr = 2, offset = 2), events)
+
+    assert(forks.map(_.detectedAtOffset) == List(partitionOffset(3)))
+    assert(forks.map(_.isDuplicate) == List(true))
+  }
 }
