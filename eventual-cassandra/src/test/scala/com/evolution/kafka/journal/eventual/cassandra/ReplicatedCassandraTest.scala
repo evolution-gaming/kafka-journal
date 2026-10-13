@@ -2127,7 +2127,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks.map(_.detectedAtSeqNr) shouldEqual List(SeqNr.unsafe(4))
     }
 
-    test(s"do not report a re-delivered batch as a journal fork, $suffix") {
+    test(s"do not report a journal fork when the head was saved, but the offsets were not committed, $suffix") {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
@@ -2156,7 +2156,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks shouldEqual List.empty
     }
 
-    test(s"do not report a re-delivered batch as a journal fork when its head was not saved, $suffix") {
+    test(s"do not report a journal fork when the head was not saved, $suffix") {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
