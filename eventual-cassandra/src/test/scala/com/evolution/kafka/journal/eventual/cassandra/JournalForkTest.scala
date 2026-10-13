@@ -92,7 +92,7 @@ class JournalForkTest extends AnyFunSuite {
     assert(forks.map(_.detectedAtSeqNr.value) == List(2L, 3L, 1L))
   }
 
-  test("only a higher seqNr changes what the next events are compared with") {
+  test("after a fork, the next events are still compared with the record before it") {
     val events = List(
       event(seqNr = 2, offset = 6),
       event(seqNr = 3, offset = 7),
@@ -106,7 +106,7 @@ class JournalForkTest extends AnyFunSuite {
     assert(forks.map(_.conflictsWithOffset) == List(partitionOffset(5), partitionOffset(5), partitionOffset(8)))
   }
 
-  test("a fork within one batch is reported without a journal head") {
+  test("a fork within one batch is reported even when there is no journal head") {
     val events = List(event(seqNr = 1, offset = 1), event(seqNr = 1, offset = 2))
     val forks = JournalFork.fromEvents(key, none, events)
 
@@ -120,7 +120,7 @@ class JournalForkTest extends AnyFunSuite {
     assert(forks.map(_.isDuplicate) == List(false, false))
   }
 
-  test("the origin is the one of the detected event") {
+  test("the fork has the origin of the later event") {
     val earlier = event(seqNr = 1, offset = 1, origin = Origin("earlier"))
     val later = event(seqNr = 1, offset = 2, origin = Origin("later"))
     val forks = JournalFork.fromEvents(key, none, List(earlier, later))
@@ -135,7 +135,7 @@ class JournalForkTest extends AnyFunSuite {
     assert(forks.isEmpty)
   }
 
-  test("a stale Kafka record of several events is reported once per event, all at its offset") {
+  test("a late Kafka record of several events is reported once per event, all with the record's offset") {
     val events = List(event(seqNr = 6, offset = 6), event(seqNr = 7, offset = 6), event(seqNr = 8, offset = 6))
     val forks = JournalFork.fromEvents(key, journalHead(seqNr = 8, offset = 5), events)
 
