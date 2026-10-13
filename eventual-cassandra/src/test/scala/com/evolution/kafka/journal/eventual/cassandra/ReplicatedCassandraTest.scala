@@ -2052,7 +2052,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks.map(_.conflictsWithOffset) shouldEqual List(event0.partitionOffset)
     }
 
-    test(s"detect a journal fork which regresses `seqNr` by more than one event, $suffix") {
+    test(s"detect a journal fork with a `seqNr` lower than the head's, $suffix") {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
@@ -2072,7 +2072,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks.map(_.conflictsWithSeqNr) shouldEqual List(SeqNr.unsafe(2))
     }
 
-    test(s"detect a journal fork from a stale Kafka record of several events, $suffix") {
+    test(s"detect a journal fork from a late Kafka record of several events, $suffix") {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(1))
@@ -2198,7 +2198,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks shouldEqual List.empty
     }
 
-    test(s"`delete` does not reset `seqNr`, so it does not fake a journal fork, $suffix") {
+    test(s"`delete` keeps the head `seqNr`, so the next append is not reported as a journal fork, $suffix") {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
