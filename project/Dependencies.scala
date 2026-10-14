@@ -4,7 +4,7 @@ object Dependencies {
   val ScalaTest = "org.scalatest" %% "scalatest" % "3.2.20"
   val KindProjector = "org.typelevel" % "kind-projector" % "0.13.4"
   val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.5"
-  val KafkaClients = "org.apache.kafka" % "kafka-clients" % "4.3.1"
+  val KafkaClients = "org.apache.kafka" % "kafka-clients" % "4.4.0"
   val PlayJson = "org.playframework" %% "play-json" % "3.0.6"
   val Lz4 = "at.yawk.lz4" % "lz4-java" % "1.12.0"
 
