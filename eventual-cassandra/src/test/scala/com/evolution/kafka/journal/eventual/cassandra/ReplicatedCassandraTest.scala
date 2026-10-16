@@ -2012,7 +2012,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp1, none, Nel.of(event1))
-      } yield {}
+      } yield ()
 
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
@@ -2062,7 +2062,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
         _ <- journal.append(key, Partition.min, Offset.unsafe(3), timestamp1, none, Nel.of(event2))
-      } yield {}
+      } yield ()
 
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
@@ -2086,7 +2086,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0, event1))
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event2, event3))
         _ <- journal.append(key, Partition.min, Offset.unsafe(3), timestamp1, none, Nel.of(event4, event5))
-      } yield {}
+      } yield ()
 
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
@@ -2113,7 +2113,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event3, event4))
         _ <- journal.append(key, Partition.min, Offset.unsafe(3), timestamp1, none, Nel.of(event5))
         _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp1, none, Nel.of(event6))
-      } yield {}
+      } yield ()
 
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
@@ -2148,7 +2148,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Nel.of(event0, event1, event2),
         )
         _ = changed shouldEqual true
-      } yield {}
+      } yield ()
 
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
@@ -2190,7 +2190,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         changed <- journal.purge(key, Partition.min, Offset.unsafe(3), timestamp0)
         _ = changed shouldEqual true
         _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp1, none, Nel.of(event2))
-      } yield {}
+      } yield ()
 
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
@@ -2212,7 +2212,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         // the head's `seqNr` stays 2 after the delete, so seqNr 3 is not a fork
         _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp0, none, Nel.of(event2))
         _ <- journal.append(key, Partition.min, Offset.unsafe(5), timestamp1, none, Nel.of(event3))
-      } yield {}
+      } yield ()
 
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
