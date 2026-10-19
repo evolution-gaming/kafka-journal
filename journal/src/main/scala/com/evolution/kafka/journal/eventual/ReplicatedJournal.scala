@@ -180,11 +180,12 @@ object ReplicatedJournal {
     def setSchemaVersion(version: Int): F[Unit]
 
     /**
-     * Called for every detected journal fork: an event with a repeated or out-of-order `seqNr`.
+     * Records a detected journal fork: an event with a repeated or out-of-order `seqNr`.
      *
      * @param duplicateProven
-     *   `true` if the `seqNr` is repeated, which proves a duplicate, `false` if it is out of order,
-     *   which may be a duplicate too, but is not proven
+     *   sets the `kind` label of the `fork_detected_total` counter:
+     *   - `true`: `duplicate`, the `seqNr` is repeated
+     *   - `false`: `regression`, the `seqNr` is out of order
      */
     def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit]
   }
