@@ -2023,9 +2023,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val fork = JournalFork(
         key = key,
         detectedAtOffset = event1.partitionOffset,
-        detectedAtSeqNr = SeqNr.min,
+        detectedAtSeqNr = SeqNr.unsafe(1),
         conflictsWithOffset = event0.partitionOffset,
-        conflictsWithSeqNr = SeqNr.min,
+        conflictsWithSeqNr = SeqNr.unsafe(1),
         origin = Some(origin1),
       )
       forks shouldEqual List(fork)
@@ -2046,7 +2046,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val (state, _) = program.run(State.empty).get
       val forks = state.forks
 
-      forks.map(_.detectedAtSeqNr) shouldEqual List(SeqNr.min)
+      forks.map(_.detectedAtSeqNr) shouldEqual List(SeqNr.unsafe(1))
       forks.map(_.isDuplicate) shouldEqual List(true)
       forks.map(_.detectedAtOffset) shouldEqual List(event1.partitionOffset)
       forks.map(_.conflictsWithOffset) shouldEqual List(event0.partitionOffset)
