@@ -2208,7 +2208,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event0, event1))
-        _ <- journal.delete(key, Partition.min, Offset.unsafe(3), timestamp0, SeqNr.unsafe(2).toDeleteTo, none)
+        _ <- journal.delete(key, Partition.min, Offset.unsafe(3), timestamp0, DeleteTo(SeqNr.unsafe(2)), none)
         // the head's `seqNr` stays 2 after the delete, so seqNr 3 is not a fork
         _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp0, none, Nel.of(event2))
         _ <- journal.append(key, Partition.min, Offset.unsafe(5), timestamp1, none, Nel.of(event3))
