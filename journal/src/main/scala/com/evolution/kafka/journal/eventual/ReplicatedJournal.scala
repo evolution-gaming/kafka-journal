@@ -183,7 +183,7 @@ object ReplicatedJournal {
      * Records a detected journal fork: an event with a repeated or out-of-order `seqNr`.
      *
      * @param duplicateProven
-     *   sets the `kind` label of the `fork_detected_total` counter:
+     *   sets the `kind` label of the `forks_total` counter:
      *   - `true`: `duplicate`, the `seqNr` is repeated
      *   - `false`: `regression`, the `seqNr` is out of order
      */
@@ -257,7 +257,7 @@ object ReplicatedJournal {
       )
 
       val forkDetectedCounter = registry.counter(
-        name = s"${ prefix }_fork_detected_total",
+        name = s"${ prefix }_forks_total",
         help = "Number of journal forks detected, i.e. events with a repeated or out-of-order seqNr",
         labels = LabelNames("topic", "kind"),
       )

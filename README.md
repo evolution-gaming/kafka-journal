@@ -82,8 +82,7 @@ of the same entity were writing to the journal at the same time.
 * `Suspected journal fork: seqNr .. did not increase` - `seqNr` came out of order, it could be a fork, but could also be
   parallel appends from the same writer.
 
-Both are counted by `replicated_journal_fork_detected_total` metric with `kind` label set to `duplicate` or
-`regression`.
+Both are counted by `replicated_journal_forks_total` metric with `kind` label set to `duplicate` or `regression`.
 
 ## Akka persistence plugin
 
