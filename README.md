@@ -72,6 +72,19 @@ List of known "error" cases which may be ignored:
 * Offset commit failed on partition .. at offset ..: This is not the correct coordinator.
 * Offset commit failed on partition .. at offset ..: This server does not host this topic-partition. 
 
+### Journal forks in logs
+
+Replicator logs a journal fork if `seqNr` of a replicated event does not increase. Usually it means that two instances
+of the same entity were writing to the journal at the same time.
+
+* `Data integrity violated: seqNr .. duplicated by a journal fork` - the same `seqNr` was written twice, the next
+  recovery of the entity may fail with `Data integrity violated: seqNr .. duplicated in multiple records`.
+* `Suspected journal fork: seqNr .. did not increase` - `seqNr` came out of order, it could be a fork, but could also be
+  parallel appends from the same writer.
+
+Both are counted by `replicated_journal_fork_detected_total` metric with `kind` label set to `duplicate` or
+`regression`.
+
 ## Akka persistence plugin
 
 In order to use `kafka-journal` as [akka persistence plugin](https://doc.akka.io/libraries/akka-core/2.6/persistence-plugins.html)
