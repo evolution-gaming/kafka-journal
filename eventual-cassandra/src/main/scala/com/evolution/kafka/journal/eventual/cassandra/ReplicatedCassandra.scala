@@ -156,10 +156,6 @@ private[journal] object ReplicatedCassandra {
 
                         def partitionOffset = PartitionOffset(partition, offset)
 
-                        /**
-                         * Does not read Cassandra: uses the `journalHead` already loaded for the
-                         * append.
-                         */
                         def detectForks(journalHead: Option[JournalHead]) = {
                           JournalFork
                             .fromEvents(key, journalHead, events.toList)
