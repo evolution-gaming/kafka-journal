@@ -7,12 +7,15 @@ import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, S
  * A possible journal fork: an event with a repeated or out-of-order `seqNr`, compared to the
  * journal head and to the earlier events of the same batch.
  *
- * Happens when an entity is restarted on another node while its previous instance still has an
- * append to Kafka in flight: the new instance does not see that event, and appends a different one
- * with the same `seqNr`. As `(seq_nr, timestamp)` is the clustering key of the `journal` table,
- * both events are stored, and the next recovery of the entity may fail with `Data integrity
- * violated: seqNr ... duplicated in multiple records`, see
- * [[com.evolution.kafka.journal.eventual.cassandra.EventualCassandra]].
+ * For example:
+ *   1. writer A appends events up to `seqNr` 5
+ *   2. writer B, a second instance of the entity on another node, recovers up to `seqNr` 5
+ *   3. A, not knowing about B, appends `seqNr` 6
+ *   4. B appends a different event with `seqNr` 6
+ *
+ * Both events are stored, as `(seq_nr, timestamp)` is the clustering key of the `journal` table,
+ * and the next recovery of the entity may fail with `Data integrity violated: seqNr ... duplicated
+ * in multiple records`, see [[com.evolution.kafka.journal.eventual.cassandra.EventualCassandra]].
  *
  * @param detectedAtOffset
  *   where the event with a repeated or out-of-order `seqNr` is in Kafka. One Kafka record often
