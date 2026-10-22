@@ -256,7 +256,7 @@ object ReplicatedJournal {
         labels = LabelNames("topic"),
       )
 
-      val forkDetectedCounter = registry.counter(
+      val forksCounter = registry.counter(
         name = s"${ prefix }_forks_total",
         help = "Number of journal forks detected, i.e. events with a repeated or out-of-order seqNr",
         labels = LabelNames("topic", "kind"),
@@ -269,7 +269,7 @@ object ReplicatedJournal {
         latencySummary <- latencySummary
         topicLatencySummary <- topicLatencySummary
         eventsSummary <- eventsSummary
-        forkDetectedCounter <- forkDetectedCounter
+        forksCounter <- forksCounter
       } yield {
 
         def observeTopicLatency(name: String, topic: Topic, latency: FiniteDuration): F[Unit] = {
@@ -317,7 +317,7 @@ object ReplicatedJournal {
 
           def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] = {
             val kind = if (duplicateProven) "duplicate" else "regression"
-            forkDetectedCounter.labels(topic, kind).inc()
+            forksCounter.labels(topic, kind).inc()
           }
 
         }
