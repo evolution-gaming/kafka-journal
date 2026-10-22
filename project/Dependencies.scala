@@ -6,7 +6,7 @@ object Dependencies {
   val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.5"
   val KafkaClients = "org.apache.kafka" % "kafka-clients" % "4.4.0"
   val PlayJson = "org.playframework" %% "play-json" % "3.0.6"
-  val Lz4 = "at.yawk.lz4" % "lz4-java" % "1.12.0"
+  val Lz4 = "at.yawk.lz4" % "lz4-java" % "1.12.1"
 
   private val PekkoExtensionVersion = "2.1.3"
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.5.1"
