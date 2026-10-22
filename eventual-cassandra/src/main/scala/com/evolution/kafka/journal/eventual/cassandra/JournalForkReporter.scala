@@ -15,7 +15,7 @@ private[journal] trait JournalForkReporter[F[_]] {
 
 private[journal] object JournalForkReporter {
 
-  def empty[F[_]: Applicative]: JournalForkReporter[F] = _ => Applicative[F].unit
+  def empty[F[_]: Applicative]: JournalForkReporter[F] = _ => ().pure[F]
 
   def fromMetrics[F[_]: Applicative](
     metrics: ReplicatedJournal.Metrics[F],
