@@ -29,7 +29,7 @@ private[journal] object JournalForkReporter {
     val message = s"$headline, ${ fork.show }"
 
     val logFork = if (fork.isDuplicate) log.error(message) else log.warn(message)
-    val updateMetrics = metrics.journalForkDetected(fork.key.topic, fork.isDuplicate)
+    val updateMetrics = metrics.journalFork(fork.key.topic, fork.isDuplicate)
 
     logFork *> updateMetrics
   }

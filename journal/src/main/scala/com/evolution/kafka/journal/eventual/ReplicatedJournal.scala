@@ -187,7 +187,7 @@ object ReplicatedJournal {
      *   - `true`: `duplicate`, the `seqNr` is repeated
      *   - `false`: `regression`, the `seqNr` is out of order
      */
-    def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit]
+    def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit]
   }
 
   object Metrics {
@@ -214,7 +214,7 @@ object ReplicatedJournal {
 
         def setSchemaVersion(version: Int): F[Unit] = unit
 
-        def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit] = unit
+        def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] = unit
       }
     }
 
@@ -315,7 +315,7 @@ object ReplicatedJournal {
           def setSchemaVersion(version: Int): F[Unit] =
             schemaVersionInfo.labels(s"$version").set()
 
-          def journalForkDetected(topic: Topic, duplicateProven: Boolean): F[Unit] = {
+          def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] = {
             val kind = if (duplicateProven) "duplicate" else "regression"
             forkDetectedCounter.labels(topic, kind).inc()
           }

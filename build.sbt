@@ -84,7 +84,7 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   // new method in `ReplicatedJournal.Metrics`: breaks only clients implementing the trait
   // themselves, rather than using `Metrics.const` or `Metrics.make`
   ProblemFilters.exclude[ReversedMissingMethodProblem](
-    "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.journalForkDetected",
+    "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.journalFork",
   ),
 )
 
