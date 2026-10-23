@@ -75,7 +75,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         segmentNrsOf,
         statements,
         ExpiryService(ZoneOffset.UTC),
-        forkReporter,
+        JournalForkDetector.fromReporter(forkReporter),
       ).toFlat
     }
 

@@ -161,6 +161,31 @@ object ReplicatedJournal {
     ): ReplicatedJournalFlat[F] = ReplicatedJournalFlat(self)
   }
 
+  /**
+   * Data integrity checks done while replicating, see
+   * [[com.evolution.kafka.journal.Journal.DataIntegrityConfig]] for the ones done on recovery.
+   *
+   * Not a case class, so that a new check can be added as a new `with...` method without breaking
+   * binary compatibility.
+   */
+  final class DataIntegrityConfig private (
+    val journalForkDetection: Boolean,
+  ) {
+
+    /**
+     * Reports journal forks to logs and to [[Metrics.journalFork]]. Forked events are stored as
+     * before.
+     */
+    def withJournalForkDetection(journalForkDetection: Boolean): DataIntegrityConfig = {
+      new DataIntegrityConfig(journalForkDetection = journalForkDetection)
+    }
+  }
+
+  object DataIntegrityConfig {
+
+    val Default: DataIntegrityConfig = new DataIntegrityConfig(journalForkDetection = false)
+  }
+
   trait Metrics[F[_]] {
 
     def topics(latency: FiniteDuration): F[Unit]
