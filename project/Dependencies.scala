@@ -6,7 +6,7 @@ object Dependencies {
   val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.5"
   val KafkaClients = "org.apache.kafka" % "kafka-clients" % "4.4.0"
   val PlayJson = "org.playframework" %% "play-json" % "3.0.6"
-  val Lz4 = "at.yawk.lz4" % "lz4-java" % "1.12.0"
+  val Lz4 = "at.yawk.lz4" % "lz4-java" % "1.12.1"
 
   private val PekkoExtensionVersion = "2.1.3"
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.5.1"
@@ -32,7 +32,7 @@ object Dependencies {
   }
 
   object Jackson {
-    private val version = "2.22.3"
+    private val version = "2.22.4"
     val Core = "com.fasterxml.jackson.core" % "jackson-core" % version
     val Databind = "com.fasterxml.jackson.core" % "jackson-databind" % version
     val Jdk8 = "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8" % version
@@ -91,7 +91,7 @@ object Dependencies {
   }
 
   object Pureconfig {
-    private val version = "0.17.10"
+    private val version = "0.17.11"
     val Core = "com.github.pureconfig" %% "pureconfig-core" % version
     val Cats = "com.github.pureconfig" %% "pureconfig-cats" % version
     object Scala2 {
