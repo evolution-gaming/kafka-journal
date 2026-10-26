@@ -73,6 +73,8 @@ lazy val commonSettings = Seq(
   versionPolicyIgnored ++= Seq(
     // add libraries here that are known to be binary compatible, like:
 //    "com.evolutiongaming" %% "smetrics",
+    // this project doesn't use guava, it is brought transitively by `scassandra`
+    "com.google.guava" % "guava",
   ),
 )
 
