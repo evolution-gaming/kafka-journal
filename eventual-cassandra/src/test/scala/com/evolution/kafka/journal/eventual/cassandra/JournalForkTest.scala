@@ -97,7 +97,7 @@ class JournalForkTest extends AnyFunSuite {
     assert(forks.map(_.detectedAtSeqNr.value) == List(2L, 3L, 1L))
   }
 
-  test("events are compared with the last non-forked event of the batch, or with the journal head if there is none") {
+  test("events are compared against journal head or the last non-forked event of the batch") {
     val events = List(
       event(seqNr = 2, offset = 6),
       event(seqNr = 3, offset = 7),
