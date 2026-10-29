@@ -45,11 +45,11 @@ class JournalForkTest extends AnyFunSuite {
 
   test("strictly increasing seqNrs are not forks") {
     val events1 = List(event(seqNr = 1, offset = 1), event(seqNr = 2, offset = 2))
-    val events2 = List(event(seqNr = 3, offset = 3), event(seqNr = 4, offset = 4))
     val forks1 = JournalFork.fromEvents(key, none, events1)
-    val forks2 = JournalFork.fromEvents(key, journalHead(seqNr = 2, offset = 2), events2)
-
     assert(forks1.isEmpty)
+
+    val events2 = List(event(seqNr = 3, offset = 3), event(seqNr = 4, offset = 4))
+    val forks2 = JournalFork.fromEvents(key, journalHead(seqNr = 2, offset = 2), events2)
     assert(forks2.isEmpty)
   }
 
