@@ -25,6 +25,13 @@ import scala.util.control.NoStackTrace
 class HeadCacheSpec extends AsyncWordSpec with Matchers {
   import HeadCacheSpec.*
 
+  private def eventually[A](fa: IO[A], attempts: Int = 250, delay: FiniteDuration = 20.millis): IO[A] = {
+    fa.handleErrorWith { e =>
+      if (attempts <= 0) IO.raiseError(e)
+      else Temporal[IO].sleep(delay) >> eventually(fa, attempts - 1, delay)
+    }
+  }
+
   "HeadCache" should {
 
     "return result, records are in cache" in {
@@ -183,6 +190,52 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       } yield {}
 
       result.run()
+    }
+
+    "rebuild the cache when the topic is repartitioned" in {
+      val partition1 = Partition.unsafe(1)
+      val topicPartition1 = TopicPartition(topic = topic, partition = partition1)
+      val key0 = Key(id = "id0", topic = topic)
+      val key1 = Key(id = "id1", topic = topic)
+
+      def recordOn(tp: TopicPartition, key: Key): ConsumerRecords[String, Unit] = {
+        ConsumerRecordsOf(List(consumerRecordOf(appendOf(key, SeqNr.min), tp, Offset.min)))
+      }
+
+      def assignedPartitions(state: TestConsumer.State): Set[Partition] = {
+        state
+          .actions
+          .collect { case TestConsumer.Action.Assign(_, partitions) => partitions.toSortedSet }
+          .foldLeft(Set.empty[Partition]) { _ ++ _ }
+      }
+
+      val state = TestConsumer.State(topics = Map((topic, List(partition))))
+
+      val result = for {
+        stateRef <- Ref[IO].of(state)
+        consumer = TestConsumer.make(stateRef)
+        _ <- headCacheOf(HeadCache.Eventual.empty, consumer).use { headCache =>
+          for {
+            // build the per-topic cache while only partition 0 exists
+            _ <- stateRef.update { _.enqueue(recordOn(topicPartition, key0).pure[Try]) }
+            a <- headCache.get(key0, partition, Offset.min)
+            _ = a shouldEqual HeadInfo.append(Offset.min, SeqNr.min, none).some
+            // topic gets repartitioned: partition 1 now exists, and a record lands on it
+            _ <- stateRef.update { _.copy(topics = Map((topic, List(partition, partition1)))) }
+            _ <- stateRef.update { _.enqueue(recordOn(topicPartition1, key1).pure[Try]) }
+            // The unknown partition makes the cache fail and evict itself; the next `get` rebuilds
+            // it, re-reading partitions and this time assigning the new partition 1 (instead of
+            // looping forever). `get` drives the lazy rebuild; errors/None during recovery are
+            // tolerated until the assign is observed.
+            _ <- eventually {
+              headCache.get(key1, partition1, Offset.min).attempt >>
+                stateRef.get.map { s => assignedPartitions(s) should contain(partition1) }
+            }
+          } yield {}
+        }
+      } yield {}
+
+      result.run(10.seconds)
     }
 
     "timeout" in {
