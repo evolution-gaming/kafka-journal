@@ -17,7 +17,8 @@ private[journal] trait JournalForkDetector[F[_]] {
 
 private[journal] object JournalForkDetector {
 
-  def empty[F[_]: Applicative]: JournalForkDetector[F] = (_, _, _) => ().pure[F]
+  def empty[F[_]: Applicative]: JournalForkDetector[F] =
+    (_, _, _) => ().pure[F]
 
   def fromReporter[F[_]: Applicative](reporter: JournalForkReporter[F]): JournalForkDetector[F] = {
     (key, journalHead, events) =>
