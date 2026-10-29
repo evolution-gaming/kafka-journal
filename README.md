@@ -75,7 +75,7 @@ List of known "error" cases which may be ignored:
 ### Journal forks in logs
 
 Replicator logs a journal fork if `seqNr` of a replicated event does not increase. Usually it means that two instances
-of the same entity were writing to the journal at the same time.
+of the same entity were writing to the journal at the same time:
 
 * `Data integrity violated: seqNr .. duplicated by a journal fork` - the same `seqNr` was written twice, the next
   recovery of the entity may fail with `Data integrity violated: seqNr .. duplicated in multiple records`.
