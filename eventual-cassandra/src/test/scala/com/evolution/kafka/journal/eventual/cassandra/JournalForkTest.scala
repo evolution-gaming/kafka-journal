@@ -11,7 +11,8 @@ class JournalForkTest extends AnyFunSuite {
 
   private val key = Key(id = "id", topic = "topic")
 
-  private def partitionOffset(offset: Int) = PartitionOffset(Partition.min, Offset.unsafe(offset))
+  private def partitionOffset(offset: Int) =
+    PartitionOffset(Partition.min, Offset.unsafe(offset))
 
   private def event(seqNr: Long, offset: Int, origin: Origin = Origin("origin")) = {
     EventRecord(
