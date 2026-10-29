@@ -8,10 +8,10 @@ import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, S
  * journal head and to the earlier events of the same batch.
  *
  * For example:
- *   1. writer A appends events up to `seqNr` 5
- *   2. writer B, a second instance of the entity on another node, recovers up to `seqNr` 5
- *   3. A, not knowing about B, appends `seqNr` 6
- *   4. B appends a different event with `seqNr` 6
+ *   1. writer A appends events up to `seqNr = 5`
+ *   2. writer B, a second instance of the entity on another node, recovers up to `seqNr = 5`
+ *   3. A, not knowing about B, appends `seqNr = 6`
+ *   4. B appends a different event with `seqNr = 6`
  *
  * Both events are stored, as `(seq_nr, timestamp)` is the clustering key of the `journal` table,
  * and the next recovery of the entity may fail with `Data integrity violated: seqNr ... duplicated
