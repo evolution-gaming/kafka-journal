@@ -42,7 +42,8 @@ private[journal] final case class JournalFork(
    *   - `false` if its `seqNr` is lower: it may still be a duplicate, but it may also be a valid
    *     event written out of order, e.g. by parallel appends to the same journal
    */
-  def isDuplicate: Boolean = detectedAtSeqNr == conflictsWithSeqNr
+  def isDuplicate: Boolean =
+    detectedAtSeqNr == conflictsWithSeqNr
 
   def show: String = {
     val originStr = origin.foldMap { origin => s", origin: $origin" }
