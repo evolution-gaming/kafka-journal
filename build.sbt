@@ -8,7 +8,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(uri("https://evolution.com")),
   homepage := Some(uri("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
-  crossScalaVersions := Seq("2.13.18", "3.3.8"),
+  crossScalaVersions := Seq("2.13.18", "3.3.9"),
   scalaVersion := crossScalaVersions.value.head,
   scalacOptions ++= Seq(
     "-release:17",
@@ -30,6 +30,9 @@ lazy val commonSettings = Seq(
       // improve error messages:
       "-explain",
       "-explain-types",
+
+      // wait for something similar to: https://github.com/scala/scala3/pull/27028
+      "-Wconf:msg=Skipping coverage instrumentation:i",
     ),
     if2 = Seq(
       "-Xsource:3",
