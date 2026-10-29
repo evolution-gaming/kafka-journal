@@ -14,9 +14,9 @@ import com.evolution.kafka.journal.{EventRecord, Key, Origin, PartitionOffset, S
  *   4. B appends a different event with `seqNr = 6`
  *
  * Both events are stored as individual lines with the same `seqNr`, but with different timestamps.
- * As `(seq_nr, timestamp)` is the clustering key of the `journal` table,
- * the next recovery of the entity may fail with `Data integrity violated: seqNr ... duplicated
- * in multiple records`, see [[com.evolution.kafka.journal.eventual.cassandra.EventualCassandra]].
+ * As `(seq_nr, timestamp)` is the clustering key of the `journal` table, the next recovery of the
+ * entity may fail with `Data integrity violated: seqNr ... duplicated in multiple records`, see
+ * [[com.evolution.kafka.journal.eventual.cassandra.EventualCassandra]].
  *
  * @param detectedAtOffset
  *   where the event with a repeated or out-of-order `seqNr` is in Kafka. One Kafka record often
