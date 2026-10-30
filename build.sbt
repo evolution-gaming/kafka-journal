@@ -84,6 +84,11 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
 //  ProblemFilters.exclude[IncompatibleMethTypeProblem](
 //    "com.evolution.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
 //  ),
+  // new method in `ReplicatedJournal.Metrics`: breaks only clients implementing the trait
+  // themselves, rather than using `Metrics.const` or `Metrics.make`
+  ProblemFilters.exclude[ReversedMissingMethodProblem](
+    "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.journalFork",
+  ),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(
