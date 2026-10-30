@@ -18,39 +18,49 @@ object ToBytes {
     F: ToBytes[F, A],
   ): ToBytes[F, A] = F
 
-  def const[F[_]: Applicative, A](bytes: ByteVector): ToBytes[F, A] = (_: A) => bytes.pure[F]
+  def const[F[_]: Applicative, A](bytes: ByteVector): ToBytes[F, A] = new ToBytes[F, A] {
+    def apply(a: A): F[ByteVector] = bytes.pure[F]
+  }
 
   def empty[F[_]: Applicative, A]: ToBytes[F, A] = const(ByteVector.empty)
 
   implicit def contravariantToBytes[F[_]]: Contravariant[ToBytes[F, *]] = new Contravariant[ToBytes[F, *]] {
 
-    def contramap[A, B](fa: ToBytes[F, A])(f: B => A): ToBytes[F, B] = (a: B) => fa(f(a))
+    def contramap[A, B](fa: ToBytes[F, A])(f: B => A): ToBytes[F, B] = new ToBytes[F, B] {
+      def apply(a: B): F[ByteVector] = fa(f(a))
+    }
   }
 
-  def mapK[F[_], G[_], A](f: F ~> G)(toBytes: ToBytes[F, A]): ToBytes[G, A] = a => f(toBytes(a))
+  def mapK[F[_], G[_], A](f: F ~> G)(toBytes: ToBytes[F, A]): ToBytes[G, A] = new ToBytes[G, A] {
+    def apply(a: A): G[ByteVector] = f(toBytes(a))
+  }
 
   implicit def stringToBytes[F[_]: FromAttempt]: ToBytes[F, String] = fromEncoder(FromAttempt[F], codecs.utf8)
 
-  implicit def byteVectorToBytes[F[_]: Applicative]: ToBytes[F, ByteVector] = _.pure[F]
+  implicit def byteVectorToBytes[F[_]: Applicative]: ToBytes[F, ByteVector] = new ToBytes[F, ByteVector] {
+    def apply(a: ByteVector): F[ByteVector] = a.pure[F]
+  }
 
   def fromEncoder[F[_]: FromAttempt, A](
     implicit
     encoder: Encoder[A],
-  ): ToBytes[F, A] = (a: A) => {
-    val bytes = for {
-      a <- encoder.encode(a)
-    } yield {
-      a.toByteVector
+  ): ToBytes[F, A] = new ToBytes[F, A] {
+    def apply(a: A): F[ByteVector] = {
+      val bytes = for {
+        a <- encoder.encode(a)
+      } yield {
+        a.toByteVector
+      }
+      FromAttempt[F].apply(bytes)
     }
-    FromAttempt[F].apply(bytes)
   }
 
   def fromWrites[F[_], A](
     implicit
     writes: Writes[A],
     encode: JsonCodec.Encode[F],
-  ): ToBytes[F, A] = { (a: A) =>
-    {
+  ): ToBytes[F, A] = new ToBytes[F, A] {
+    def apply(a: A): F[ByteVector] = {
       val jsValue = writes.writes(a)
       encode.toBytes(jsValue)
     }
@@ -58,7 +68,9 @@ object ToBytes {
 
   implicit class ToBytesOps[F[_], A](val self: ToBytes[F, A]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): ToBytes[G, A] = (a: A) => f(self(a))
+    def mapK[G[_]](f: F ~> G): ToBytes[G, A] = new ToBytes[G, A] {
+      def apply(a: A): G[ByteVector] = f(self(a))
+    }
   }
 
   object implicits {

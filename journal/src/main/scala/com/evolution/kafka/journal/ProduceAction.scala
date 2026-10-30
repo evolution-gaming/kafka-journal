@@ -15,8 +15,9 @@ object ProduceAction {
     producer: Journals.Producer[F],
   )(implicit
     actionToProducerRecord: ActionToProducerRecord[F],
-  ): ProduceAction[F] = { (action: Action) =>
-    {
+  ): ProduceAction[F] = new ProduceAction[F] {
+
+    def apply(action: Action): F[PartitionOffset] = {
       for {
         producerRecord <- actionToProducerRecord(action)
         partitionOffset <- producer.send(producerRecord)
@@ -26,6 +27,9 @@ object ProduceAction {
 
   implicit class ProduceActionOps[F[_]](val self: ProduceAction[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): ProduceAction[G] = (action: Action) => f(self(action))
+    def mapK[G[_]](f: F ~> G): ProduceAction[G] = new ProduceAction[G] {
+
+      def apply(action: Action): G[PartitionOffset] = f(self(action))
+    }
   }
 }

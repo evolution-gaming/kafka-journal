@@ -28,19 +28,21 @@ object EventualWrite {
     implicit
     encode: JsonCodec.Encode[F],
   ): EventualWrite[F, Payload] =
-    payload => {
-      val eventualPayload = payload match {
-        case payload: Payload.Binary => payload.value.asRight[String].pure[F]
-        case payload: Payload.Text => payload.value.asLeft[ByteVector].pure[F]
-        case payload: Payload.Json => encode.toStr(payload.value).map(_.asLeft[ByteVector])
-      }
-
-      eventualPayload
-        .map(EventualPayloadAndType(_, payload.payloadType))
-        .adaptError {
-          case e =>
-            JournalError(s"EventualWrite failed for $payload: $e", e)
+    new EventualWrite[F, Payload] {
+      def apply(payload: Payload): F[EventualPayloadAndType] = {
+        val eventualPayload = payload match {
+          case payload: Payload.Binary => payload.value.asRight[String].pure[F]
+          case payload: Payload.Text => payload.value.asLeft[ByteVector].pure[F]
+          case payload: Payload.Json => encode.toStr(payload.value).map(_.asLeft[ByteVector])
         }
+
+        eventualPayload
+          .map(EventualPayloadAndType(_, payload.payloadType))
+          .adaptError {
+            case e =>
+              JournalError(s"EventualWrite failed for $payload: $e", e)
+          }
+      }
     }
 
 }

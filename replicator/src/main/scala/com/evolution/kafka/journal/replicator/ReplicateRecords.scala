@@ -32,8 +32,9 @@ private[journal] object ReplicateRecords {
     kafkaRead: KafkaRead[F, A],
     eventualWrite: EventualWrite[F, A],
     log: Log[F],
-  ): ReplicateRecords[F] = { (records: Nel[ConsRecord], timestamp: Instant) =>
-    {
+  ): ReplicateRecords[F] = new ReplicateRecords[F] {
+
+    def apply(records: Nel[ConsRecord], timestamp: Instant): F[Int] = {
 
       def apply(records: Nel[ActionRecord[Action]]): F[Int] = {
         val record = records.last

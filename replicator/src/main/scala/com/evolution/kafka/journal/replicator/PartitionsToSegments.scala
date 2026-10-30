@@ -27,12 +27,15 @@ object PartitionsToSegments {
       }
     }
 
-    (partitions: Nes[Partition]) => {
-      for {
-        partition <- partitions.toSortedSet
-        segmentNr <- segmentNrs
-        if filter(partition, segmentNr)
-      } yield segmentNr
+    new PartitionsToSegments {
+
+      def apply(partitions: Nes[Partition]): SortedSet[SegmentNr] = {
+        for {
+          partition <- partitions.toSortedSet
+          segmentNr <- segmentNrs
+          if filter(partition, segmentNr)
+        } yield segmentNr
+      }
     }
   }
 }
