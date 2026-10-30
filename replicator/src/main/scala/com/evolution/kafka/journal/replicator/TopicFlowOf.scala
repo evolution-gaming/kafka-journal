@@ -13,7 +13,9 @@ private[journal] trait TopicFlowOf[F[_]] {
 
 private[journal] object TopicFlowOf {
 
-  def empty[F[_]: Applicative]: TopicFlowOf[F] = (_: Topic) => TopicFlow.empty[F].pure[F].toResource
+  def empty[F[_]: Applicative]: TopicFlowOf[F] = new TopicFlowOf[F] {
+    def apply(topic: Topic): Resource[F, TopicFlow[F]] = TopicFlow.empty[F].pure[F].toResource
+  }
 
   implicit class TopicFlowOfOps[F[_]](val self: TopicFlowOf[F]) extends AnyVal {
 
@@ -23,7 +25,9 @@ private[journal] object TopicFlowOf {
       B: MonadCancel[F, Throwable],
       BG: MonadCancel[G, Throwable],
     ): TopicFlowOf[G] = {
-      (topic: Topic) => self(topic).map(_.mapK(f)).mapK(f)
+      new TopicFlowOf[G] {
+        def apply(topic: Topic): Resource[G, TopicFlow[G]] = self(topic).map(_.mapK(f)).mapK(f)
+      }
     }
   }
 }
