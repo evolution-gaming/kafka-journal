@@ -65,7 +65,9 @@ object CassandraHelper {
 
   implicit class DecodeRowObjOps(val self: DecodeRow.type) extends AnyVal {
 
-    def const[A](a: A): DecodeRow[A] = (_: GettableByNameData) => a
+    def const[A](a: A): DecodeRow[A] = new DecodeRow[A] {
+      def apply(data: GettableByNameData): A = a
+    }
   }
 
   implicit val mapTextEncodeByName: EncodeByName[Map[String, String]] = {
@@ -79,8 +81,10 @@ object CassandraHelper {
 
   implicit val mapTextDecodeByName: DecodeByName[Map[String, String]] = {
     val text = classOf[String]
-    (data: GettableByNameData, name: String) => {
-      data.getMap(name, text, text).asScala.toMap
+    new DecodeByName[Map[String, String]] {
+      def apply(data: GettableByNameData, name: String): Map[String, String] = {
+        data.getMap(name, text, text).asScala.toMap
+      }
     }
   }
 

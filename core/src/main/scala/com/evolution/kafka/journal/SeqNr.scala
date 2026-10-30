@@ -24,7 +24,9 @@ object SeqNr {
 
   implicit val showSeqNr: Show[SeqNr] = Show.fromToString
 
-  implicit val orderingSeqNr: Ordering[SeqNr] = (x: SeqNr, y: SeqNr) => x.value compare y.value
+  implicit val orderingSeqNr: Ordering[SeqNr] = new Ordering[SeqNr] {
+    def compare(x: SeqNr, y: SeqNr): Int = x.value compare y.value
+  }
 
   implicit val orderSeqNr: Order[SeqNr] = Order.fromOrdering
 

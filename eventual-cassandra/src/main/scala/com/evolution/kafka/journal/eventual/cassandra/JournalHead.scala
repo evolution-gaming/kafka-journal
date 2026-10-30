@@ -48,8 +48,8 @@ private[journal] object JournalHead {
     implicit
     decode: DecodeRow[Option[Expiry]],
   ): DecodeRow[JournalHead] = {
-    (row: GettableByNameData) =>
-      {
+    new DecodeRow[JournalHead] {
+      def apply(row: GettableByNameData): JournalHead = {
         JournalHead(
           partitionOffset = row.decode[PartitionOffset],
           segmentSize = row.decode[SegmentSize],
@@ -59,6 +59,7 @@ private[journal] object JournalHead {
           recordId = row.decode[Option[RecordId]]("record_id"),
         )
       }
+    }
   }
 
   implicit def encodeRowJournalHead(

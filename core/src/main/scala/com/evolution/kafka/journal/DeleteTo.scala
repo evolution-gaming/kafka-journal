@@ -19,7 +19,9 @@ object DeleteTo {
 
   implicit val showDeleteTo: Show[DeleteTo] = Show.fromToString
 
-  implicit val orderingDeleteTo: Ordering[DeleteTo] = (a: DeleteTo, b: DeleteTo) => a.value compare b.value
+  implicit val orderingDeleteTo: Ordering[DeleteTo] = new Ordering[DeleteTo] {
+    def compare(a: DeleteTo, b: DeleteTo): Int = a.value compare b.value
+  }
 
   implicit val orderDeleteTo: Order[DeleteTo] = Order.fromOrdering
 

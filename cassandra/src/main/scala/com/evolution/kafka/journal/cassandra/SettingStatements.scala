@@ -28,8 +28,9 @@ private[journal] object SettingStatements {
     }
   }
 
-  implicit val decodeRowSetting: DecodeRow[Setting] = { (data: GettableByNameData) =>
-    {
+  implicit val decodeRowSetting: DecodeRow[Setting] = new DecodeRow[Setting] {
+
+    def apply(data: GettableByNameData): Setting = {
       Setting(
         key = data.decode[Key]("key"),
         value = data.decode[Value]("value"),

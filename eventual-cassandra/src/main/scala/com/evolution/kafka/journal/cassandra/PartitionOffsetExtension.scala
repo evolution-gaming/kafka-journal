@@ -17,7 +17,10 @@ object PartitionOffsetExtension {
     }
   }
 
-  implicit val decodeRowPartitionOffset: DecodeRow[PartitionOffset] = (data: GettableByNameData) => {
-    PartitionOffset(partition = data.decode[Partition]("partition"), offset = data.decode[Offset]("offset"))
+  implicit val decodeRowPartitionOffset: DecodeRow[PartitionOffset] = new DecodeRow[PartitionOffset] {
+
+    def apply(data: GettableByNameData): PartitionOffset = {
+      PartitionOffset(partition = data.decode[Partition]("partition"), offset = data.decode[Offset]("offset"))
+    }
   }
 }
