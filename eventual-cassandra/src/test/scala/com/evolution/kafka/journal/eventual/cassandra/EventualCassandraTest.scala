@@ -338,27 +338,28 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 
 object EventualCassandraTest {
 
-  val insertRecords: JournalStatements.InsertRecords[StateT] = {
-    (key: Key, segment: SegmentNr, records: Nel[JournalRecord]) =>
-      {
-        StateT.unit { state =>
-          val k = (key, segment)
-          val entries = state
-            .journal
-            .getOrElse(k, Map.empty)
+  val insertRecords: JournalStatements.InsertRecords[StateT] = new JournalStatements.InsertRecords[StateT] {
 
-          val entries1 = records.foldLeft(entries) { (entries, record) =>
-            entries.updated((record.event.seqNr, record.event.timestamp), record)
-          }
+    def apply(key: Key, segment: SegmentNr, records: Nel[JournalRecord]): StateT[Unit] = {
+      StateT.unit { state =>
+        val k = (key, segment)
+        val entries = state
+          .journal
+          .getOrElse(k, Map.empty)
 
-          val journal1 = state.journal.updated(k, entries1)
-          state.copy(journal = journal1)
+        val entries1 = records.foldLeft(entries) { (entries, record) =>
+          entries.updated((record.event.seqNr, record.event.timestamp), record)
         }
+
+        val journal1 = state.journal.updated(k, entries1)
+        state.copy(journal = journal1)
       }
+    }
   }
 
-  val deleteRecords: JournalStatements.DeleteTo[StateT] = { (key: Key, segment: SegmentNr, seqNr: SeqNr) =>
-    {
+  val deleteRecords: JournalStatements.DeleteTo[StateT] = new JournalStatements.DeleteTo[StateT] {
+
+    def apply(key: Key, segment: SegmentNr, seqNr: SeqNr): StateT[Unit] = {
       StateT.unit { state =>
         val k = (key, segment)
         val journal = state.journal
@@ -371,67 +372,72 @@ object EventualCassandraTest {
     }
   }
 
-  val insertMetaJournal: MetaJournalStatements.Insert[StateT] = {
-    (
+  val insertMetaJournal: MetaJournalStatements.Insert[StateT] = new MetaJournalStatements.Insert[StateT] {
+
+    def apply(
       key: Key,
       segment: SegmentNr,
       created: Instant,
       updated: Instant,
       head: JournalHead,
       origin: Option[Origin],
-    ) =>
-      {
-        StateT.unit { state =>
-          val entry = MetaJournalEntry(
-            journalHead = JournalHead(
-              partitionOffset = head.partitionOffset,
-              segmentSize = head.segmentSize,
-              seqNr = head.seqNr,
-              deleteTo = head.deleteTo,
-            ),
-            created = created,
-            updated = updated,
-            origin = origin,
-          )
-          val entries = state
-            .metaJournal
-            .getOrElse((key.topic, segment), Map.empty)
-            .updated(key.id, entry)
-          state.copy(metaJournal = state.metaJournal.updated((key.topic, segment), entries))
-        }
-      }
-  }
-
-  val selectJournalHead0: MetaJournalStatements.SelectJournalHead[StateT] = { (key: Key, segment: SegmentNr) =>
-    {
-      StateT.success { state =>
-        val head = for {
-          entries <- state.metaJournal.get((key.topic, segment))
-          entry <- entries.get(key.id)
-        } yield {
-          entry.journalHead
-        }
-        (state, head)
+    ): StateT[Unit] = {
+      StateT.unit { state =>
+        val entry = MetaJournalEntry(
+          journalHead = JournalHead(
+            partitionOffset = head.partitionOffset,
+            segmentSize = head.segmentSize,
+            seqNr = head.seqNr,
+            deleteTo = head.deleteTo,
+          ),
+          created = created,
+          updated = updated,
+          origin = origin,
+        )
+        val entries = state
+          .metaJournal
+          .getOrElse((key.topic, segment), Map.empty)
+          .updated(key.id, entry)
+        state.copy(metaJournal = state.metaJournal.updated((key.topic, segment), entries))
       }
     }
   }
 
-  val selectJournalPointer0: MetaJournalStatements.SelectJournalPointer[StateT] = { (key: Key, segment: SegmentNr) =>
-    {
-      StateT.success { state =>
-        val pointer = for {
-          entries <- state.metaJournal.get((key.topic, segment))
-          entry <- entries.get(key.id)
-        } yield {
-          JournalPointer(partitionOffset = entry.journalHead.partitionOffset, seqNr = entry.journalHead.seqNr)
+  val selectJournalHead0: MetaJournalStatements.SelectJournalHead[StateT] =
+    new MetaJournalStatements.SelectJournalHead[StateT] {
+
+      def apply(key: Key, segment: SegmentNr): StateT[Option[JournalHead]] = {
+        StateT.success { state =>
+          val head = for {
+            entries <- state.metaJournal.get((key.topic, segment))
+            entry <- entries.get(key.id)
+          } yield {
+            entry.journalHead
+          }
+          (state, head)
         }
-        (state, pointer)
       }
     }
-  }
 
-  val selectIds0: MetaJournalStatements.SelectIds[StateT] = { (topic, segmentNr) =>
-    {
+  val selectJournalPointer0: MetaJournalStatements.SelectJournalPointer[StateT] =
+    new MetaJournalStatements.SelectJournalPointer[StateT] {
+
+      def apply(key: Key, segment: SegmentNr): StateT[Option[JournalPointer]] = {
+        StateT.success { state =>
+          val pointer = for {
+            entries <- state.metaJournal.get((key.topic, segment))
+            entry <- entries.get(key.id)
+          } yield {
+            JournalPointer(partitionOffset = entry.journalHead.partitionOffset, seqNr = entry.journalHead.seqNr)
+          }
+          (state, pointer)
+        }
+      }
+    }
+
+  val selectIds0: MetaJournalStatements.SelectIds[StateT] = new MetaJournalStatements.SelectIds[StateT] {
+
+    def apply(topic: Topic, segmentNr: SegmentNr): Stream[StateT, String] = {
       Stream.lift {
         StateT.success { state =>
           val ids = state
@@ -445,37 +451,38 @@ object EventualCassandraTest {
     }
   }
 
-  val updateMetaJournal: MetaJournalStatements.Update[StateT] = {
-    (
+  val updateMetaJournal: MetaJournalStatements.Update[StateT] = new MetaJournalStatements.Update[StateT] {
+
+    def apply(
       key: Key,
       segment: SegmentNr,
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       seqNr: SeqNr,
       deleteTo: DeleteTo,
-    ) =>
-      {
-        StateT.unit { state =>
-          state.updateMetaJournal(key, segment) { entry =>
-            entry.copy(
-              journalHead =
-                entry.journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = deleteTo.some),
-              updated = timestamp,
-            )
-          }
+    ): StateT[Unit] = {
+      StateT.unit { state =>
+        state.updateMetaJournal(key, segment) { entry =>
+          entry.copy(
+            journalHead =
+              entry.journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = deleteTo.some),
+            updated = timestamp,
+          )
         }
       }
+    }
   }
 
-  val updateMetaJournalSeqNr: MetaJournalStatements.UpdateSeqNr[StateT] = {
-    (
-      key: Key,
-      segment: SegmentNr,
-      partitionOffset: PartitionOffset,
-      timestamp: Instant,
-      seqNr: SeqNr,
-    ) =>
-      {
+  val updateMetaJournalSeqNr: MetaJournalStatements.UpdateSeqNr[StateT] =
+    new MetaJournalStatements.UpdateSeqNr[StateT] {
+
+      def apply(
+        key: Key,
+        segment: SegmentNr,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        seqNr: SeqNr,
+      ): StateT[Unit] = {
         StateT.unit { state =>
           state.updateMetaJournal(key, segment) { entry =>
             entry.copy(
@@ -485,17 +492,18 @@ object EventualCassandraTest {
           }
         }
       }
-  }
+    }
 
-  val updateMetaJournalDeleteTo: MetaJournalStatements.UpdateDeleteTo[StateT] = {
-    (
-      key: Key,
-      segment: SegmentNr,
-      partitionOffset: PartitionOffset,
-      timestamp: Instant,
-      deleteTo: DeleteTo,
-    ) =>
-      {
+  val updateMetaJournalDeleteTo: MetaJournalStatements.UpdateDeleteTo[StateT] =
+    new MetaJournalStatements.UpdateDeleteTo[StateT] {
+
+      def apply(
+        key: Key,
+        segment: SegmentNr,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        deleteTo: DeleteTo,
+      ): StateT[Unit] = {
         StateT.unit { state =>
           state.updateMetaJournal(key, segment) { entry =>
             entry.copy(
@@ -505,30 +513,31 @@ object EventualCassandraTest {
           }
         }
       }
-  }
+    }
 
-  val insertPointer2: Pointer2Statements.Insert[StateT] = {
-    (
+  val insertPointer2: Pointer2Statements.Insert[StateT] = new Pointer2Statements.Insert[StateT] {
+
+    def apply(
       topic: Topic,
       partition: Partition,
       offset: Offset,
       created: Instant,
       updated: Instant,
-    ) =>
-      {
-        StateT.unit { state =>
-          val entry = PointerEntry(offset = offset, created = created, updated = updated)
-          val entries = state
-            .pointers
-            .getOrElse(topic, Map.empty)
-            .updated(partition, entry)
-          state.copy(pointers = state.pointers.updated(topic, entries))
-        }
+    ): StateT[Unit] = {
+      StateT.unit { state =>
+        val entry = PointerEntry(offset = offset, created = created, updated = updated)
+        val entries = state
+          .pointers
+          .getOrElse(topic, Map.empty)
+          .updated(partition, entry)
+        state.copy(pointers = state.pointers.updated(topic, entries))
       }
+    }
   }
 
-  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (topic: Topic, partition: Partition) =>
-    {
+  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = new Pointer2Statements.SelectOffset[StateT] {
+
+    def apply(topic: Topic, partition: Partition): StateT[Option[Offset]] = {
       StateT.success { state =>
         val offset = for {
           pointers <- state.pointers.get(topic)
@@ -541,24 +550,25 @@ object EventualCassandraTest {
     }
   }
 
-  val updatePointer2: Pointer2Statements.Update[StateT] = {
-    (
+  val updatePointer2: Pointer2Statements.Update[StateT] = new Pointer2Statements.Update[StateT] {
+
+    def apply(
       topic: Topic,
       partition: Partition,
       offset: Offset,
       timestamp: Instant,
-    ) =>
-      {
-        StateT.unit { state =>
-          state.updatePointer2(topic, partition) { entry =>
-            entry.copy(offset = offset, updated = timestamp)
-          }
+    ): StateT[Unit] = {
+      StateT.unit { state =>
+        state.updatePointer2(topic, partition) { entry =>
+          entry.copy(offset = offset, updated = timestamp)
         }
       }
+    }
   }
 
-  val selectRecords: JournalStatements.SelectRecords[StateT] = { (key: Key, segment: SegmentNr, range: SeqRange) =>
-    {
+  val selectRecords: JournalStatements.SelectRecords[StateT] = new JournalStatements.SelectRecords[StateT] {
+
+    def apply(key: Key, segment: SegmentNr, range: SeqRange): Stream[StateT, JournalRecord] = {
       val stateT = StateT.success { state =>
         val entries = for {
           journal <- state.journal.get((key, segment)).toList
