@@ -2181,15 +2181,14 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val key = Key("id", topic0)
       val event0 = eventOf(SeqNr.unsafe(1), Offset.unsafe(1))
       val event1 = eventOf(SeqNr.unsafe(2), Offset.unsafe(2))
-      // after a purge the journal starts again from `SeqNr.min`, which is not a fork
-      val event2 =
-        eventOf(SeqNr.unsafe(1), Offset.unsafe(4)).copy(timestamp = timestamp1)
+      val event2 = eventOf(SeqNr.unsafe(1), Offset.unsafe(4)).copy(timestamp = timestamp1)
 
       val program = for {
         _ <- journal.append(key, Partition.min, Offset.unsafe(1), timestamp0, none, Nel.of(event0))
         _ <- journal.append(key, Partition.min, Offset.unsafe(2), timestamp0, none, Nel.of(event1))
         changed <- journal.purge(key, Partition.min, Offset.unsafe(3), timestamp0)
         _ = changed shouldEqual true
+        // after a purge the journal starts again from `SeqNr.min`, which is not a fork
         _ <- journal.append(key, Partition.min, Offset.unsafe(4), timestamp1, none, Nel.of(event2))
       } yield ()
 
