@@ -42,8 +42,8 @@ object ReplicatorConfig {
 
   private implicit val configReaderKafkaConfig: ConfigReader[KafkaConfig] = KafkaConfig.configReader(default.kafka)
 
-  implicit val configReaderReplicatorConfig: ConfigReader[ReplicatorConfig] = { (cursor: ConfigCursor) =>
-    {
+  implicit val configReaderReplicatorConfig: ConfigReader[ReplicatorConfig] = new ConfigReader[ReplicatorConfig] {
+    def from(cursor: ConfigCursor): ConfigReader.Result[ReplicatorConfig] = {
       cursor
         .asObjectCursor
         .map { cursor => fromConfig(cursor.objValue.toConfig, default) }

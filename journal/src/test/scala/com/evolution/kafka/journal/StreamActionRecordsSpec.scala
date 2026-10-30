@@ -101,8 +101,9 @@ object StreamActionRecordsSpec {
     }
     val records = appendRecords :+ markRecord
 
-    val consumeActionRecords: ConsumeActionRecords[StateT] = { (_: Key, _: Partition, from: Offset) =>
-      {
+    val consumeActionRecords: ConsumeActionRecords[StateT] = new ConsumeActionRecords[StateT] {
+
+      def apply(key: Key, partition: Partition, from: Offset): Stream[StateT, ActionRecord[Action]] = {
         val actionRecords = StateT { state =>
           val records = state
             .records

@@ -103,27 +103,31 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map {
-          prepared => (
-            key: Key,
-            segment: SegmentNr,
-            created: Instant,
-            updated: Instant,
-            journalHead: JournalHead,
-            origin: Option[Origin],
-          ) =>
-            prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .encode(journalHead)
-              .encode("created", created)
-              .encode("created_date", created.toLocalDate(ZoneOffset.UTC))
-              .encode("updated", updated)
-              .encodeSome(origin)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { prepared =>
+          new Insert[F] {
+
+            def apply(
+              key: Key,
+              segment: SegmentNr,
+              created: Instant,
+              updated: Instant,
+              journalHead: JournalHead,
+              origin: Option[Origin],
+            ): F[Unit] = {
+              prepared
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .encode(journalHead)
+                .encode("created", created)
+                .encode("created_date", created.toLocalDate(ZoneOffset.UTC))
+                .encode("updated", updated)
+                .encodeSome(origin)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
+            }
+          }
         }
     }
   }
@@ -150,21 +154,26 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared => (key: Key, segment: SegmentNr) =>
-          val row = prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-          for {
-            row <- row
-          } yield
-            for {
-              row <- row
-            } yield {
-              row.decode[JournalHead]
+        .map { prepared =>
+          new SelectJournalHead[F] {
+
+            def apply(key: Key, segment: SegmentNr): F[Option[JournalHead]] = {
+              val row = prepared
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+              for {
+                row <- row
+              } yield
+                for {
+                  row <- row
+                } yield {
+                  row.decode[JournalHead]
+                }
             }
+          }
         }
     }
   }
@@ -190,21 +199,26 @@ private[journal] object MetaJournalStatements {
            |""".stripMargin
       query
         .prepare
-        .map { prepared => (key: Key, segment: SegmentNr) =>
-          val row = prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-          for {
-            row <- row
-          } yield
-            for {
-              row <- row
-            } yield {
-              JournalPointer(partitionOffset = row.decode[PartitionOffset], seqNr = row.decode[SeqNr])
+        .map { prepared =>
+          new SelectJournalPointer[F] {
+
+            def apply(key: Key, segment: SegmentNr): F[Option[JournalPointer]] = {
+              val row = prepared
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+              for {
+                row <- row
+              } yield
+                for {
+                  row <- row
+                } yield {
+                  JournalPointer(partitionOffset = row.decode[PartitionOffset], seqNr = row.decode[SeqNr])
+                }
             }
+          }
         }
     }
   }
@@ -231,15 +245,20 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared => (topic: Topic, segment: SegmentNr, expireOn: ExpireOn) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode(segment)
-            .encode(expireOn)
-            .setConsistencyLevel(consistencyConfig.value)
-            .execute
-            .map { _.decode[String]("id") }
+        .map { prepared =>
+          new IdByTopicAndExpireOn[F] {
+
+            def apply(topic: Topic, segment: SegmentNr, expireOn: ExpireOn): Stream[F, String] = {
+              prepared
+                .bind()
+                .encode("topic", topic)
+                .encode(segment)
+                .encode(expireOn)
+                .setConsistencyLevel(consistencyConfig.value)
+                .execute
+                .map { _.decode[String]("id") }
+            }
+          }
         }
     }
   }
@@ -266,15 +285,20 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared => (topic: Topic, segment: SegmentNr, created: LocalDate) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode(segment)
-            .encode("created_date", created)
-            .setConsistencyLevel(consistencyConfig.value)
-            .execute
-            .map { _.decode[String]("id") }
+        .map { prepared =>
+          new IdByTopicAndCreated[F] {
+
+            def apply(topic: Topic, segment: SegmentNr, created: LocalDate): Stream[F, String] = {
+              prepared
+                .bind()
+                .encode("topic", topic)
+                .encode(segment)
+                .encode("created_date", created)
+                .setConsistencyLevel(consistencyConfig.value)
+                .execute
+                .map { _.decode[String]("id") }
+            }
+          }
         }
     }
   }
@@ -300,14 +324,19 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared => (topic: Topic, segment: SegmentNr) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode(segment)
-            .setConsistencyLevel(consistencyConfig.value)
-            .execute
-            .map { _.decode[String]("id") }
+        .map { prepared =>
+          new IdByTopicAndSegment[F] {
+
+            def apply(topic: Topic, segment: SegmentNr): Stream[F, String] = {
+              prepared
+                .bind()
+                .encode("topic", topic)
+                .encode(segment)
+                .setConsistencyLevel(consistencyConfig.value)
+                .execute
+                .map { _.decode[String]("id") }
+            }
+          }
         }
     }
   }
@@ -342,26 +371,30 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map {
-          prepared => (
-            key: Key,
-            segment: SegmentNr,
-            partitionOffset: PartitionOffset,
-            timestamp: Instant,
-            seqNr: SeqNr,
-            deleteTo: DeleteTo,
-          ) =>
-            prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .encode(partitionOffset)
-              .encode(seqNr)
-              .encode(deleteTo)
-              .encode("updated", timestamp)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { prepared =>
+          new Update[F] {
+
+            def apply(
+              key: Key,
+              segment: SegmentNr,
+              partitionOffset: PartitionOffset,
+              timestamp: Instant,
+              seqNr: SeqNr,
+              deleteTo: DeleteTo,
+            ): F[Unit] = {
+              prepared
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .encode(partitionOffset)
+                .encode(seqNr)
+                .encode(deleteTo)
+                .encode("updated", timestamp)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
+            }
+          }
         }
     }
   }
@@ -394,24 +427,28 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map {
-          prepared => (
-            key: Key,
-            segment: SegmentNr,
-            partitionOffset: PartitionOffset,
-            timestamp: Instant,
-            seqNr: SeqNr,
-          ) =>
-            prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .encode(partitionOffset)
-              .encode(seqNr)
-              .encode("updated", timestamp)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { prepared =>
+          new UpdateSeqNr[F] {
+
+            def apply(
+              key: Key,
+              segment: SegmentNr,
+              partitionOffset: PartitionOffset,
+              timestamp: Instant,
+              seqNr: SeqNr,
+            ): F[Unit] = {
+              prepared
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .encode(partitionOffset)
+                .encode(seqNr)
+                .encode("updated", timestamp)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
+            }
+          }
         }
     }
   }
@@ -446,26 +483,30 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map {
-          prepared => (
-            key: Key,
-            segment: SegmentNr,
-            partitionOffset: PartitionOffset,
-            timestamp: Instant,
-            seqNr: SeqNr,
-            expiry: Expiry,
-          ) =>
-            prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .encode(partitionOffset)
-              .encode(seqNr)
-              .encode("updated", timestamp)
-              .encode(expiry)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { prepared =>
+          new UpdateExpiry[F] {
+
+            def apply(
+              key: Key,
+              segment: SegmentNr,
+              partitionOffset: PartitionOffset,
+              timestamp: Instant,
+              seqNr: SeqNr,
+              expiry: Expiry,
+            ): F[Unit] = {
+              prepared
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .encode(partitionOffset)
+                .encode(seqNr)
+                .encode("updated", timestamp)
+                .encode(expiry)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
+            }
+          }
         }
     }
   }
@@ -499,24 +540,28 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map {
-          prepared => (
-            key: Key,
-            segment: SegmentNr,
-            partitionOffset: PartitionOffset,
-            timestamp: Instant,
-            deleteTo: DeleteTo,
-          ) =>
-            prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .encode(partitionOffset)
-              .encode(deleteTo)
-              .encode("updated", timestamp)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { prepared =>
+          new UpdateDeleteTo[F] {
+
+            def apply(
+              key: Key,
+              segment: SegmentNr,
+              partitionOffset: PartitionOffset,
+              timestamp: Instant,
+              deleteTo: DeleteTo,
+            ): F[Unit] = {
+              prepared
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .encode(partitionOffset)
+                .encode(deleteTo)
+                .encode("updated", timestamp)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
+            }
+          }
         }
     }
   }
@@ -546,22 +591,26 @@ private[journal] object MetaJournalStatements {
          |"""
         .stripMargin
         .prepare
-        .map {
-          statement => (
-            key: Key,
-            segment: SegmentNr,
-            partitionOffset: PartitionOffset,
-            timestamp: Instant,
-          ) =>
-            statement
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .encode(partitionOffset)
-              .encode("updated", timestamp)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { statement =>
+          new UpdatePartitionOffset[F] {
+
+            def apply(
+              key: Key,
+              segment: SegmentNr,
+              partitionOffset: PartitionOffset,
+              timestamp: Instant,
+            ): F[Unit] = {
+              statement
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .encode(partitionOffset)
+                .encode("updated", timestamp)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
+            }
+          }
         }
     }
   }
@@ -587,14 +636,19 @@ private[journal] object MetaJournalStatements {
            |""".stripMargin
       query
         .prepare
-        .map { prepared => (key: Key, segment: SegmentNr) =>
-          prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .void
+        .map { prepared =>
+          new Delete[F] {
+
+            def apply(key: Key, segment: SegmentNr): F[Unit] = {
+              prepared
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
+            }
+          }
         }
     }
   }
@@ -621,14 +675,19 @@ private[journal] object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared => (key: Key, segmentNr: SegmentNr) =>
-          prepared
-            .bind()
-            .encode(key)
-            .encode(segmentNr)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .void
+        .map { prepared =>
+          new DeleteExpiry[F] {
+
+            def apply(key: Key, segmentNr: SegmentNr): F[Unit] = {
+              prepared
+                .bind()
+                .encode(key)
+                .encode(segmentNr)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
+            }
+          }
         }
     }
   }
@@ -646,14 +705,19 @@ private[journal] object MetaJournalStatements {
     ): F[SelectIds[F]] = {
       for {
         prepared <- s"SELECT id FROM ${ name.toCql } WHERE topic = ? AND segment = ?".prepare
-      } yield { (topic: Topic, segmentNr: SegmentNr) =>
-        prepared
-          .bind()
-          .encode("topic", topic)
-          .encode(segmentNr)
-          .setConsistencyLevel(consistencyConfig.value)
-          .execute
-          .map { _.decode[String]("id") }
+      } yield {
+        new SelectIds[F] {
+
+          def apply(topic: Topic, segmentNr: SegmentNr): Stream[F, String] = {
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode(segmentNr)
+              .setConsistencyLevel(consistencyConfig.value)
+              .execute
+              .map { _.decode[String]("id") }
+          }
+        }
       }
     }
   }

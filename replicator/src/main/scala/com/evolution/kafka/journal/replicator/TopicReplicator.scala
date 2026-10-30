@@ -99,8 +99,9 @@ private[journal] object TopicReplicator {
       def apply(timestamp: Instant, records: Nel[ConsRecord]): F[Int]
     }
 
-    val topicFlowOf: TopicFlowOf[F] = { (topic: Topic) =>
-      {
+    val topicFlowOf: TopicFlowOf[F] = new TopicFlowOf[F] {
+
+      def apply(topic: Topic): Resource[F, TopicFlow[F]] = {
         for {
           journal <- journal.journal(topic)
           cache <- cacheOf[Partition, PartitionFlow](topic)

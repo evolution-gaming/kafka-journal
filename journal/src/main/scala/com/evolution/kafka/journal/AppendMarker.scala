@@ -13,8 +13,9 @@ object AppendMarker {
 
   def apply[F[_]: FlatMap: RandomIdOf](
     produce: Produce[F],
-  ): AppendMarker[F] = { (key: Key) =>
-    {
+  ): AppendMarker[F] = new AppendMarker[F] {
+
+    def apply(key: Key): F[Marker] = {
       for {
         randomId <- RandomIdOf[F].apply
         partitionOffset <- produce.mark(key, randomId)

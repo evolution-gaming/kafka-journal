@@ -384,23 +384,23 @@ object Journals {
     )(implicit
       toBytesKey: skafka.ToBytes[F, String],
       toBytesValue: skafka.ToBytes[F, ByteVector],
-    ): Producer[F] = {
-      (record: ProducerRecord[String, ByteVector]) =>
-        {
-          for {
-            metadata <- producer.send(record)(toBytesKey, toBytesValue)
-            partition = metadata.topicPartition.partition
-            offset <- metadata
-              .offset
-              .fold {
-                "metadata.offset is missing, make sure ProducerConfig.acks set to One or All".fail[F, Offset]
-              } {
-                _.pure[F]
-              }
-          } yield {
-            PartitionOffset(partition, offset)
-          }
+    ): Producer[F] = new Producer[F] {
+
+      def send(record: ProducerRecord[String, ByteVector]): F[PartitionOffset] = {
+        for {
+          metadata <- producer.send(record)(toBytesKey, toBytesValue)
+          partition = metadata.topicPartition.partition
+          offset <- metadata
+            .offset
+            .fold {
+              "metadata.offset is missing, make sure ProducerConfig.acks set to One or All".fail[F, Offset]
+            } {
+              _.pure[F]
+            }
+        } yield {
+          PartitionOffset(partition, offset)
         }
+      }
     }
   }
 
@@ -460,8 +460,9 @@ object Journals {
     )(implicit
       F: FlatMap[F],
       measureDuration: MeasureDuration[F],
-    ): Journals[F] = { (key: Key) =>
-      self(key).withLog(key, log, config)
+    ): Journals[F] = new Journals[F] {
+
+      def apply(key: Key): Journal[F] = self(key).withLog(key, log, config)
     }
 
     def withLogError(
@@ -469,8 +470,9 @@ object Journals {
     )(implicit
       F: MonadThrowable[F],
       measureDuration: MeasureDuration[F],
-    ): Journals[F] = {
-      (key: Key) => self(key).withLogError(key, log)
+    ): Journals[F] = new Journals[F] {
+
+      def apply(key: Key): Journal[F] = self(key).withLogError(key, log)
     }
 
     def withMetrics(
@@ -478,12 +480,14 @@ object Journals {
     )(implicit
       F: MonadThrowable[F],
       measureDuration: MeasureDuration[F],
-    ): Journals[F] = { (key: Key) =>
-      self(key).withMetrics(key.topic, metrics)
+    ): Journals[F] = new Journals[F] {
+
+      def apply(key: Key): Journal[F] = self(key).withMetrics(key.topic, metrics)
     }
 
-    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journals[G] = { (key: Key) =>
-      self(key).mapK(fg, gf)
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journals[G] = new Journals[G] {
+
+      def apply(key: Key): Journal[G] = self(key).mapK(fg, gf)
     }
   }
 }

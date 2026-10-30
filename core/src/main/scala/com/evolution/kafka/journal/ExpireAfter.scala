@@ -17,7 +17,9 @@ object ExpireAfter {
 
   implicit val showExpireAfter: Show[ExpireAfter] = Show.fromToString
 
-  implicit val orderingExpireAfter: Ordering[ExpireAfter] = (a, b) => a.value compare b.value
+  implicit val orderingExpireAfter: Ordering[ExpireAfter] = new Ordering[ExpireAfter] {
+    def compare(a: ExpireAfter, b: ExpireAfter): Int = a.value compare b.value
+  }
 
   implicit val orderExpireAfter: Order[ExpireAfter] = Order.fromOrdering
 

@@ -36,18 +36,22 @@ object Instances {
   implicit def payloadJsonFromBytes[F[_]: ApplicativeThrowable]: FromBytes[F, PayloadJson[Json]] = fromDecoder
 
   private def fromEncoder[F[_]: FromTry, A: Encoder]: ToBytes[F, A] =
-    a =>
-      FromTry[F].unsafe {
-        val json = a.asJson
-        val byteBuffer = Printer.noSpaces.printToByteBuffer(json, StandardCharsets.UTF_8)
-        ByteVector.view(byteBuffer)
-      }
+    new ToBytes[F, A] {
+      def apply(a: A): F[ByteVector] =
+        FromTry[F].unsafe {
+          val json = a.asJson
+          val byteBuffer = Printer.noSpaces.printToByteBuffer(json, StandardCharsets.UTF_8)
+          ByteVector.view(byteBuffer)
+        }
+    }
 
   private def fromDecoder[F[_]: ApplicativeThrowable, A: Decoder]: FromBytes[F, A] =
-    bytes =>
-      FromCirceResult
-        .summon[F]
-        .apply(decodeByteBuffer[A](bytes.toByteBuffer))
-        .adaptErr { case e => JournalError(s"Failed to parse $bytes json: $e", e) }
+    new FromBytes[F, A] {
+      def apply(bytes: ByteVector): F[A] =
+        FromCirceResult
+          .summon[F]
+          .apply(decodeByteBuffer[A](bytes.toByteBuffer))
+          .adaptErr { case e => JournalError(s"Failed to parse $bytes json: $e", e) }
+    }
 
 }

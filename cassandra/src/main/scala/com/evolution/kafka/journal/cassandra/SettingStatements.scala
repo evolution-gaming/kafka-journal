@@ -28,8 +28,9 @@ private[journal] object SettingStatements {
     }
   }
 
-  implicit val decodeRowSetting: DecodeRow[Setting] = { (data: GettableByNameData) =>
-    {
+  implicit val decodeRowSetting: DecodeRow[Setting] = new DecodeRow[Setting] {
+
+    def apply(data: GettableByNameData): Setting = {
       Setting(
         key = data.decode[Key]("key"),
         value = data.decode[Value]("value"),
@@ -64,24 +65,26 @@ private[journal] object SettingStatements {
       val query = s"SELECT value, timestamp, origin FROM ${ name.toCql } WHERE key = ?"
       for {
         prepared <- query.prepare
-      } yield { (key: Key) =>
-        val bound = prepared
-          .bind()
-          .encode("key", key)
-          .setConsistencyLevel(consistencyConfig.value)
-        for {
-          row <- bound.first
-        } yield
+      } yield new Select[F] {
+        def apply(key: Key): F[Option[Setting]] = {
+          val bound = prepared
+            .bind()
+            .encode("key", key)
+            .setConsistencyLevel(consistencyConfig.value)
           for {
-            row <- row
-          } yield {
-            Setting(
-              key = key,
-              value = row.decode[Value]("value"),
-              timestamp = row.decode[Instant]("timestamp"),
-              origin = row.decode[Option[Origin]],
-            )
-          }
+            row <- bound.first
+          } yield
+            for {
+              row <- row
+            } yield {
+              Setting(
+                key = key,
+                value = row.decode[Value]("value"),
+                timestamp = row.decode[Instant]("timestamp"),
+                origin = row.decode[Option[Origin]],
+              )
+            }
+        }
       }
     }
   }
@@ -121,12 +124,14 @@ private[journal] object SettingStatements {
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
       for {
         prepared <- query.prepare
-      } yield { (setting: Setting) =>
-        val bound = prepared
-          .bind()
-          .encode(setting)
-          .setConsistencyLevel(consistencyConfig.value)
-        bound.first.void
+      } yield new Insert[F] {
+        def apply(setting: Setting): F[Unit] = {
+          val bound = prepared
+            .bind()
+            .encode(setting)
+            .setConsistencyLevel(consistencyConfig.value)
+          bound.first.void
+        }
       }
     }
   }
@@ -145,12 +150,14 @@ private[journal] object SettingStatements {
       val query = s"DELETE FROM ${ name.toCql } WHERE key = ?"
       for {
         prepared <- query.prepare
-      } yield { (key: Key) =>
-        val bound = prepared
-          .bind()
-          .encode("key", key)
-          .setConsistencyLevel(consistencyConfig.value)
-        bound.first.void
+      } yield new Delete[F] {
+        def apply(key: Key): F[Unit] = {
+          val bound = prepared
+            .bind()
+            .encode("key", key)
+            .setConsistencyLevel(consistencyConfig.value)
+          bound.first.void
+        }
       }
     }
   }
