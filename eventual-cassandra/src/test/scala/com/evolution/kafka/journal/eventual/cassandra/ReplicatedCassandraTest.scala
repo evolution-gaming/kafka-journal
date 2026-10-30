@@ -2167,7 +2167,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val (state0, _) = append0.run(State.empty).get
       val (state1, _) = append1.run(state0).get
-      // the rows of the second batch are written, but saving the head failed, so it is as before the batch
+      // partial write: the rows of the second batch are saved, but the metajournal update failed,
+      // so the head is as before the batch
       val headNotSaved = state1.copy(metaJournal = state0.metaJournal)
       val (state2, changed) = append1.run(headNotSaved).get
 
