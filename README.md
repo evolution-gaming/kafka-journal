@@ -84,6 +84,9 @@ of the same entity were writing to the journal at the same time:
 
 Both are counted by `replicated_journal_forks_total` metric with `kind` label set to `duplicate` or `regression`.
 
+* `Journal fork detection failed` - the detection itself failed, so forks among the replicated events, if any, were not
+  detected. The events are replicated as usual.
+
 ## Akka persistence plugin
 
 In order to use `kafka-journal` as [akka persistence plugin](https://doc.akka.io/libraries/akka-core/2.6/persistence-plugins.html)
