@@ -22,9 +22,11 @@ private[journal] object JournalForkDetector {
 
   def fromReporter[F[_]: Applicative](reporter: JournalForkReporter[F]): JournalForkDetector[F] = {
     (key, journalHead, events) =>
-      JournalFork
-        .fromEvents(key, journalHead, events.toList)
-        .traverse_(reporter.report)
+      // a failed detection is only reported, so that it does not stop the replication
+      Either.catchNonFatal(JournalFork.fromEvents(key, journalHead, events.toList)) match {
+        case Right(forks) => forks.traverse_(reporter.forkSuspected)
+        case Left(error) => reporter.detectionFailed(key, journalHead, events, error)
+      }
   }
 
   def fromConfig[F[_]: Applicative](
