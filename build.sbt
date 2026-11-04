@@ -89,6 +89,9 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[ReversedMissingMethodProblem](
     "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.journalFork",
   ),
+  ProblemFilters.exclude[ReversedMissingMethodProblem](
+    "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.journalForkDetectionFailed",
+  ),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(

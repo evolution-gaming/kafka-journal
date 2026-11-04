@@ -213,6 +213,12 @@ object ReplicatedJournal {
      *   - `false`: `regression`, the `seqNr` is out of order
      */
     def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit]
+
+    /**
+     * Records a failed journal fork detection, i.e. forks among the appended events, if any, were
+     * not detected or not reported.
+     */
+    def journalForkDetectionFailed(topic: Topic): F[Unit]
   }
 
   object Metrics {
@@ -240,6 +246,8 @@ object ReplicatedJournal {
         def setSchemaVersion(version: Int): F[Unit] = unit
 
         def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] = unit
+
+        def journalForkDetectionFailed(topic: Topic): F[Unit] = unit
       }
     }
 
@@ -287,6 +295,12 @@ object ReplicatedJournal {
         labels = LabelNames("topic", "kind"),
       )
 
+      val failedDetectionsCounter = registry.counter(
+        name = s"${ prefix }_fork_detection_failures_total",
+        help = "Number of failed journal fork detections, i.e. forks, if any, were not detected or not reported",
+        labels = LabelNames("topic"),
+      )
+
       for {
         versionGauge <- versionGauge
         _ <- versionGauge.labels(Version.current.value).set().toResource
@@ -295,6 +309,7 @@ object ReplicatedJournal {
         topicLatencySummary <- topicLatencySummary
         eventsSummary <- eventsSummary
         forksCounter <- forksCounter
+        failedDetectionsCounter <- failedDetectionsCounter
       } yield {
 
         def observeTopicLatency(name: String, topic: Topic, latency: FiniteDuration): F[Unit] = {
@@ -344,6 +359,9 @@ object ReplicatedJournal {
             val kind = if (duplicateProven) "duplicate" else "regression"
             forksCounter.labels(topic, kind).inc()
           }
+
+          def journalForkDetectionFailed(topic: Topic): F[Unit] =
+            failedDetectionsCounter.labels(topic).inc()
 
         }
       }

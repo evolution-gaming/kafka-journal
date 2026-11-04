@@ -73,7 +73,11 @@ private[journal] object JournalForkReporter {
         s"${ journalHead.partitionOffset } (seqNr ${ journalHead.seqNr })"
       }
       val offsets = s"${ events.head.partitionOffset }..${ events.last.partitionOffset }"
-      log.error(s"Journal fork detection failed, key: $key, head: $head, offsets: $offsets, error: $error", error)
+      val logError =
+        log.error(s"Journal fork detection failed, key: $key, head: $head, offsets: $offsets, error: $error", error)
+      val updateMetrics = metrics.journalForkDetectionFailed(key.topic)
+
+      logError *> updateMetrics
     }
   }
 }
