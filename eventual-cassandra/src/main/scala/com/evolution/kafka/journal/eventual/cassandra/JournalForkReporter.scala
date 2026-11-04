@@ -19,7 +19,7 @@ private[journal] trait JournalForkReporter[F[_]] {
 
   /**
    * Reports that the detection failed, i.e. forks among the appended events, if any, were not
-   * detected.
+   * detected or not reported.
    */
   def detectionFailed(
     key: Key,
