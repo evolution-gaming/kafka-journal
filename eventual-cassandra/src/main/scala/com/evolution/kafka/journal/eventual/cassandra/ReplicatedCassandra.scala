@@ -35,6 +35,17 @@ private[journal] object ReplicatedCassandra {
     origin: Option[Origin],
     metrics: Option[ReplicatedJournal.Metrics[F]],
   ): F[ReplicatedJournal[F]] = {
+    of[F](config, origin, metrics, ReplicatedJournal.DataIntegrityConfig.Default)
+  }
+
+  def of[
+    F[_]: Async: Parallel: ToTry: LogOf: Fail: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Encode,
+  ](
+    config: EventualCassandraConfig,
+    origin: Option[Origin],
+    metrics: Option[ReplicatedJournal.Metrics[F]],
+    dataIntegrity: ReplicatedJournal.DataIntegrityConfig,
+  ): F[ReplicatedJournal[F]] = {
 
     for {
       schema <- SetupSchema[F](config.schema, origin, config.consistencyConfig)
@@ -47,7 +58,10 @@ private[journal] object ReplicatedCassandra {
     } yield {
       implicit val sr: SecureRandom[F] = secureRandom
       val segmentOf = SegmentNrs.Of[F](first = Segments.default, second = Segments.old)
-      val journal = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
+      val forkDetector =
+        JournalForkDetector.fromConfig(dataIntegrity, metrics.getOrElse(ReplicatedJournal.Metrics.empty[F]), log)
+      val journal =
+        apply[F](config.segmentSize, segmentOf, statements, expiryService, forkDetector).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -59,6 +73,21 @@ private[journal] object ReplicatedCassandra {
     segmentNrsOf: SegmentNrs.Of[F],
     statements: Statements[F],
     expiryService: ExpiryService[F],
+  ): ReplicatedJournal[F] = {
+    apply[F](segmentSizeDefault, segmentNrsOf, statements, expiryService, JournalForkDetector.empty[F])
+  }
+
+  /**
+   * @param forkDetector
+   *   called for the events of every append. Detection does not change what is appended: forked
+   *   events are stored as before.
+   */
+  def apply[F[_]: Sync: Parallel: SecureRandom: Fail](
+    segmentSizeDefault: SegmentSize,
+    segmentNrsOf: SegmentNrs.Of[F],
+    statements: Statements[F],
+    expiryService: ExpiryService[F],
+    forkDetector: JournalForkDetector[F],
   ): ReplicatedJournal[F] = {
 
     new Main with ReplicatedJournal[F] {
@@ -260,12 +289,12 @@ private[journal] object ReplicatedCassandra {
                           }
 
                           journalHead.fold {
-                            appendAndSave
+                            forkDetector.detect(key, none, events) *> appendAndSave
                           } { journalHead =>
                             if (offset <= journalHead.partitionOffset.offset) {
                               none[JournalHead].pure[F]
                             } else {
-                              appendAndSave
+                              forkDetector.detect(key, Some(journalHead), events) *> appendAndSave
                             }
                           }
                         }

@@ -161,6 +161,31 @@ object ReplicatedJournal {
     ): ReplicatedJournalFlat[F] = ReplicatedJournalFlat(self)
   }
 
+  /**
+   * Data integrity checks done while replicating, see
+   * [[com.evolution.kafka.journal.Journal.DataIntegrityConfig]] for the ones done on recovery.
+   *
+   * Not a case class, so that a new check can be added as a new `with...` method without breaking
+   * binary compatibility.
+   */
+  final class DataIntegrityConfig private (
+    val journalForkDetection: Boolean,
+  ) {
+
+    /**
+     * Reports journal forks to logs and to [[Metrics.journalFork]]. Forked events are stored as
+     * before.
+     */
+    def withJournalForkDetection(journalForkDetection: Boolean): DataIntegrityConfig = {
+      new DataIntegrityConfig(journalForkDetection = journalForkDetection)
+    }
+  }
+
+  object DataIntegrityConfig {
+
+    val Default: DataIntegrityConfig = new DataIntegrityConfig(journalForkDetection = false)
+  }
+
   trait Metrics[F[_]] {
 
     def topics(latency: FiniteDuration): F[Unit]
@@ -178,6 +203,16 @@ object ReplicatedJournal {
     def purge(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def setSchemaVersion(version: Int): F[Unit]
+
+    /**
+     * Records a detected journal fork: an event with a repeated or out-of-order `seqNr`.
+     *
+     * @param duplicateProven
+     *   sets the `kind` label of the `forks_total` counter:
+     *   - `true`: `duplicate`, the `seqNr` is repeated
+     *   - `false`: `regression`, the `seqNr` is out of order
+     */
+    def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit]
   }
 
   object Metrics {
@@ -203,6 +238,8 @@ object ReplicatedJournal {
         def purge(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
         def setSchemaVersion(version: Int): F[Unit] = unit
+
+        def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] = unit
       }
     }
 
@@ -244,6 +281,12 @@ object ReplicatedJournal {
         labels = LabelNames("topic"),
       )
 
+      val forksCounter = registry.counter(
+        name = s"${ prefix }_forks_total",
+        help = "Number of journal forks detected, i.e. events with a repeated or out-of-order seqNr",
+        labels = LabelNames("topic", "kind"),
+      )
+
       for {
         versionGauge <- versionGauge
         _ <- versionGauge.labels(Version.current.value).set().toResource
@@ -251,6 +294,7 @@ object ReplicatedJournal {
         latencySummary <- latencySummary
         topicLatencySummary <- topicLatencySummary
         eventsSummary <- eventsSummary
+        forksCounter <- forksCounter
       } yield {
 
         def observeTopicLatency(name: String, topic: Topic, latency: FiniteDuration): F[Unit] = {
@@ -295,6 +339,11 @@ object ReplicatedJournal {
 
           def setSchemaVersion(version: Int): F[Unit] =
             schemaVersionInfo.labels(s"$version").set()
+
+          def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] = {
+            val kind = if (duplicateProven) "duplicate" else "regression"
+            forksCounter.labels(topic, kind).inc()
+          }
 
         }
       }
