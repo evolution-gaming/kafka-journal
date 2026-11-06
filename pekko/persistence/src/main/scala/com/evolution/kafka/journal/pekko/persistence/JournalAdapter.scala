@@ -2,7 +2,7 @@ package com.evolution.kafka.journal.pekko.persistence
 
 import cats.effect.*
 import cats.syntax.all.*
-import cats.{Monad, Parallel, ~>}
+import cats.{Monad, MonadThrow, Parallel, ~>}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolution.kafka.journal.eventual.cassandra.EventualCassandra
@@ -16,7 +16,7 @@ import com.evolutiongaming.skafka.producer.ProducerMetrics
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
 import org.apache.pekko.persistence.{AtomicWrite, PersistentRepr}
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 trait JournalAdapter[F[_]] {
 
@@ -148,7 +148,7 @@ object JournalAdapter {
     }
   }
 
-  def apply[F[_]: Monad, A](
+  def apply[F[_]: MonadThrow, A](
     journals: Journals[F],
     toKey: ToKey[F],
     serializer: EventSerializer[F, A],
@@ -163,17 +163,36 @@ object JournalAdapter {
     new JournalAdapter[F] {
 
       def write(aws: Seq[AtomicWrite]): F[List[Try[Unit]]] = {
-        val prs = aws.flatMap(_.payload)
-        prs.toList.toNel.foldMapM { prs =>
-          val persistenceId = prs.head.persistenceId
+        aws.flatMap(_.payload).headOption.foldMapM { head =>
+          val persistenceId = head.persistenceId
           for {
             key <- toKey(persistenceId)
-            events <- prs.traverse(serializer.toEvent)
-            metadata <- appendMetadataOf(key, prs, events)
-            journal = journals(key)
-            _ <- journal.append(events, metadata.metadata, metadata.headers)
+            // Serialize each atomic write independently so that a serialization failure is surfaced as a
+            // per-write rejection (`Failure`, routed to `onPersistRejected`) rather than by failing `F` - which
+            // Akka/Pekko treats as a store failure that stops/restarts the persistent actor, taking down the
+            // unrelated valid writes in the same batch. Writes are accepted only up to the first failure:
+            // rejecting one write while persisting a later one would leave a gap in the sequence numbers.
+            results <- aws.toList.traverse { aw =>
+              aw.payload.toList.toNel.traverse { prs =>
+                prs.traverse(serializer.toEvent).map { events => (prs, events) }
+              }.attempt
+            }
+            (accepted, rejected) = results.span(_.isRight)
+            toAppend = accepted.collect { case Right(Some(prsAndEvents)) => prsAndEvents }
+            _ <- toAppend.toNel.traverse_ { accepted =>
+              val prs = accepted.flatMap { case (prs, _) => prs }
+              val events = accepted.flatMap { case (_, events) => events }
+              for {
+                metadata <- appendMetadataOf(key, prs, events)
+                _ <- journals(key).append(events, metadata.metadata, metadata.headers)
+              } yield {}
+            }
           } yield {
-            List.empty[Try[Unit]]
+            rejected match {
+              case Left(error) :: _ =>
+                accepted.map(_ => Success(())) ::: rejected.map(_ => Failure(error))
+              case _ => List.empty[Try[Unit]]
+            }
           }
         }
       }
