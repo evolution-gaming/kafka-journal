@@ -25,8 +25,9 @@ import scala.util.Try
 private[journal] sealed trait Bounds[A]
 
 private[journal] object Bounds {
-  implicit def semigroupBounds[A: Order]: Semigroup[Bounds[A]] = { (a: Bounds[A], b: Bounds[A]) =>
-    {
+  implicit def semigroupBounds[A: Order]: Semigroup[Bounds[A]] = new Semigroup[Bounds[A]] {
+
+    def combine(a: Bounds[A], b: Bounds[A]): Bounds[A] = {
       Bounds
         .of[Try](min = a.min min b.min, max = a.max max b.max)
         .get

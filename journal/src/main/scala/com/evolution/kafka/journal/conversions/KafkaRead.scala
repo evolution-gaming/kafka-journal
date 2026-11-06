@@ -30,8 +30,9 @@ object KafkaRead {
     implicit
     eventsFromBytes: FromBytes[F, Events[Payload]],
     payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]],
-  ): KafkaRead[F, Payload] = { (payloadAndType: PayloadAndType) =>
-    {
+  ): KafkaRead[F, Payload] = new KafkaRead[F, Payload] {
+
+    def apply(payloadAndType: PayloadAndType): F[Events[Payload]] = {
 
       def fromEventJsonPayload(jsonPayload: EventJsonPayloadAndType[JsValue]) = {
         def text = {
@@ -62,8 +63,9 @@ object KafkaRead {
   def readJson[F[_]: MonadThrowable, A, B](
     payloadJsonFromBytes: FromBytes[F, PayloadJson[A]],
     fromEventJsonPayload: EventJsonPayloadAndType[A] => F[B],
-  ): KafkaRead[F, B] = { (payloadAndType: PayloadAndType) =>
-    {
+  ): KafkaRead[F, B] = new KafkaRead[F, B] {
+
+    def apply(payloadAndType: PayloadAndType): F[Events[B]] = {
 
       def events(payloadJson: PayloadJson[A]) = {
         payloadJson.events.traverse { event =>
@@ -114,16 +116,21 @@ object KafkaRead {
     )(implicit
       F: Monad[F],
       measureDuration: MeasureDuration[F],
-    ): KafkaRead[F, A] = { payloadAndType =>
-      for {
-        d <- MeasureDuration[F].start
-        r <- self(payloadAndType)
-        d <- d
-        _ <- metrics(payloadAndType, d)
-      } yield r
+    ): KafkaRead[F, A] = new KafkaRead[F, A] {
+
+      def apply(payloadAndType: PayloadAndType): F[Events[A]] = {
+        for {
+          d <- MeasureDuration[F].start
+          r <- self(payloadAndType)
+          d <- d
+          _ <- metrics(payloadAndType, d)
+        } yield r
+      }
     }
 
-    def mapK[G[_]](fg: F ~> G): KafkaRead[G, A] =
-      payloadAndType => fg(self(payloadAndType))
+    def mapK[G[_]](fg: F ~> G): KafkaRead[G, A] = new KafkaRead[G, A] {
+
+      def apply(payloadAndType: PayloadAndType): G[Events[A]] = fg(self(payloadAndType))
+    }
   }
 }

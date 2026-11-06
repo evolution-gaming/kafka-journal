@@ -32,21 +32,23 @@ object EventualRead {
   ): EventualRead[F, Payload] = {
     implicit val fail: Fail[F] = Fail.lift[F]
 
-    payloadAndType => {
-      payloadAndType.payloadType match {
-        case PayloadType.Binary =>
-          liftError(payloadAndType) {
-            payloadAndType.payloadBytes[F].map(Payload.binary)
-          }
+    new EventualRead[F, Payload] {
+      def apply(payloadAndType: EventualPayloadAndType): F[Payload] = {
+        payloadAndType.payloadType match {
+          case PayloadType.Binary =>
+            liftError(payloadAndType) {
+              payloadAndType.payloadBytes[F].map(Payload.binary)
+            }
 
-        case PayloadType.Text =>
-          liftError(payloadAndType) {
-            payloadAndType.payloadStr[F].map(Payload.text)
-          }
+          case PayloadType.Text =>
+            liftError(payloadAndType) {
+              payloadAndType.payloadStr[F].map(Payload.text)
+            }
 
-        case PayloadType.Json =>
-          val jsonEventualRead = EventualRead.readJson(decode.fromStr(_).map(Payload(_)))
-          jsonEventualRead(payloadAndType)
+          case PayloadType.Json =>
+            val jsonEventualRead = EventualRead.readJson(decode.fromStr(_).map(Payload(_)))
+            jsonEventualRead(payloadAndType)
+        }
       }
     }
   }
@@ -54,14 +56,16 @@ object EventualRead {
   def readJson[F[_]: MonadThrowable, A](parsePayload: String => F[A]): EventualRead[F, A] = {
     implicit val fail: Fail[F] = Fail.lift[F]
 
-    payloadAndType => {
-      payloadAndType.payloadType match {
-        case PayloadType.Json =>
-          liftError(payloadAndType) {
-            payloadAndType.payloadStr[F].flatMap(parsePayload)
-          }
+    new EventualRead[F, A] {
+      def apply(payloadAndType: EventualPayloadAndType): F[A] = {
+        payloadAndType.payloadType match {
+          case PayloadType.Json =>
+            liftError(payloadAndType) {
+              payloadAndType.payloadStr[F].flatMap(parsePayload)
+            }
 
-        case other => s"Json payload type expected, got: $other".fail
+          case other => s"Json payload type expected, got: $other".fail
+        }
       }
     }
   }
@@ -75,7 +79,9 @@ object EventualRead {
   implicit class EventualReadOps[F[_], A](val self: EventualRead[F, A]) extends AnyVal {
 
     def mapK[G[_]](fg: F ~> G): EventualRead[G, A] =
-      payloadAndType => fg(self(payloadAndType))
+      new EventualRead[G, A] {
+        def apply(payloadAndType: EventualPayloadAndType): G[A] = fg(self(payloadAndType))
+      }
   }
 
 }

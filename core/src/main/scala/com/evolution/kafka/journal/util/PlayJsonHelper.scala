@@ -57,7 +57,9 @@ private[journal] object PlayJsonHelper {
 
   implicit class ReadsOps[A](val self: Reads[A]) extends AnyVal {
 
-    final def mapResult[B](f: A => JsResult[B]): Reads[B] = (a: JsValue) => self.reads(a).flatMap(f)
+    final def mapResult[B](f: A => JsResult[B]): Reads[B] = new Reads[B] {
+      def reads(a: JsValue): JsResult[B] = self.reads(a).flatMap(f)
+    }
   }
 
   implicit val finiteDurationFormat: Format[FiniteDuration] = new Format[FiniteDuration] {

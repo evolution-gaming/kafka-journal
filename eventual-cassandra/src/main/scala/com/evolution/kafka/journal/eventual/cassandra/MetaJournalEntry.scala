@@ -21,8 +21,8 @@ private[journal] object MetaJournalEntry {
     implicit
     decode: DecodeRow[JournalHead],
   ): DecodeRow[MetaJournalEntry] = {
-    (row: GettableByNameData) =>
-      {
+    new DecodeRow[MetaJournalEntry] {
+      def apply(row: GettableByNameData): MetaJournalEntry = {
         MetaJournalEntry(
           journalHead = row.decode[JournalHead],
           created = row.decode[Instant]("created"),
@@ -30,6 +30,7 @@ private[journal] object MetaJournalEntry {
           origin = row.decode[Option[Origin]],
         )
       }
+    }
   }
 
   implicit def encodeRowMetaJournalEntry(

@@ -20,8 +20,9 @@ object DurationTo {
     apply(now)
   }
 
-  def apply[F[_]: MonadThrowable](now: F[LocalDateTime]): DurationTo[F] = { localTime =>
-    {
+  def apply[F[_]: MonadThrowable](now: F[LocalDateTime]): DurationTo[F] = new DurationTo[F] {
+
+    def apply(localTime: LocalTime): F[FiniteDuration] = {
       now.flatMap { now =>
         ApplicativeThrowable[F].catchNonFatal {
           val localDateTime = {
