@@ -331,8 +331,9 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
       s"kafka journal is empty, $name" should {
 
-        val consumeActionRecords: ConsumeActionRecords[StateT] = { (_: Key, _: Partition, from: Offset) =>
-          {
+        val consumeActionRecords: ConsumeActionRecords[StateT] = new ConsumeActionRecords[StateT] {
+
+          def apply(key: Key, partition: Partition, from: Offset): Stream[StateT, ActionRecord[Action]] = {
             StateT.stream { state =>
               val records = state
                 .records
@@ -619,8 +620,9 @@ object JournalSpec {
         .flatten
     }
 
-    val consumeActionRecords: ConsumeActionRecords[StateT] = { (_: Key, _: Partition, from: Offset) =>
-      {
+    val consumeActionRecords: ConsumeActionRecords[StateT] = new ConsumeActionRecords[StateT] {
+
+      def apply(key: Key, partition: Partition, from: Offset): Stream[StateT, ActionRecord[Action]] = {
         StateT.stream { state =>
           val records = state
             .records
@@ -631,8 +633,9 @@ object JournalSpec {
       }
     }
 
-    val produceAction: ProduceAction[StateT] = { (action: Action) =>
-      {
+    val produceAction: ProduceAction[StateT] = new ProduceAction[StateT] {
+
+      def apply(action: Action): StateT[PartitionOffset] = {
         StateT { state =>
           val offset = Offset.unsafe(state.records.size)
           val partitionOffset = PartitionOffset(partition = partition, offset = offset)
@@ -646,9 +649,9 @@ object JournalSpec {
       }
     }
 
-    val headCache: HeadCache[StateT] = { (_: Key, _: Partition, _: Offset) =>
-      {
+    val headCache: HeadCache[StateT] = new HeadCache[StateT] {
 
+      def get(key: Key, partition: Partition, offset: Offset): StateT[Option[HeadInfo]] = {
         StateT { state =>
           val headInfo = state
             .records
@@ -658,18 +661,21 @@ object JournalSpec {
       }
     }
 
-    def eventualActionsBehind(n: Int): ProduceAction[StateT] = { (action: Action) =>
-      StateT { state =>
-        val offset = Offset.unsafe(state.records.size)
-        val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-        val record = ActionRecord(action, partitionOffset)
-        val records = state.records.enqueue(record)
-        val replicatedState = for {
-          actions <- records.dropLast(n)
-          action <- actions.lastOption
-        } yield state.replicatedState(action)
-        val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
-        (state1, partitionOffset)
+    def eventualActionsBehind(n: Int): ProduceAction[StateT] = new ProduceAction[StateT] {
+
+      def apply(action: Action): StateT[PartitionOffset] = {
+        StateT { state =>
+          val offset = Offset.unsafe(state.records.size)
+          val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+          val record = ActionRecord(action, partitionOffset)
+          val records = state.records.enqueue(record)
+          val replicatedState = for {
+            actions <- records.dropLast(n)
+            action <- actions.lastOption
+          } yield state.replicatedState(action)
+          val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
+          (state1, partitionOffset)
+        }
       }
     }
 

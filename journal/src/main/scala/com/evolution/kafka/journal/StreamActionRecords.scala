@@ -23,8 +23,11 @@ trait StreamActionRecords[F[_]] {
 
 object StreamActionRecords {
 
-  def empty[F[_]: Applicative]: StreamActionRecords[F] = { (_: Option[Offset]) =>
-    Stream.empty[F, ActionRecord[Action.User]]
+  def empty[F[_]: Applicative]: StreamActionRecords[F] = new StreamActionRecords[F] {
+
+    def apply(offset: Option[Offset]): Stream[F, ActionRecord[Action.User]] = {
+      Stream.empty[F, ActionRecord[Action.User]]
+    }
   }
 
   /**
@@ -73,48 +76,51 @@ object StreamActionRecords {
 
     if (replicated) empty[F]
     else
-      (offset: Option[Offset]) => {
-        for {
-          max <- marker.offset.dec[F].toStream
-          result <- {
-            val replicated = offset.exists { _ >= max }
-            if (replicated) Stream.empty[F, ActionRecord[Action.User]]
-            else {
-              for {
-                fromOffset <- offset
-                  .max(offsetReplicated)
-                  .fold(Offset.min.pure[F]) { _.inc[F] }
-                  .toStream
-                result <- consumeActionRecords
-                  .apply(key, partition, fromOffset)
-                  .stateless { record =>
-                    def take(action: Action.User) = {
-                      (true, Stream[F].single(record.copy(action = action)))
-                    }
+      new StreamActionRecords[F] {
 
-                    def skip = {
-                      (true, Stream[F].empty[ActionRecord[Action.User]])
-                    }
+        def apply(offset: Option[Offset]): Stream[F, ActionRecord[Action.User]] = {
+          for {
+            max <- marker.offset.dec[F].toStream
+            result <- {
+              val replicated = offset.exists { _ >= max }
+              if (replicated) Stream.empty[F, ActionRecord[Action.User]]
+              else {
+                for {
+                  fromOffset <- offset
+                    .max(offsetReplicated)
+                    .fold(Offset.min.pure[F]) { _.inc[F] }
+                    .toStream
+                  result <- consumeActionRecords
+                    .apply(key, partition, fromOffset)
+                    .stateless { record =>
+                      def take(action: Action.User) = {
+                        (true, Stream[F].single(record.copy(action = action)))
+                      }
 
-                    def stop = {
-                      (false, Stream[F].empty[ActionRecord[Action.User]])
-                    }
+                      def skip = {
+                        (true, Stream[F].empty[ActionRecord[Action.User]])
+                      }
 
-                    if (record.offset > max) {
-                      stop
-                    } else {
-                      record.action match {
-                        case a: Action.Append => if (a.range.to < from) skip else take(a)
-                        case a: Action.Mark => if (a.id === marker.id) stop else skip
-                        case a: Action.Delete => take(a)
-                        case a: Action.Purge => take(a)
+                      def stop = {
+                        (false, Stream[F].empty[ActionRecord[Action.User]])
+                      }
+
+                      if (record.offset > max) {
+                        stop
+                      } else {
+                        record.action match {
+                          case a: Action.Append => if (a.range.to < from) skip else take(a)
+                          case a: Action.Mark => if (a.id === marker.id) stop else skip
+                          case a: Action.Delete => take(a)
+                          case a: Action.Purge => take(a)
+                        }
                       }
                     }
-                  }
-              } yield result
+                } yield result
+              }
             }
-          }
-        } yield result
+          } yield result
+        }
       }
   }
 }
