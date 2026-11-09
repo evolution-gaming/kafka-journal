@@ -24,6 +24,7 @@ final case class ReplicatorConfig(
     ),
   ),
   pollTimeout: FiniteDuration = 10.millis,
+  excludeTopics: List[String] = List.empty,
 )
 
 object ReplicatorConfig {
@@ -78,6 +79,7 @@ object ReplicatorConfig {
       kafka = get[KafkaConfig]("kafka") getOrElse default.kafka,
       cassandra = get[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
       pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout,
+      excludeTopics = get[List[String]]("exclude-topics") getOrElse default.excludeTopics,
     )
   }
 }

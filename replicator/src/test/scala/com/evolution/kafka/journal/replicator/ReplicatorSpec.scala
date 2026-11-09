@@ -44,5 +44,36 @@ class ReplicatorSpec extends AsyncWordSpec with Matchers {
 
       result.run()
     }
+
+    "ignore excluded topics even if they match prefixes" in {
+
+      implicit val logOf: LogOf[IO] = LogOf.empty[IO]
+
+      val consumer = new Consumer[IO] {
+        def topics: IO[Set[Topic]] = Set("journal", "journal-excluded", "other").pure[IO]
+      }
+
+      val stop = new RuntimeException with NoStackTrace
+
+      val result = for {
+        log <- logOf(Replicator.getClass)
+        started <- IO.ref(List.empty[Topic])
+        result <- Replicator
+          .start[IO](
+            config = Replicator.Config(topicDiscoveryInterval = 0.millis, excludeTopics = List("journal-excluded")),
+            consumer = consumer,
+            start = (topic: Topic) => started.update(topic :: _),
+            continue = started.get.flatMap { topics => stop.raiseError[IO, Unit].whenA(topics.nonEmpty) },
+            log = log,
+          )
+          .attempt
+        started <- started.get
+      } yield {
+        result shouldEqual stop.asLeft
+        started shouldEqual List("journal")
+      }
+
+      result.run()
+    }
   }
 }
