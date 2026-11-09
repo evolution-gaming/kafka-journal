@@ -24,6 +24,7 @@ class ReplicatorConfigSpec extends AnyFunSuite with Matchers {
         topicPrefixes = Nel.of("prefix1", "prefix2"),
         topicDiscoveryInterval = 1.minute,
         pollTimeout = 200.millis,
+        excludeTopics = List("prefix1-excluded"),
         replicationLatencyKind = TopicReplicatorMetrics.ReplicationLatencyKind.Histogram,
       )
     ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.pure[ConfigReader.Result]

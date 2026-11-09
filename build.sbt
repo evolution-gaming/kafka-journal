@@ -89,6 +89,13 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[ReversedMissingMethodProblem](
     "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.journalFork",
   ),
+  // new `excludeTopics` field in `ReplicatorConfig` and `Replicator.Config`
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.ReplicatorConfig.this"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.ReplicatorConfig.apply"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.ReplicatorConfig.copy"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.Replicator#Config.this"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.Replicator#Config.apply"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.Replicator#Config.copy"),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(
