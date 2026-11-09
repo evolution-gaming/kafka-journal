@@ -167,6 +167,7 @@ object Replicator {
         topicsNew = for {
           topic <- (topics -- state).toList
           if config.topicPrefixes exists topic.startsWith
+          if !config.excludeTopics.contains(topic)
         } yield topic
         _ <- {
           if (topicsNew.isEmpty) ().pure[F]
@@ -201,13 +202,18 @@ object Replicator {
   final case class Config(
     topicPrefixes: Nel[String] = Nel.of("journal"),
     topicDiscoveryInterval: FiniteDuration = 3.seconds,
+    excludeTopics: List[String] = List.empty,
   )
 
   object Config {
     val default: Config = Config()
 
     def apply(config: ReplicatorConfig): Config = {
-      Config(topicPrefixes = config.topicPrefixes, topicDiscoveryInterval = config.topicDiscoveryInterval)
+      Config(
+        topicPrefixes = config.topicPrefixes,
+        topicDiscoveryInterval = config.topicDiscoveryInterval,
+        excludeTopics = config.excludeTopics,
+      )
     }
   }
 
