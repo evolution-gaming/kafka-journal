@@ -83,7 +83,7 @@ object TopicReplicatorMetrics {
     )
 
     val replicationHistogram = registry.histogram(
-      name = s"${ prefix }_replication_latency_histogram",
+      name = s"${ prefix }_replication_latency_seconds",
       help = "Replication latency in seconds",
       buckets = Buckets(NonEmptyList.of(0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)),
       labels = LabelNames("topic", "type"),
