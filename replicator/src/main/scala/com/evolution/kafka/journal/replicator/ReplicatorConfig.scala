@@ -24,6 +24,8 @@ final case class ReplicatorConfig(
     ),
   ),
   pollTimeout: FiniteDuration = 10.millis,
+  replicationLatencyKind: TopicReplicatorMetrics.ReplicationLatencyKind =
+    TopicReplicatorMetrics.ReplicationLatencyKind.Default,
 )
 
 object ReplicatorConfig {
@@ -78,6 +80,9 @@ object ReplicatorConfig {
       kafka = get[KafkaConfig]("kafka") getOrElse default.kafka,
       cassandra = get[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
       pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout,
+      replicationLatencyKind = get[TopicReplicatorMetrics.ReplicationLatencyKind](
+        "metrics.replication-latency-kind",
+      ) getOrElse default.replicationLatencyKind,
     )
   }
 }
