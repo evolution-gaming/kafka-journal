@@ -32,7 +32,7 @@ object Dependencies {
   }
 
   object Jackson {
-    private val version = "2.22.4"
+    private val version = "2.23.0"
     val Core = "com.fasterxml.jackson.core" % "jackson-core" % version
     val Databind = "com.fasterxml.jackson.core" % "jackson-databind" % version
     val Jdk8 = "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8" % version
