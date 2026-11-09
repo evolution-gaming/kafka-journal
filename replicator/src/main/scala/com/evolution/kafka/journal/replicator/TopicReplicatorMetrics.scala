@@ -1,5 +1,6 @@
 package com.evolution.kafka.journal.replicator
 
+import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.syntax.all.*
 import cats.{Applicative, Monad}
@@ -81,6 +82,13 @@ object TopicReplicatorMetrics {
       labels = LabelNames("topic", "type"),
     )
 
+    val replicationHistogram = registry.histogram(
+      name = s"${ prefix }_replication_latency_histogram",
+      help = "Replication latency in seconds",
+      buckets = Buckets(Nel.of(0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)),
+      labels = LabelNames("topic", "type"),
+    )
+
     val deliverySummary = registry.summary(
       name = s"${ prefix }_delivery_latency",
       help = "Delivery latency in seconds",
@@ -137,6 +145,7 @@ object TopicReplicatorMetrics {
 
     for {
       replicationSummary <- replicationSummary
+      replicationHistogram <- replicationHistogram
       deliverySummary <- deliverySummary
       eventsSummary <- eventsSummary
       bytesSummary <- bytesSummary
@@ -149,8 +158,10 @@ object TopicReplicatorMetrics {
       {
 
         def observeMeasurements(name: String, measurements: Measurements): F[Unit] = {
+          val replicationLatency = measurements.replicationLatency.toNanos.nanosToSeconds
           for {
-            _ <- replicationSummary.labels(topic, name).observe(measurements.replicationLatency.toNanos.nanosToSeconds)
+            _ <- replicationSummary.labels(topic, name).observe(replicationLatency)
+            _ <- replicationHistogram.labels(topic, name).observe(replicationLatency)
             _ <- deliverySummary.labels(topic, name).observe(measurements.deliveryLatency.toNanos.nanosToSeconds)
             _ <- recordsSummary.labels(topic).observe(measurements.records.toDouble)
           } yield {}
