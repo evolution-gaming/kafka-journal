@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.scassandra.TableName
+import com.evolution.scassandra.TableName
 
 /**
  * Describes keyspace scheme. See related classes:

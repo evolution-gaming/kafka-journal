@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.data.NonEmptyList as Nel
-import cats.effect.Temporal
+import cats.effect.Async
 import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolution.kafka.journal.cassandra.MigrateSchema.Fresh
@@ -12,9 +12,9 @@ import com.evolution.kafka.journal.cassandra.{
   SettingsCassandra,
 }
 import com.evolution.kafka.journal.{Origin, Settings}
+import com.evolution.scassandra.TableName
+import com.evolution.scassandra.syntax.*
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.scassandra.TableName
-import com.evolutiongaming.scassandra.syntax.toCqlOps
 
 /**
  * Creates a new schema, or migrates to the latest schema version, if it already exists.
@@ -93,7 +93,7 @@ private[journal] object SetupSchema {
     migrateSchema.run(fresh)
   }
 
-  def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
+  def apply[F[_]: Async: Parallel: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin],
     consistencyConfig: CassandraConsistencyConfig,

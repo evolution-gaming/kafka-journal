@@ -31,7 +31,6 @@ private[it] trait JournalSuite extends SuiteScopedResources with Matchers with I
     config = config.eventualCassandra,
     origin = origin.some,
     metrics = none,
-    cassandraClusterOf = cassandraClusterOf,
     dataIntegrity = DataIntegrityConfig.Default,
   )
 

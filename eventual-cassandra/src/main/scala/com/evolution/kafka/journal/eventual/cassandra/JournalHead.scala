@@ -1,13 +1,13 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
-import com.datastax.driver.core.{GettableByNameData, SettableData}
+import com.datastax.oss.driver.api.core.data.{GettableByName, SettableByName}
 import com.evolution.kafka.journal.cassandra.DeleteToExtension.*
 import com.evolution.kafka.journal.cassandra.PartitionOffsetExtension.*
 import com.evolution.kafka.journal.cassandra.SeqNrExtension.*
 import com.evolution.kafka.journal.{DeleteTo, PartitionOffset, SeqNr}
-import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
+import com.evolution.scassandra.syntax.*
+import com.evolution.scassandra.{DecodeRow, EncodeRow}
 
 /**
  * Represents metadata of particular journal.
@@ -48,7 +48,7 @@ private[journal] object JournalHead {
     implicit
     decode: DecodeRow[Option[Expiry]],
   ): DecodeRow[JournalHead] = {
-    (row: GettableByNameData) =>
+    (row: GettableByName) =>
       {
         JournalHead(
           partitionOffset = row.decode[PartitionOffset],
@@ -66,7 +66,7 @@ private[journal] object JournalHead {
     encode: EncodeRow[Option[Expiry]],
   ): EncodeRow[JournalHead] = {
     new EncodeRow[JournalHead] {
-      def apply[B <: SettableData[B]](data: B, value: JournalHead): B = {
+      def apply[B <: SettableByName[B]](data: B, value: JournalHead): B = {
         data
           .encode(value.partitionOffset)
           .encode(value.segmentSize)

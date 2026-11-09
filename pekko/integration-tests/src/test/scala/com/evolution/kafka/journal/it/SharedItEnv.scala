@@ -129,6 +129,7 @@ private[it] object SharedItEnv {
         (cassandra, kafka) = cassandraAndKafka
         connParams = SharedServicesConnectivityParams(
           cassandraContactPoint = cassandra.getContactPoint,
+          cassandraLocalDatacenter = cassandra.getLocalDatacenter,
           kafkaBootstrapServers = kafka.getBootstrapServers,
         )
         configLoader <- makeConfigLoader(connParams).toResource
@@ -149,7 +150,7 @@ private[it] object SharedItEnv {
     logResourceStart(replicatorLogger) {
       for {
         hostName <- HostName.of[IO]().toResource
-        replicatorRunIo <- Replicator.make[IO](config, cassandraClusterOf, hostName, metrics = none)
+        replicatorRunIo <- Replicator.make[IO](config, hostName, metrics = none)
         _ <- replicatorRunIo.onError { t =>
           IO { replicatorLogger.error(s"died prematurely: ${ t.getMessage }", t) }
         }.background
@@ -209,6 +210,7 @@ private[it] object SharedItEnv {
 
   private final case class SharedServicesConnectivityParams(
     cassandraContactPoint: InetSocketAddress,
+    cassandraLocalDatacenter: String,
     kafkaBootstrapServers: String,
   ) {
     val configOverride: Config = ConfigFactory.parseString(
@@ -217,6 +219,7 @@ private[it] object SharedItEnv {
          |  cassandra {
          |    host = "${ cassandraContactPoint.getHostString }"
          |    port = ${ cassandraContactPoint.getPort }
+         |    local-datacenter = "$cassandraLocalDatacenter"
          |  }
          |  kafkaBootstrapServers = "$kafkaBootstrapServers"
          |}

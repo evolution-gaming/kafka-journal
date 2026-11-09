@@ -12,7 +12,7 @@ import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MeasureDuration, MonadThrowable}
-import com.evolutiongaming.scassandra.TableName
+import com.evolution.scassandra.TableName
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.producer.ProducerConfig
 import com.evolutiongaming.smetrics.*

@@ -25,7 +25,6 @@ class SettingsCassandraIntSpec extends AsyncWordSpec with JournalSuite {
     for {
       cassandraCluster <- CassandraCluster.make(
         config.eventualCassandra.client,
-        cassandraClusterOf,
         config.eventualCassandra.retries,
       )
       cassandraSession <- cassandraCluster.session

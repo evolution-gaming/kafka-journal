@@ -16,8 +16,6 @@ import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
-import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics}
 import com.evolutiongaming.skafka.{Bytes as _, ClientId, Topic}
 import com.evolutiongaming.smetrics.CollectorRegistry
@@ -42,10 +40,9 @@ trait Replicator[F[_]] {
 object Replicator {
 
   def make[
-    F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec,
+    F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec,
   ](
     config: ReplicatorConfig,
-    cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
     metrics: Option[Metrics[F]] = None,
   ): Resource[F, F[Unit]] = {
@@ -59,7 +56,7 @@ object Replicator {
     }
 
     for {
-      cassandraCluster <- CassandraCluster.make(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
+      cassandraCluster <- CassandraCluster.make(config.cassandra.client, config.cassandra.retries)
       cassandraSession <- cassandraCluster.session
       replicatedJournal <- replicatedJournal(cassandraCluster, cassandraSession).toResource
       result <- make(config, metrics, replicatedJournal, hostName, ReplicatedOffsetNotifier.empty)

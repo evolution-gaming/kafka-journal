@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.cassandra
 
-import com.datastax.driver.core.ConsistencyLevel
+import com.datastax.oss.driver.api.core.{ConsistencyLevel, DefaultConsistencyLevel}
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
@@ -15,12 +15,14 @@ private[journal] object CassandraConsistencyConfig {
 
   val default: CassandraConsistencyConfig = CassandraConsistencyConfig()
 
+  // `ConsistencyLevel` of the Java driver 4 is an interface, the built-in levels are read as enum
+
   final case class Read(value: ConsistencyLevel = ConsistencyLevel.LOCAL_QUORUM)
 
   object Read {
     val default: Read = Read()
 
-    implicit val configReaderRead: ConfigReader[Read] = ConfigReader[ConsistencyLevel].map { a => Read(a) }
+    implicit val configReaderRead: ConfigReader[Read] = ConfigReader[DefaultConsistencyLevel].map { a => Read(a) }
   }
 
   final case class Write(value: ConsistencyLevel = ConsistencyLevel.LOCAL_QUORUM)
@@ -28,6 +30,6 @@ private[journal] object CassandraConsistencyConfig {
   object Write {
     val default: Write = Write()
 
-    implicit val configReaderWrite: ConfigReader[Write] = ConfigReader[ConsistencyLevel].map { a => Write(a) }
+    implicit val configReaderWrite: ConfigReader[Write] = ConfigReader[DefaultConsistencyLevel].map { a => Write(a) }
   }
 }

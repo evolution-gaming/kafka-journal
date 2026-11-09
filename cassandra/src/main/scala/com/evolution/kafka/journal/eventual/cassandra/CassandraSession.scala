@@ -3,27 +3,24 @@ package com.evolution.kafka.journal.eventual.cassandra
 import cats.Parallel
 import cats.effect.{Async, Concurrent, Resource}
 import cats.syntax.all.*
-import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
-import com.datastax.driver.core.{ResultSet as _, *}
+import com.datastax.oss.driver.api.core.cql.{PreparedStatement, Row, SimpleStatement, Statement}
 import com.evolution.kafka.journal.JournalError
 import com.evolution.kafka.journal.util.StreamHelper.*
 import com.evolution.scache.Cache
+import com.evolution.scassandra
+import com.evolution.scassandra.syntax.*
 import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}
-import com.evolutiongaming.scassandra
-import com.evolutiongaming.scassandra.NextHostRetryPolicy
-import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.sstream.Stream
 
 trait CassandraSession[F[_]] {
 
   def prepare(query: String): F[PreparedStatement]
 
-  def execute(statement: Statement): Stream[F, Row]
+  def execute(statement: Statement[?]): Stream[F, Row]
 
   def unsafe: scassandra.CassandraSession[F]
 
-  final def execute(statement: String): Stream[F, Row] = execute(new SimpleStatement(statement))
+  final def execute(statement: String): Stream[F, Row] = execute(SimpleStatement.newInstance(statement))
 }
 
 object CassandraSession {
@@ -33,35 +30,34 @@ object CassandraSession {
     F: CassandraSession[F],
   ): CassandraSession[F] = F
 
+  /**
+   * Marks all the statements as idempotent, so these are retried by the driver.
+   *
+   * Unlike the Java driver 3, the retry policy of the Java driver 4 cannot be set per statement, it
+   * is configured in `advanced.retry-policy` of an execution profile instead, see
+   * [[CassandraCluster.make]].
+   */
   def apply[F[_]](
     session: CassandraSession[F],
-    retries: Int,
     trace: Boolean = false,
   ): CassandraSession[F] = {
-    val retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries))
-    session.configured(retryPolicy, trace)
+    session.configured(trace)
   }
 
-  private def apply[F[_]: Async: FromGFuture](
+  private def apply[F[_]: Async](
     session: scassandra.CassandraSession[F],
   ): CassandraSession[F] = {
     new CassandraSession[F] {
 
       def prepare(query: String): F[PreparedStatement] = session.prepare(query)
 
-      def execute(statement: Statement): Stream[F, Row] = {
-        val execute = session.execute(statement)
-        for {
-          resultSet <- execute.toStream
-          row <- ResultSet[F](resultSet)
-        } yield row
-      }
+      def execute(statement: Statement[?]): Stream[F, Row] = session.executeStream(statement)
 
       def unsafe: scassandra.CassandraSession[F] = session
     }
   }
 
-  def make[F[_]: Async: Parallel: FromGFuture](
+  def make[F[_]: Async: Parallel](
     session: scassandra.CassandraSession[F],
   ): Resource[F, CassandraSession[F]] = {
     apply[F](session)
@@ -72,7 +68,6 @@ object CassandraSession {
   implicit class CassandraSessionOps[F[_]](val self: CassandraSession[F]) extends AnyVal {
 
     def configured(
-      retryPolicy: RetryPolicy,
       trace: Boolean,
     ): CassandraSession[F] = new CassandraSession[F] {
 
@@ -80,12 +75,14 @@ object CassandraSession {
         self.prepare(query)
       }
 
-      def execute(statement: Statement): Stream[F, Row] = {
-        val configured = statement
-          .setRetryPolicy(retryPolicy)
-          .setIdempotent(true)
-          .trace(trace)
-        self.execute(configured)
+      def execute(statement: Statement[?]): Stream[F, Row] = {
+        // statements of the Java driver 4 are immutable, the setters return a new instance
+        def configure[S <: Statement[S]](statement: Statement[S]): S = {
+          statement
+            .setIdempotent(true)
+            .setTracing(trace)
+        }
+        self.execute(configure(statement))
       }
 
       def unsafe: scassandra.CassandraSession[F] = self.unsafe
@@ -105,7 +102,7 @@ object CassandraSession {
             cache.getOrUpdate(query) { self.prepare(query) }
           }
 
-          def execute(statement: Statement): Stream[F, Row] = self.execute(statement)
+          def execute(statement: Statement[?]): Stream[F, Row] = self.execute(statement)
 
           def unsafe: scassandra.CassandraSession[F] = self.unsafe
         }
@@ -129,7 +126,7 @@ object CassandraSession {
             .handleErrorWith { a => error(s"prepare query: $query", a) }
         }
 
-        def execute(statement: Statement): Stream[F, Row] = {
+        def execute(statement: Statement[?]): Stream[F, Row] = {
           self
             .execute(statement)
             .handleErrorWith { (a: Throwable) => error[Row](s"execute statement: $statement", a).toStream }

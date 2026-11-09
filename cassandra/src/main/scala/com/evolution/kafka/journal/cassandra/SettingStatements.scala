@@ -2,15 +2,15 @@ package com.evolution.kafka.journal.cassandra
 
 import cats.Monad
 import cats.syntax.all.*
-import com.datastax.driver.core.{GettableByNameData, SettableData}
+import com.datastax.oss.driver.api.core.data.{GettableByName, SettableByName}
 import com.evolution.kafka.journal.Setting.{Key, Value}
 import com.evolution.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolution.kafka.journal.cassandra.OriginExtension.*
 import com.evolution.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolution.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolution.kafka.journal.{Origin, Setting}
-import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow, TableName}
+import com.evolution.scassandra.syntax.*
+import com.evolution.scassandra.{DecodeRow, EncodeRow, TableName}
 import com.evolutiongaming.sstream.Stream
 
 import java.time.Instant
@@ -19,7 +19,7 @@ private[journal] object SettingStatements {
 
   implicit val encodeRowSetting: EncodeRow[Setting] = new EncodeRow[Setting] {
 
-    def apply[B <: SettableData[B]](data: B, value: Setting): B = {
+    def apply[B <: SettableByName[B]](data: B, value: Setting): B = {
       data
         .encode("key", value.key)
         .encode("value", value.value)
@@ -28,7 +28,7 @@ private[journal] object SettingStatements {
     }
   }
 
-  implicit val decodeRowSetting: DecodeRow[Setting] = { (data: GettableByNameData) =>
+  implicit val decodeRowSetting: DecodeRow[Setting] = { (data: GettableByName) =>
     {
       Setting(
         key = data.decode[Key]("key"),
@@ -97,7 +97,7 @@ private[journal] object SettingStatements {
       for {
         prepared <- query.prepare
       } yield {
-        val bound = prepared.setConsistencyLevel(consistencyConfig.value).bind()
+        val bound = prepared.bind().setConsistencyLevel(consistencyConfig.value)
         for {
           row <- bound.execute
         } yield {

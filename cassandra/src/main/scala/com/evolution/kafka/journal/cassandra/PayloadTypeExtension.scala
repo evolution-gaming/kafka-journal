@@ -2,7 +2,7 @@ package com.evolution.kafka.journal.cassandra
 
 import com.evolution.kafka.journal.PayloadType
 import com.evolution.kafka.journal.PayloadType.Binary
-import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
+import com.evolution.scassandra.{DecodeByName, EncodeByName}
 
 object PayloadTypeExtension {
   implicit val encodeByNamePayloadType: EncodeByName[PayloadType] = EncodeByName[String].contramap { _.name }

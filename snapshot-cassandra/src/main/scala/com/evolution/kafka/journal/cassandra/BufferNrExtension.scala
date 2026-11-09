@@ -2,7 +2,7 @@ package com.evolution.kafka.journal.cassandra
 
 import cats.Id
 import com.evolution.kafka.journal.BufferNr
-import com.evolutiongaming.scassandra.*
+import com.evolution.scassandra.*
 
 private[journal] object BufferNrExtension {
   implicit val encodeByNameBufferNr: EncodeByName[BufferNr] =

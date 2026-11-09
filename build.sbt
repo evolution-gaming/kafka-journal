@@ -293,7 +293,7 @@ lazy val cassandra = project
     ),
     libraryDependencies ++= crossSettings(
       scalaVersion = scalaVersion.value,
-      if2 = Seq(),
+      if2 = Seq(Pureconfig.Scala2.Generic),
       if3 = Seq(Pureconfig.Scala3.Generic),
     ),
   )

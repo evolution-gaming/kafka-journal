@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.eventual.cassandra.util
 
-import com.datastax.driver.core.Duration as DurationC
+import com.datastax.oss.driver.api.core.data.CqlDuration as DurationC
 import com.evolution.kafka.journal.eventual.cassandra.util.FiniteDurationHelper.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
