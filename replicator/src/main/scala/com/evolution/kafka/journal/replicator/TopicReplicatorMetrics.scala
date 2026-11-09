@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.replicator
 
-import cats.data.NonEmptyList as Nel
+import cats.data.NonEmptyList
 import cats.effect.*
 import cats.syntax.all.*
 import cats.{Applicative, Monad}
@@ -85,7 +85,7 @@ object TopicReplicatorMetrics {
     val replicationHistogram = registry.histogram(
       name = s"${ prefix }_replication_latency_histogram",
       help = "Replication latency in seconds",
-      buckets = Buckets(Nel.of(0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)),
+      buckets = Buckets(NonEmptyList.of(0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)),
       labels = LabelNames("topic", "type"),
     )
 
