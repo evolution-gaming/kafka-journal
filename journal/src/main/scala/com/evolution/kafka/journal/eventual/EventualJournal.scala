@@ -113,6 +113,42 @@ object EventualJournal {
     def pointer(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def ids(topic: Topic, latency: FiniteDuration): F[Unit]
+
+    /**
+     * Records a data integrity violation found while reading the journal, see
+     * [[com.evolution.kafka.journal.Journal.DataIntegrityConfig]].
+     *
+     * @param violation
+     *   sets the `kind` label of the `data_integrity_violations_total` counter
+     * @param enforced
+     *   sets the `enforced` label: `true` if the corresponding check is enabled, so the event was
+     *   dropped or the read failed; `false` if the check is disabled and the event was still
+     *   returned
+     */
+    def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation, enforced: Boolean): F[Unit]
+  }
+
+  /**
+   * Kind of data integrity violation detected on read
+   */
+  sealed abstract class DataIntegrityViolation(val label: String) extends Product with Serializable
+
+  object DataIntegrityViolation {
+
+    /**
+     * Event has no meta record id, while the journal head has one
+     */
+    case object Orphan extends DataIntegrityViolation("orphan")
+
+    /**
+     * Event belongs to a different (purged) meta record than the current journal head
+     */
+    case object PurgedMeta extends DataIntegrityViolation("purged_meta")
+
+    /**
+     * The same `seqNr` is stored in multiple records
+     */
+    case object SeqNrDuplicate extends DataIntegrityViolation("seqnr_duplicate")
   }
 
   object Metrics {
@@ -132,6 +168,8 @@ object EventualJournal {
       def ids(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
       def offset(topic: Topic, latency: FiniteDuration): F[Unit] = unit
+
+      def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation, enforced: Boolean): F[Unit] = unit
     }
 
     private sealed abstract class Main
@@ -161,11 +199,18 @@ object EventualJournal {
         labels = LabelNames("topic"),
       )
 
+      val dataIntegrityViolationsCounter = registry.counter(
+        name = s"${ prefix }_data_integrity_violations_total",
+        help = "Number of data integrity violations detected on read",
+        labels = LabelNames("topic", "kind", "enforced"),
+      )
+
       for {
         versionGauge <- versionGauge
         _ <- versionGauge.labels(Version.current.value).set().toResource
         latencySummary <- latencySummary
         eventsSummary <- eventsSummary
+        dataIntegrityViolationsCounter <- dataIntegrityViolationsCounter
       } yield {
 
         def observeLatency(name: String, topic: Topic, latency: FiniteDuration) = {
@@ -194,6 +239,12 @@ object EventualJournal {
 
           def offset(topic: Topic, latency: FiniteDuration): F[Unit] = {
             observeLatency(name = "offset", topic = topic, latency = latency)
+          }
+
+          def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation, enforced: Boolean): F[Unit] = {
+            dataIntegrityViolationsCounter
+              .labels(topic, violation.label, enforced.toString)
+              .inc()
           }
         }
       }
