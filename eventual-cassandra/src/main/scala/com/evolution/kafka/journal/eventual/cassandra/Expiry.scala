@@ -33,8 +33,8 @@ object Expiry {
 
   implicit val decodeByNameOptExpireAfter: DecodeByName[Option[ExpireAfter]] = DecodeByName.optDecodeByName[ExpireAfter]
 
-  implicit val decodeRowExpiryOpt: DecodeRow[Option[Expiry]] = { (row: GettableByNameData) =>
-    {
+  implicit val decodeRowExpiryOpt: DecodeRow[Option[Expiry]] = new DecodeRow[Option[Expiry]] {
+    def apply(row: GettableByNameData): Option[Expiry] = {
       for {
         expireAfter <- row.decode[Option[ExpireAfter]]("expire_after")
         expireOn <- row.decode[Option[ExpireOn]]("expire_on")

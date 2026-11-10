@@ -126,8 +126,9 @@ object HeadInfo {
 
   object NonEmpty {
 
-    implicit val semigroupNonEmpty: Semigroup[NonEmpty] = { (a: NonEmpty, b: NonEmpty) =>
-      {
+    implicit val semigroupNonEmpty: Semigroup[NonEmpty] = new Semigroup[NonEmpty] {
+
+      def combine(a: NonEmpty, b: NonEmpty): NonEmpty = {
 
         def onDelete(a: Append, b: Delete) = {
           val deleteTo = a.deleteTo.fold(b.deleteTo) { _ max b.deleteTo }

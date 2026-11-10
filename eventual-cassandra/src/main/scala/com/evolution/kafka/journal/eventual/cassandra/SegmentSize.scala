@@ -65,8 +65,8 @@ private[journal] object SegmentSize {
 
   implicit val decodeRowSegmentSize: DecodeRow[SegmentSize] = DecodeRow[SegmentSize]("segment_size")
 
-  implicit val configReaderSegmentSize: ConfigReader[SegmentSize] = { (cursor: ConfigCursor) =>
-    {
+  implicit val configReaderSegmentSize: ConfigReader[SegmentSize] = new ConfigReader[SegmentSize] {
+    def from(cursor: ConfigCursor): ConfigReader.Result[SegmentSize] = {
       for {
         value <- cursor.asInt
         segmentSize = of[Either[String, *]](value)

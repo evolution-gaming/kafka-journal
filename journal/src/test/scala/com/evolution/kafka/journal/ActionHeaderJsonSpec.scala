@@ -13,8 +13,11 @@ class ActionHeaderJsonSpec extends AnyFunSuite with Matchers with SerdeTesting {
   // For some reason, ActionHeader Format is asymmetric:
   // it has Writes for ActionHeader but Reads only for Option[ActionHeader].
   // For this test, we can define Reads[ActionHeader] through the Option impl.
-  private implicit val actionHeaderReads: Reads[ActionHeader] = (json: JsValue) => {
-    ActionHeader.formatOptActionHeader.reads(json).map(_.get)
+  private implicit val actionHeaderReads: Reads[ActionHeader] = new Reads[ActionHeader] {
+
+    def reads(json: JsValue): JsResult[ActionHeader] = {
+      ActionHeader.formatOptActionHeader.reads(json).map(_.get)
+    }
   }
   private implicit val actionHeaderFromBytes: FromBytes[Try, ActionHeader] = FromBytes.fromReads[Try, ActionHeader]
 

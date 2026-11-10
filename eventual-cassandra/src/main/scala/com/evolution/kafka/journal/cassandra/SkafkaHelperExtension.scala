@@ -20,8 +20,11 @@ object SkafkaHelperExtension {
 
   implicit val decodeByNameOffset: DecodeByName[Offset] = DecodeByName[Long].map { a => Offset.of[Try](a).get }
 
-  implicit val decodeRowPartition: DecodeRow[Partition] = (data: GettableByNameData) => {
-    data.decode[Partition]("partition")
+  implicit val decodeRowPartition: DecodeRow[Partition] = new DecodeRow[Partition] {
+
+    def apply(data: GettableByNameData): Partition = {
+      data.decode[Partition]("partition")
+    }
   }
 
   implicit val encodeRowPartition: EncodeRow[Partition] = new EncodeRow[Partition] {
@@ -31,8 +34,11 @@ object SkafkaHelperExtension {
     }
   }
 
-  implicit val decodeRowOffset: DecodeRow[Offset] = (data: GettableByNameData) => {
-    data.decode[Offset]("offset")
+  implicit val decodeRowOffset: DecodeRow[Offset] = new DecodeRow[Offset] {
+
+    def apply(data: GettableByNameData): Offset = {
+      data.decode[Offset]("offset")
+    }
   }
 
   implicit val encodeRowOffset: EncodeRow[Offset] = new EncodeRow[Offset] {

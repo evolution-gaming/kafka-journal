@@ -18,7 +18,9 @@ object Version {
 
   implicit val showVersion: Show[Version] = Show.fromToString
 
-  implicit val orderingVersion: Ordering[Version] = (a: Version, b: Version) => a.value compare b.value
+  implicit val orderingVersion: Ordering[Version] = new Ordering[Version] {
+    def compare(a: Version, b: Version): Int = a.value compare b.value
+  }
 
   implicit val orderVersion: Order[Version] = Order.fromOrdering
 

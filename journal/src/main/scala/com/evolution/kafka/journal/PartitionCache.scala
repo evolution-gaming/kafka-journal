@@ -952,8 +952,9 @@ private[journal] object PartitionCache {
   private final case class Entry(offset: Offset, headInfo: HeadInfo.NonEmpty)
 
   private object Entry {
-    implicit val semigroupEntry: Semigroup[Entry] = { (a: Entry, b: Entry) =>
-      {
+    implicit val semigroupEntry: Semigroup[Entry] = new Semigroup[Entry] {
+
+      def combine(a: Entry, b: Entry): Entry = {
         Entry(headInfo = a.headInfo combine b.headInfo, offset = a.offset max b.offset)
       }
     }
@@ -974,8 +975,9 @@ private[journal] object PartitionCache {
   private final case class Entries(bounds: Bounds[Offset], values: Map[String, Entry])
 
   private object Entries {
-    implicit val semigroupEntries: Semigroup[Entries] = { (a: Entries, b: Entries) =>
-      {
+    implicit val semigroupEntries: Semigroup[Entries] = new Semigroup[Entries] {
+
+      def combine(a: Entries, b: Entries): Entries = {
         Entries(values = a.values combine b.values, bounds = a.bounds combine b.bounds)
       }
     }

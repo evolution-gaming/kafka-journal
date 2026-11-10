@@ -18,10 +18,15 @@ object RecordMetadata {
     val format = Json.using[WithDefaultValues].format[RecordMetadata]
     val reads = format
       .filter(_ != empty) // if empty is parsed, we might be dealing with an older format - HeaderMetadata
-      .orElse { (json: JsValue) =>
-        json
-          .validate[HeaderMetadata]
-          .map { a => RecordMetadata(a, PayloadMetadata.empty) }
+      .orElse {
+        new Reads[RecordMetadata] {
+
+          def reads(json: JsValue): JsResult[RecordMetadata] = {
+            json
+              .validate[HeaderMetadata]
+              .map { a => RecordMetadata(a, PayloadMetadata.empty) }
+          }
+        }
       }
     OFormat(reads, format)
   }

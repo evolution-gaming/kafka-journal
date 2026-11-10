@@ -15,7 +15,10 @@ trait KafkaReadMetrics[F[_]] {
 
 object KafkaReadMetrics {
 
-  def empty[F[_]: Applicative]: KafkaReadMetrics[F] = (_, _) => Applicative[F].unit
+  def empty[F[_]: Applicative]: KafkaReadMetrics[F] = new KafkaReadMetrics[F] {
+
+    def apply(payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] = Applicative[F].unit
+  }
 
   def make[F[_]](
     registry: CollectorRegistry[F],

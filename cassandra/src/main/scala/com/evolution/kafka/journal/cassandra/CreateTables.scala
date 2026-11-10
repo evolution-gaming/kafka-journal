@@ -75,7 +75,9 @@ private[journal] object CreateTables { self =>
     }
   }
 
-  def const[F[_]](fresh: F[Fresh]): CreateTables[F] = (_: String, _: Nel[Table]) => fresh
+  def const[F[_]](fresh: F[Fresh]): CreateTables[F] = new CreateTables[F] {
+    def apply(keyspace: String, tables: Nel[Table]): F[Fresh] = fresh
+  }
 
   /**
    * Table to be created in a specific keyspace.

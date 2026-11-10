@@ -47,8 +47,9 @@ object KafkaConfig {
     )
   }
 
-  def configReader(default: => KafkaConfig): ConfigReader[KafkaConfig] = { (cursor: ConfigCursor) =>
-    {
+  def configReader(default: => KafkaConfig): ConfigReader[KafkaConfig] = new ConfigReader[KafkaConfig] {
+
+    def from(cursor: ConfigCursor): ConfigReader.Result[KafkaConfig] = {
       for {
         cursor <- cursor.asObjectCursor
       } yield {
