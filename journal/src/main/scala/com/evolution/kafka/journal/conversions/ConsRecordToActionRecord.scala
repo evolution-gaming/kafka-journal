@@ -19,8 +19,9 @@ object ConsRecordToActionRecord {
     implicit
     consRecordToActionHeader: ConsRecordToActionHeader[F],
     headerToTuple: HeaderToTuple[F],
-  ): ConsRecordToActionRecord[F] = { (consRecord: ConsRecord) =>
-    {
+  ): ConsRecordToActionRecord[F] = new ConsRecordToActionRecord[F] {
+
+    def apply(consRecord: ConsRecord): F[Option[ActionRecord[Action]]] = {
 
       def action(key: Key, timestamp: Instant, header: ActionHeader) = {
 

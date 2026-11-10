@@ -13,7 +13,9 @@ private[journal] trait CreateKeyspace[F[_]] {
 
 private[journal] object CreateKeyspace {
 
-  def empty[F[_]: Applicative]: CreateKeyspace[F] = (_: KeyspaceConfig) => ().pure[F]
+  def empty[F[_]: Applicative]: CreateKeyspace[F] = new CreateKeyspace[F] {
+    def apply(config: KeyspaceConfig): F[Unit] = ().pure[F]
+  }
 
   def apply[F[_]: Monad: CassandraCluster: CassandraSession: LogOf]: CreateKeyspace[F] = new CreateKeyspace[F] {
 

@@ -13,7 +13,7 @@ import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.retry.Retry.implicits.*
-import com.evolutiongaming.retry.{OnError, Strategy}
+import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.typesafe.config.Config
 import pureconfig.ConfigSource
@@ -228,8 +228,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
         val strategy = Strategy
           .fibonacci(100.millis)
           .cap(config.startTimeout)
-        val onError: OnError[IO, Throwable] = { (error, status, decision) =>
-          {
+        val onError: OnError[IO, Throwable] = new OnError[IO, Throwable] {
+          def apply(error: Throwable, status: Retry.Status, decision: OnError.Decision): IO[Unit] = {
             decision match {
               case OnError.Decision.Retry(delay) =>
                 log.warn(s"allocate failed, retrying in $delay, error: $error")
