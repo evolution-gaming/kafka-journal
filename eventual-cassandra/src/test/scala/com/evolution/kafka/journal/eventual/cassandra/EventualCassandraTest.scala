@@ -233,7 +233,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       } yield {}
 
       stateT.run(State.empty) should matchPattern { case Failure(_: JournalError) => }
-      violations.toList shouldEqual List((topic0, EventualJournal.DataIntegrityViolation.SeqNrDuplicate, true))
+      violations.toList shouldEqual List((topic0, EventualJournal.DataIntegrityViolation.SeqNrDuplicateEnforced))
     }
 
     test(s"ids, $suffix") {
@@ -300,7 +300,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       )
 
       stateT.run(initial).map { case (_, events) => events } shouldEqual List(record2.event).pure[Try]
-      violations.toList shouldEqual List((topic0, EventualJournal.DataIntegrityViolation.PurgedMeta, true))
+      violations.toList shouldEqual List((topic0, EventualJournal.DataIntegrityViolation.PurgedMetaEnforced))
     }
 
     test(s"read events with duplicated seqNr if only one 'branch' correlates with meta, $suffix") {
@@ -339,14 +339,14 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       )
 
       stateT.run(initial).map { case (_, events) => events } shouldEqual List(record2.event).pure[Try]
-      violations.toList shouldEqual List((topic0, EventualJournal.DataIntegrityViolation.Orphan, true))
+      violations.toList shouldEqual List((topic0, EventualJournal.DataIntegrityViolation.OrphanEnforced))
     }
   }
 }
 
 object EventualCassandraTest {
 
-  type Violation = (Topic, EventualJournal.DataIntegrityViolation, Boolean)
+  type Violation = (Topic, EventualJournal.DataIntegrityViolation)
 
   /**
    * Records reported data integrity violations, ignores everything else
@@ -362,9 +362,8 @@ object EventualCassandraTest {
       def dataIntegrityViolation(
         topic: Topic,
         violation: EventualJournal.DataIntegrityViolation,
-        enforced: Boolean,
       ): StateT[Unit] = StateT.unit { state =>
-        violations += ((topic, violation, enforced))
+        violations += ((topic, violation))
         state
       }
     }

@@ -139,20 +139,19 @@ object EventualJournal {
     /**
      * Event has no meta record id, while the journal head has one
      */
-    final case class Orphan(override val enforced: Boolean)
-    extends DataIntegrityViolation("orphan", enforced)
+    case object OrphanEnforced extends DataIntegrityViolation("orphan", true)
+    case object OrphanDetected extends DataIntegrityViolation("orphan", false)
 
     /**
      * Event belongs to a different (purged) meta record than the current journal head
      */
-    final case class PurgedMeta(override val enforced: Boolean)
-    extends DataIntegrityViolation("purged_meta", enforced)
+    case object PurgedMetaEnforced extends DataIntegrityViolation("purged_meta", true)
+    case object PurgedMetaDetected extends DataIntegrityViolation("purged_meta", false)
 
     /**
      * The same `seqNr` is stored in multiple records
      */
-    final case class SeqNrDuplicate(override val enforced: Boolean)
-    extends DataIntegrityViolation("seqnr_duplicate", enforced)
+    case object SeqNrDuplicateEnforced extends DataIntegrityViolation("seqnr_duplicate", true)
   }
 
   object Metrics {
