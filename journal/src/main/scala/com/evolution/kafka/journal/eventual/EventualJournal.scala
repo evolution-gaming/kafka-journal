@@ -125,30 +125,34 @@ object EventualJournal {
      *   dropped or the read failed; `false` if the check is disabled and the event was still
      *   returned
      */
-    def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation, enforced: Boolean): F[Unit]
+    def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation): F[Unit]
   }
 
   /**
    * Kind of data integrity violation detected on read
    */
-  sealed abstract class DataIntegrityViolation(val label: String) extends Product with Serializable
+  sealed abstract class DataIntegrityViolation(val label: String, val enforced: Boolean) extends Product
+  with Serializable
 
   object DataIntegrityViolation {
 
     /**
      * Event has no meta record id, while the journal head has one
      */
-    case object Orphan extends DataIntegrityViolation("orphan")
+    final case class Orphan(override val enforced: Boolean)
+    extends DataIntegrityViolation("orphan", enforced)
 
     /**
      * Event belongs to a different (purged) meta record than the current journal head
      */
-    case object PurgedMeta extends DataIntegrityViolation("purged_meta")
+    final case class PurgedMeta(override val enforced: Boolean)
+    extends DataIntegrityViolation("purged_meta", enforced)
 
     /**
      * The same `seqNr` is stored in multiple records
      */
-    case object SeqNrDuplicate extends DataIntegrityViolation("seqnr_duplicate")
+    final case class SeqNrDuplicate(override val enforced: Boolean)
+    extends DataIntegrityViolation("seqnr_duplicate", enforced)
   }
 
   object Metrics {
@@ -169,7 +173,7 @@ object EventualJournal {
 
       def offset(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
-      def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation, enforced: Boolean): F[Unit] = unit
+      def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation): F[Unit] = unit
     }
 
     private sealed abstract class Main
@@ -241,9 +245,9 @@ object EventualJournal {
             observeLatency(name = "offset", topic = topic, latency = latency)
           }
 
-          def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation, enforced: Boolean): F[Unit] = {
+          def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation): F[Unit] = {
             dataIntegrityViolationsCounter
-              .labels(topic, violation.label, enforced.toString)
+              .labels(topic, violation.label, violation.enforced.toString)
               .inc()
           }
         }
