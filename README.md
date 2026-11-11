@@ -85,7 +85,7 @@ of the same entity were writing to the journal at the same time:
 Both are counted by `replicated_journal_forks_total` metric with `kind` label set to `duplicate` or `regression`.
 
 In addition, the `eventual_journal_data_integrity_violations_total` metric counts how many times client has observed the
-fork and if data integrity checks are enforced; it uses labels per topic:
+fork and if data integrity checks are `enforced`, reported per `topic`:
 * `orphan` - journal's head has meta-record ID, but new record lacks meta marker
 * `purged_meta` - record from (previous) reincarnation was detected
 * `seqnr_duplicate` - multiple journal records share the `seqNr`
