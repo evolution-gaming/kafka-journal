@@ -90,7 +90,7 @@ fork and if data integrity checks are `enforced`, reported per `topic`:
 * `purged_meta` - record from (previous) reincarnation was detected
 * `seqnr_duplicate` - multiple journal records share the `seqNr`
 
-The client-side metric is just for indication, the actual fork is detected by the replicator. Client might:
+The client-side metric is just for indication, the actual fork is detected by the replicator, if enabled. Client might:
 * detect fork (much) later, when it tries to recover - usually leads to the actor's inability to recover, and it requires 
   manual inspection of stored journal and its amendments (decision which tine to discard, how it affects downstream 
   users, etc) to unblock the actor's recovery
