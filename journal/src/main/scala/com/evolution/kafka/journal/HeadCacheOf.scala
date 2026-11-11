@@ -14,6 +14,7 @@ trait HeadCacheOf[F[_]] {
   def apply(
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
+    config: HeadCacheConfig,
   ): Resource[F, HeadCache[F]]
 }
 
@@ -21,8 +22,9 @@ object HeadCacheOf {
 
   def empty[F[_]: Applicative]: HeadCacheOf[F] = const(HeadCache.empty[F].pure[F].toResource)
 
-  def const[F[_]](value: Resource[F, HeadCache[F]]): HeadCacheOf[F] = { (_: ConsumerConfig, _: EventualJournal[F]) =>
-    value
+  def const[F[_]](value: Resource[F, HeadCache[F]]): HeadCacheOf[F] = {
+    (_: ConsumerConfig, _: EventualJournal[F], _: HeadCacheConfig) =>
+      value
   }
 
   def apply[F[_]](
@@ -34,9 +36,10 @@ object HeadCacheOf {
     F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode,
   ](
     metrics: Option[HeadCacheMetrics[F]],
-  ): HeadCacheOf[F] = { (consumerConfig: ConsumerConfig, eventualJournal: EventualJournal[F]) =>
-    {
-      HeadCache.make[F](consumerConfig, eventualJournal, metrics)
-    }
+  ): HeadCacheOf[F] = {
+    (consumerConfig: ConsumerConfig, eventualJournal: EventualJournal[F], config: HeadCacheConfig) =>
+      {
+        HeadCache.make[F](consumerConfig, eventualJournal, metrics, config)
+      }
   }
 }
