@@ -213,6 +213,14 @@ object ReplicatedJournal {
      *   - `false`: `regression`, the `seqNr` is out of order
      */
     def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit]
+
+    /**
+     * Creates the journal fork metrics of a topic with zero values, so that they are present, and
+     * can be alerted on, before the first fork is detected.
+     *
+     * Called when the topic is discovered, only if fork detection is enabled.
+     */
+    def journalForkInit(topic: Topic): F[Unit]
   }
 
   object Metrics {
@@ -240,6 +248,8 @@ object ReplicatedJournal {
         def setSchemaVersion(version: Int): F[Unit] = unit
 
         def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] = unit
+
+        def journalForkInit(topic: Topic): F[Unit] = unit
       }
     }
 
@@ -303,6 +313,9 @@ object ReplicatedJournal {
             .observe(latency.toNanos.nanosToSeconds)
         }
 
+        def forkKind(duplicateProven: Boolean): String =
+          if (duplicateProven) "duplicate" else "regression"
+
         def observeLatency(name: String, latency: FiniteDuration): F[Unit] = {
           latencySummary
             .labels(name)
@@ -341,8 +354,13 @@ object ReplicatedJournal {
             schemaVersionInfo.labels(s"$version").set()
 
           def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] = {
-            val kind = if (duplicateProven) "duplicate" else "regression"
-            forksCounter.labels(topic, kind).inc()
+            forksCounter.labels(topic, forkKind(duplicateProven)).inc()
+          }
+
+          def journalForkInit(topic: Topic): F[Unit] = {
+            List(true, false).traverse_ { duplicateProven =>
+              forksCounter.labels(topic, forkKind(duplicateProven)).inc(0)
+            }
           }
 
         }

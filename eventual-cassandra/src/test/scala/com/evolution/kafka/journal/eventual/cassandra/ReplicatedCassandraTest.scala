@@ -23,6 +23,7 @@ import play.api.libs.json.Json
 import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.*
 import scala.util.Try
 
@@ -2221,6 +2222,37 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks.map(_.isDuplicate) shouldEqual List(false)
     }
   }
+
+  test("fork reporter is initialized for a topic when its journal is created") {
+    val initialized = ListBuffer.empty[Topic]
+    val reporter = new JournalForkReporter[StateT] {
+
+      def report(fork: JournalFork): StateT[Unit] = ().pure[StateT]
+
+      def init(topic: Topic): StateT[Unit] = StateT.unit { state =>
+        initialized += topic
+        state
+      }
+    }
+    val journal = {
+      implicit val secureRandom: SecureRandom[StateT] = staticSecureRandom
+      ReplicatedCassandra(
+        SegmentSize.default,
+        SegmentNrs.Of[StateT](first = Segments.default, second = Segments.old),
+        statements,
+        ExpiryService(ZoneOffset.UTC),
+        JournalForkDetector.fromReporter(reporter),
+      )
+    }
+
+    val program = for {
+      _ <- journal.journal(topic0).use { _ => ().pure[StateT] }
+      _ <- journal.journal(topic1).use { _ => ().pure[StateT] }
+    } yield {}
+
+    program.run(State.empty).get shouldEqual ((State.empty, ()))
+    initialized.toList shouldEqual List(topic0, topic1)
+  }
 }
 
 object ReplicatedCassandraTest {
@@ -2612,8 +2644,12 @@ object ReplicatedCassandraTest {
     final case class DeleteExpiry(key: Key, segment: SegmentNr) extends Action
   }
 
-  val forkReporter: JournalForkReporter[StateT] = { fork =>
-    StateT.unit { state => state.copy(forks = state.forks :+ fork) }
+  val forkReporter: JournalForkReporter[StateT] = new JournalForkReporter[StateT] {
+
+    def report(fork: JournalFork): StateT[Unit] =
+      StateT.unit { state => state.copy(forks = state.forks :+ fork) }
+
+    def init(topic: Topic): StateT[Unit] = ().pure[StateT]
   }
 
   final case class State(
