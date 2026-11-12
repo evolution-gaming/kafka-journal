@@ -43,7 +43,9 @@ object HeadCacheConfig {
    * @param maxSize
    *   Maximum number of journals to store for a single partition, i.e. in [[PartitionCache]]. I.e.
    *   the total maximum number of journals store in [[TopicCache]] will be equal to
-   *   `[number-of=partitions-in-topic] x [maxSize]`.
+   *   `[number-of=partitions-in-topic] x [maxSize]`. When a partition exceeds `maxSize`,
+   *   [[HeadCache#get]] returns `None` for all journals of the partition until the records of the
+   *   dropped journals are replicated.
    * @param dropUponLimit
    *   Proportion of number of journals to drop from a partition cache if `maxSize` is reached.
    *   Value outside of the range of `0.01` to `1.0` will be ignored. `0.01` means that 1% of
