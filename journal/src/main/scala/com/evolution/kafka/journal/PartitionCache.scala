@@ -5,7 +5,7 @@ import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.kernel.CommutativeMonoid
 import cats.syntax.all.*
-import cats.{Monad, MonadThrow}
+import cats.{Applicative, Monad}
 import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.skafka.Offset
 
@@ -237,7 +237,7 @@ private[journal] object PartitionCache {
                       } else {
                         state
                           .entries
-                          .flatMap { _.result[F](id, offset) }
+                          .flatMap { _.result[F](id, offset, state.offset) }
                       }
                     }
                     result
@@ -366,7 +366,7 @@ private[journal] object PartitionCache {
                               val (listeners1, effect) = listeners.foldLeft((listeners, ().pure[F])) {
                                 case ((listeners, effect), (listenerId, listener)) =>
                                   entriesNotLimited
-                                    .result[F](listener.id, listener.offset)
+                                    .result[F](listener.id, listener.offset, state.offset)
                                     .fold {
                                       (listeners, effect)
                                     } { result =>
@@ -437,7 +437,7 @@ private[journal] object PartitionCache {
                                     val values = entries
                                       .values
                                       .filter { case (_, entry) => entry.offset >= bounds.min }
-                                    Entries(bounds = bounds, values = values).some
+                                    Entries(bounds = bounds, values = values, droppedUpTo = entries.droppedUpTo).some
                                   }
                                 } else {
                                   none[Entries].pure[F]
@@ -539,7 +539,7 @@ private[journal] object PartitionCache {
     def ahead[F[_]]: Result[F] = Now.ahead
 
     /**
-     * [[HeadInfo]] was dropped because maximum cache size was reached.
+     * [[HeadInfo]] is not available because maximum cache size was reached.
      *
      * Same as [[Now.Limited]], but returns [[Result]].
      *
@@ -577,6 +577,9 @@ private[journal] object PartitionCache {
      *
      * In other words, it means that this offset was either already replicated, or had the latest
      * [[HeadInfo]] information inside of [[PartitionCache]] when [[PartitionCache#get]] was called.
+     *
+     * The exception is [[Now.Limited]], which might be returned for an [[Offset]] not seen by
+     * [[PartitionCache]] yet.
      */
     sealed trait Now[F[_]] extends Result[F]
 
@@ -600,7 +603,7 @@ private[journal] object PartitionCache {
       def ahead[F[_]]: Now[F] = Ahead[F]
 
       /**
-       * [[HeadInfo]] was dropped because maximum cache size was reached.
+       * [[HeadInfo]] is not available because maximum cache size was reached.
        *
        * Same as [[Now.Limited]], but returns [[Now]].
        *
@@ -644,10 +647,14 @@ private[journal] object PartitionCache {
       }
 
       /**
-       * [[HeadInfo]] was dropped because maximum cache size was reached.
+       * [[HeadInfo]] is not available because maximum cache size was reached.
        *
-       * In other words, [[PartitionCache]] has seen given offset in Kafka, but we could not return
-       * a [[HeadInfo]] value to be used, and it has to be calcuated again.
+       * In other words, we could not return a [[HeadInfo]] value to be used, and it has to be
+       * calculated again.
+       *
+       * After some journals are dropped, it is returned for every journal until the records of the
+       * dropped journals are replicated, because [[PartitionCache]] does not remember which
+       * journals were dropped.
        */
       sealed trait Limited[F[_]] extends Now[F]
       object Limited {
@@ -952,8 +959,12 @@ private[journal] object PartitionCache {
    * @param values
    *   Journal specific entries (i.e. the key is journal id). All offsets stored there are meant to
    *   be within `bounds` interval.
+   * @param droppedUpTo
+   *   [[Offset]] of the last (i.e. newest) record of the journals dropped upon reaching the size
+   *   limit. Until it is replicated, a journal might have non-replicated records, which `values` do
+   *   not reflect.
    */
-  private final case class Entries(bounds: Bounds[Offset], values: Map[String, Entry])
+  private final case class Entries(bounds: Bounds[Offset], values: Map[String, Entry], droppedUpTo: Option[Offset])
 
   private object Entries {
 
@@ -982,7 +993,11 @@ private[journal] object PartitionCache {
               }
           }
       }
-      Entries(bounds = entries.fold(bounds)(_.bounds combine bounds), values = values)
+      Entries(
+        bounds = entries.fold(bounds)(_.bounds combine bounds),
+        values = values,
+        droppedUpTo = entries.flatMap(_.droppedUpTo),
+      )
     }
 
     implicit class EntriesOps(val self: Entries) extends AnyVal {
@@ -993,27 +1008,31 @@ private[journal] object PartitionCache {
        * @see
        *   [[PartitionCache#of]] for details on the meaning of parameters.
        */
-      def limit[F[_]: MonadThrow](maxSize: Int, dropUponLimit: Double): F[Entries] = {
+      def limit[F[_]: Applicative](maxSize: Int, dropUponLimit: Double): F[Entries] = {
         if (self.values.size <= maxSize) {
           self.pure[F]
         } else {
           val drop = (maxSize * dropUponLimit).toInt
           val take = (maxSize - drop).max(1)
-          val values = self
+          val (values, dropped) = self
             .values
             .toList
             .sortBy { case (_, entry) => entry }
-            .take(take)
-          val (_, entry) = values.minBy { case (_, entry) => entry.offset }
-          Bounds
-            .of[F](min = entry.offset, max = self.bounds.max)
-            .map { bounds =>
-              Entries(bounds, values.toMap)
-            }
+            .splitAt(take)
+          val droppedUpTo = dropped
+            .map { case (_, entry) => entry.offset }
+            .maxOption
+          self
+            .copy(values = values.toMap, droppedUpTo = self.droppedUpTo max droppedUpTo)
+            .pure[F]
         }
       }
 
-      def result[F[_]](id: String, offset: Offset): Option[Result.Now[F]] = {
+      /**
+       * @param replicated
+       *   The last replicated offset seen by [[PartitionCache]].
+       */
+      def result[F[_]](id: String, offset: Offset, replicated: Option[Offset]): Option[Result.Now[F]] = {
 
         def entry = {
           self
@@ -1021,7 +1040,12 @@ private[journal] object PartitionCache {
             .get(id)
         }
 
-        if (offset >= self.bounds.min) {
+        if (replicated < self.droppedUpTo) {
+          Result
+            .Now
+            .limited[F]
+            .some
+        } else if (offset >= self.bounds.min) {
           if (offset <= self.bounds.max) {
             Result
               .Now
