@@ -185,6 +185,55 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       result.run()
     }
 
+    "return none after journals are dropped, until their records are replicated" in {
+      val keyDropped = Key(id = "id0", topic = topic)
+      val keyKept = Key(id = "id2", topic = topic)
+      val records = ConsumerRecordsOf {
+        List(keyDropped, Key(id = "id1", topic = topic), keyKept)
+          .zipWithIndex
+          .map {
+            case (key, index) =>
+              val action = appendOf(key, SeqNr.min)
+              consumerRecordOf(action, topicPartition, Offset.unsafe(index.toLong))
+          }
+      }
+      val offsetDropped = Offset.unsafe(1)
+      val offsetLast = Offset.unsafe(2)
+
+      val state = TestConsumer.State(topics = Map((topic, List(partition))), records = Queue(records.pure[Try]))
+
+      val configLimited = config.copy(
+        timeout = 2.minutes,
+        partition = HeadCacheConfig.Partition(maxSize = 2, dropUponLimit = 0.5),
+      )
+
+      val result = for {
+        pointers <- Ref.of[IO, Map[Partition, Offset]](Map.empty)
+        eventual = HeadCache.Eventual.const(pointers.get.map { pointers => TopicPointers(pointers) })
+        stateRef <- Ref[IO].of(state)
+        consumer = TestConsumer.make(stateRef)
+        _ <- headCacheOf(eventual, consumer, configLimited).use { headCache =>
+          for {
+            // the call returns after the records are consumed, i.e. after the journals are dropped
+            _ <- headCache.get(key = keyKept, partition = partition, offset = offsetLast)
+            dropped <- headCache.get(key = keyDropped, partition = partition, offset = offsetLast)
+            _ = dropped shouldEqual none
+            kept <- headCache.get(key = keyKept, partition = partition, offset = offsetLast)
+            _ = kept shouldEqual none
+            _ <- pointers.set(Map((partition, offsetDropped)))
+            _ <- headCache
+              .get(key = keyDropped, partition = partition, offset = offsetLast)
+              .map { _ shouldEqual HeadInfo.empty.some }
+              .eventually
+            kept <- headCache.get(key = keyKept, partition = partition, offset = offsetLast)
+            _ = kept shouldEqual HeadInfo.append(offsetLast, SeqNr.min, none).some
+          } yield {}
+        }
+      } yield {}
+
+      result.run()
+    }
+
     "timeout" in {
       val headCache =
         headCacheOf(HeadCache.Eventual.empty, consumerEmpty.pure[IO].toResource, config.copy(timeout = 10.millis))
