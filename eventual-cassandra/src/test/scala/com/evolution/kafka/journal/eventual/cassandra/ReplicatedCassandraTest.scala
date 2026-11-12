@@ -23,7 +23,6 @@ import play.api.libs.json.Json
 import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.*
 import scala.util.Try
 
@@ -2224,14 +2223,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   }
 
   test("fork reporter is initialized for a topic when its journal is created") {
-    val initialized = ListBuffer.empty[Topic]
     val reporter = new JournalForkReporter[StateT] {
 
       def report(fork: JournalFork): StateT[Unit] = ().pure[StateT]
 
       def init(topic: Topic): StateT[Unit] = StateT.unit { state =>
-        initialized += topic
-        state
+        state.copy(forkReporterInits = state.forkReporterInits :+ topic)
       }
     }
     val journal = {
@@ -2250,8 +2247,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       _ <- journal.journal(topic1).use { _ => ().pure[StateT] }
     } yield {}
 
-    program.run(State.empty).get shouldEqual ((State.empty, ()))
-    initialized.toList shouldEqual List(topic0, topic1)
+    program.run(State.empty).get shouldEqual ((State(forkReporterInits = List(topic0, topic1)), ()))
   }
 }
 
@@ -2658,6 +2654,7 @@ object ReplicatedCassandraTest {
     metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]] = Map.empty,
     journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), JournalRecord]] = Map.empty,
     forks: List[JournalFork] = List.empty,
+    forkReporterInits: List[Topic] = List.empty,
   )
 
   object State {
