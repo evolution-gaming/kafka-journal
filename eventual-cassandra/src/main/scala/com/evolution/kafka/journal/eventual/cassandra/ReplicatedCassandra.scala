@@ -500,7 +500,10 @@ private[journal] object ReplicatedCassandra {
             }.pure[Resource[F, *]]
           }
         }
-        result.pure[Resource[F, *]]
+        forkDetector
+          .init(topic)
+          .as(result)
+          .toResource
       }
     }
   }
