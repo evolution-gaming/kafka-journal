@@ -18,8 +18,8 @@ import scala.concurrent.duration.*
  * @param kafka
  *   Kafka client configuration, see [[KafkaConfig]] for more details.
  * @param headCache
- *   Configuration of head cache, which is, currently, only about enabling or disabling it. See
- *   [[HeadCache]] for more details on what is head cache and how it works.
+ *   Configuration of head cache, i.e. whether it is enabled and how it is tuned. See [[HeadCache]]
+ *   for more details on what is head cache and how it works.
  */
 final case class JournalConfig(
   pollTimeout: FiniteDuration = 10.millis,
@@ -39,20 +39,32 @@ object JournalConfig {
   /**
    * Configuration of head cache.
    *
+   * The tuning parameters of [[HeadCacheConfig]] are read from the same config object as `enabled`,
+   * i.e. `head-cache.partition.max-size` and not `head-cache.config.partition.max-size`.
+   *
    * @param enabled
    *   The head cache will be used on journal recovery if `true`. Every recovery may need to read
    *   both Cassandra (or other long term storage) and Kafka otherwise.
+   * @param config
+   *   Tuning parameters of the head cache, see [[HeadCacheConfig]].
    *
    * @see
    *   [[com.evolution.kafka.journal.HeadCache]] for more details on what is head cache and how it
    *   works.
    */
-  final case class HeadCache(enabled: Boolean = true)
+  final case class HeadCache(enabled: Boolean = true, config: HeadCacheConfig = HeadCacheConfig.default)
 
   object HeadCache {
 
     val default: HeadCache = HeadCache()
 
-    implicit val configReaderHeadCache: ConfigReader[HeadCache] = deriveReader
+    private final case class Enabled(enabled: Boolean = default.enabled)
+
+    implicit val configReaderHeadCache: ConfigReader[HeadCache] = {
+      val configReaderEnabled: ConfigReader[Enabled] = deriveReader
+      configReaderEnabled.zip(HeadCacheConfig.configReaderHeadCacheConfig).map {
+        case (Enabled(enabled), config) => HeadCache(enabled = enabled, config = config)
+      }
+    }
   }
 }
