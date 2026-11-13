@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.effect.syntax.all.*
-import cats.effect.{Async, Concurrent, Resource, Temporal}
+import cats.effect.{Async, Concurrent, Resource}
 import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig
@@ -11,9 +11,8 @@ import com.evolution.kafka.journal.eventual.cassandra.JournalStatements.JournalR
 import com.evolution.kafka.journal.util.CatsHelper.*
 import com.evolution.kafka.journal.util.StreamHelper.*
 import com.evolution.kafka.journal.{cassandra as _, *}
+import com.evolution.scassandra.TableName
 import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration, ToTry}
-import com.evolutiongaming.scassandra.util.FromGFuture
-import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
 
@@ -36,11 +35,10 @@ object EventualCassandra {
    *
    * Underlying schema is automatically created or migrated if required.
    */
-  def make[F[_]: Async: Parallel: ToTry: LogOf: FromGFuture: MeasureDuration: JsonCodec.Decode](
+  def make[F[_]: Async: Parallel: ToTry: LogOf: MeasureDuration: JsonCodec.Decode](
     config: EventualCassandraConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
-    cassandraClusterOf: CassandraClusterOf[F],
     dataIntegrity: DataIntegrityConfig,
   ): Resource[F, EventualJournal[F]] = {
 
@@ -52,7 +50,7 @@ object EventualCassandra {
     }
 
     for {
-      cassandraCluster <- CassandraCluster.make[F](config.client, cassandraClusterOf, config.retries)
+      cassandraCluster <- CassandraCluster.make[F](config.client, config.retries)
       cassandraSession <- cassandraCluster.session
       journal <- journal(cassandraCluster, cassandraSession).toResource
     } yield journal
@@ -63,7 +61,7 @@ object EventualCassandra {
    *
    * Underlying schema is automatically created or migrated if required.
    */
-  def of[F[_]: Temporal: Parallel: ToTry: LogOf: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Decode](
+  def of[F[_]: Async: Parallel: ToTry: LogOf: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Decode](
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],

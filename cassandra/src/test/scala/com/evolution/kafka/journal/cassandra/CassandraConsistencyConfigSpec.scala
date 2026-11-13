@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.cassandra
 
-import com.datastax.driver.core.ConsistencyLevel
+import com.datastax.oss.driver.api.core.ConsistencyLevel
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

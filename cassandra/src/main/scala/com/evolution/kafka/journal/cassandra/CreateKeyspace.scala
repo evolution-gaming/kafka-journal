@@ -4,8 +4,8 @@ import cats.syntax.all.*
 import cats.{Applicative, Monad}
 import com.evolution.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolution.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession}
+import com.evolution.scassandra.CreateKeyspaceIfNotExists
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.scassandra.CreateKeyspaceIfNotExists
 
 private[journal] trait CreateKeyspace[F[_]] {
   def apply(config: KeyspaceConfig): F[Unit]

@@ -4,7 +4,7 @@ import cats.data.{NonEmptyList as Nel, State}
 import cats.syntax.all.*
 import com.evolution.kafka.journal.cassandra.CreateTables.Fresh
 import com.evolution.kafka.journal.cassandra.{CreateKeyspace, CreateTables, KeyspaceConfig}
-import com.evolutiongaming.scassandra.TableName
+import com.evolution.scassandra.TableName
 import org.scalatest.funsuite.AnyFunSuite
 
 class CreateSchemaSpec extends AnyFunSuite {

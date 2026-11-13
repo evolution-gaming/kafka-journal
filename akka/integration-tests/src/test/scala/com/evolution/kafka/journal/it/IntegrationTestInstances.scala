@@ -4,7 +4,6 @@ import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import com.evolution.kafka.journal.*
 import com.evolutiongaming.catshelper.{LogOf, RandomIdOf}
-import com.evolutiongaming.scassandra.CassandraClusterOf
 
 import scala.util.Try
 
@@ -18,7 +17,6 @@ import scala.util.Try
 private[it] object IntegrationTestInstances {
   implicit val ioRuntime: IORuntime = cats.effect.unsafe.implicits.global
   implicit val logOf: LogOf[IO] = LogOf.slf4j[IO].unsafeRunSync()
-  implicit val cassandraClusterOf: CassandraClusterOf[IO] = CassandraClusterOf.of[IO].unsafeRunSync()
   implicit val kafkaConsumerOf: KafkaConsumerOf[IO] = KafkaConsumerOf()
   implicit val kafkaProducerOf: KafkaProducerOf[IO] = KafkaProducerOf()
   implicit val randomIdOf: RandomIdOf[IO] = RandomIdOf.uuid

@@ -2,10 +2,10 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
 import cats.{Eq, Order, Show}
-import com.datastax.driver.core.SettableData
+import com.datastax.oss.driver.api.core.data.SettableByName
 import com.evolution.kafka.journal.util.TemporalHelper.*
-import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, EncodeRow}
+import com.evolution.scassandra.syntax.*
+import com.evolution.scassandra.{DecodeByName, EncodeByName, EncodeRow}
 
 import java.time.LocalDate
 
@@ -31,7 +31,7 @@ object ExpireOn {
   implicit val decodeByNameExpireOn: DecodeByName[ExpireOn] = DecodeByName[LocalDate].map { a => ExpireOn(a) }
 
   implicit val encodeRowExpireOn: EncodeRow[ExpireOn] = new EncodeRow[ExpireOn] {
-    def apply[B <: SettableData[B]](data: B, a: ExpireOn): B = {
+    def apply[B <: SettableByName[B]](data: B, a: ExpireOn): B = {
       data.encode("expire_on", a)
     }
   }

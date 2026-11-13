@@ -3,7 +3,7 @@ package com.evolution.kafka.journal.cassandra
 import cats.syntax.all.*
 import com.evolution.kafka.journal.cassandra.SeqNrExtension.*
 import com.evolution.kafka.journal.{DeleteTo, SeqNr}
-import com.evolutiongaming.scassandra.*
+import com.evolution.scassandra.*
 
 object DeleteToExtension {
   implicit val encodeByNameDeleteTo: EncodeByName[DeleteTo] = EncodeByName[SeqNr].contramap { (a: DeleteTo) => a.value }

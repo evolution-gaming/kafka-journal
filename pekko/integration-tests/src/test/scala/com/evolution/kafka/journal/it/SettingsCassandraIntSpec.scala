@@ -23,9 +23,8 @@ class SettingsCassandraIntSpec extends AsyncWordSpec with JournalSuite {
 
   private def resources: ResourceIO[Settings[IO]] = {
     for {
-      cassandraCluster <- CassandraCluster.make(
+      cassandraCluster <- CassandraCluster.make[IO](
         config.eventualCassandra.client,
-        cassandraClusterOf,
         config.eventualCassandra.retries,
       )
       cassandraSession <- cassandraCluster.session

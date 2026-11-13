@@ -2,13 +2,13 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.Monad
 import cats.syntax.all.*
-import com.datastax.driver.core.GettableByNameData
+import com.datastax.oss.driver.api.core.data.GettableByName
 import com.evolution.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolution.kafka.journal.cassandra.SkafkaHelperExtension.*
 import com.evolution.kafka.journal.eventual.cassandra.CassandraHelper.*
+import com.evolution.scassandra.syntax.*
+import com.evolution.scassandra.{DecodeRow, TableName}
 import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeRow, TableName}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
@@ -68,7 +68,7 @@ private[journal] object Pointer2Statements {
     final case class Result(created: Option[Instant])
 
     object Result {
-      implicit val decodeResult: DecodeRow[Result] = { (row: GettableByNameData) =>
+      implicit val decodeResult: DecodeRow[Result] = { (row: GettableByName) =>
         {
           Result(row.decode[Option[Instant]]("created"))
         }

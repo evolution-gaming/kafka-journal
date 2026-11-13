@@ -11,11 +11,11 @@ import com.evolution.kafka.journal.cassandra.KeyspaceConfig
 import com.evolution.kafka.journal.eventual.cassandra.*
 import com.evolution.kafka.journal.util.Fail
 import com.evolutiongaming.catshelper.*
-import com.evolutiongaming.scassandra.util.FromGFuture
-import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraClusterOf, CassandraConfig}
+import com.evolution.scassandra.CassandraConfig
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
+import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration.*
 
@@ -28,7 +28,7 @@ object ReadEventsApp extends IOApp {
     runF[IO].as(ExitCode.Success)
   }
 
-  private def runF[F[_]: Async: Parallel: FromGFuture: FromTry: ToTry: Fail]: F[Unit] = {
+  private def runF[F[_]: Async: Parallel: FromTry: ToTry: Fail]: F[Unit] = {
 
     for {
       logOf <- LogOf.slf4j[F]
@@ -47,7 +47,7 @@ object ReadEventsApp extends IOApp {
   }
 
   private def runF[
-    F[_]: Async: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail,
+    F[_]: Async: Parallel: LogOf: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail,
   ](
     log: Log[F],
   ): F[Unit] = {
@@ -66,19 +66,28 @@ object ReadEventsApp extends IOApp {
     val eventualCassandraConfig = EventualCassandraConfig(
       schema = SchemaConfig(keyspace = KeyspaceConfig(name = "keyspace", autoCreate = false), autoCreate = false),
       client = CassandraConfig(
-        contactPoints = com.evolutiongaming.nel.Nel("127.0.0.1"),
-        authentication = AuthenticationConfig(username = "username", password = "password").some,
+        ConfigFactory
+          .parseString(
+            """
+              |basic.contact-points = ["127.0.0.1:9042"]
+              |basic.load-balancing-policy.local-datacenter = "datacenter1"
+              |advanced.auth-provider {
+              |  class = PlainTextAuthProvider
+              |  username = "username"
+              |  password = "password"
+              |}
+              |""".stripMargin,
+          )
+          .withFallback(EventualCassandraConfig.DefaultClient.driver),
       ),
     )
 
     val journal = for {
-      cassandraClusterOf <- CassandraClusterOf.of[F].toResource
       origin <- Origin.hostName[F].toResource
       eventualJournal <- EventualCassandra.make[F](
         eventualCassandraConfig,
         origin,
         none,
-        cassandraClusterOf,
         DataIntegrityConfig.Default,
       )
       headCache <- HeadCache.make[F](consumerConfig, eventualJournal, none)

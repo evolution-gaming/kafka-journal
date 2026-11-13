@@ -4,7 +4,7 @@ import CreateTables.Table
 import cats.data.{NonEmptyList as Nel, State}
 import cats.effect.Resource
 import cats.syntax.all.*
-import com.datastax.driver.core.{PreparedStatement, Row, Statement}
+import com.datastax.oss.driver.api.core.cql.{PreparedStatement, Row, Statement}
 import com.evolution.kafka.journal.eventual.cassandra.{
   CassandraCluster,
   CassandraMetadata,
@@ -13,8 +13,8 @@ import com.evolution.kafka.journal.eventual.cassandra.{
   TableMetadata,
 }
 import com.evolution.kafka.journal.util.StreamHelper.*
+import com.evolution.scassandra
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.scassandra
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -103,7 +103,7 @@ class CreateTablesSpec extends AnyFunSuite {
 
     def prepare(query: String): F[PreparedStatement] = throw NotImplemented
 
-    def execute(statement: Statement): Stream[F, Row] =
+    def execute(statement: Statement[?]): Stream[F, Row] =
       Database.query.as(Stream.empty[F, Row]).toStream.flatten
 
     def unsafe: scassandra.CassandraSession[F] = throw NotImplemented

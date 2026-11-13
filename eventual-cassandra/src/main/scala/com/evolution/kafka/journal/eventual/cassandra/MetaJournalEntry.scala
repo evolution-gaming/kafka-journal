@@ -1,10 +1,10 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
-import com.datastax.driver.core.{GettableByNameData, SettableData}
+import com.datastax.oss.driver.api.core.data.{GettableByName, SettableByName}
 import com.evolution.kafka.journal.Origin
 import com.evolution.kafka.journal.cassandra.OriginExtension.*
-import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
+import com.evolution.scassandra.syntax.*
+import com.evolution.scassandra.{DecodeRow, EncodeRow}
 
 import java.time.Instant
 
@@ -21,7 +21,7 @@ private[journal] object MetaJournalEntry {
     implicit
     decode: DecodeRow[JournalHead],
   ): DecodeRow[MetaJournalEntry] = {
-    (row: GettableByNameData) =>
+    (row: GettableByName) =>
       {
         MetaJournalEntry(
           journalHead = row.decode[JournalHead],
@@ -37,7 +37,7 @@ private[journal] object MetaJournalEntry {
     encode: EncodeRow[JournalHead],
   ): EncodeRow[MetaJournalEntry] = {
     new EncodeRow[MetaJournalEntry] {
-      def apply[B <: SettableData[B]](data: B, value: MetaJournalEntry): B = {
+      def apply[B <: SettableByName[B]](data: B, value: MetaJournalEntry): B = {
         data
           .encode(value.journalHead)
           .encode("created", value.created)

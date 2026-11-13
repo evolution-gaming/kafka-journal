@@ -3,7 +3,6 @@ import sbt.*
 object Dependencies {
   val ScalaTest = "org.scalatest" %% "scalatest" % "3.2.20"
   val KindProjector = "org.typelevel" % "kind-projector" % "0.13.4"
-  val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.5"
   val KafkaClients = "org.apache.kafka" % "kafka-clients" % "4.4.0"
   val PlayJson = "org.playframework" %% "play-json" % "3.0.6"
   val Lz4 = "at.yawk.lz4" % "lz4-java" % "1.14.0"
@@ -14,8 +13,8 @@ object Dependencies {
   val AkkaSerialization = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
   val PekkoSerialization = "com.evolution" %% "pekko-extension-serialization" % PekkoExtensionVersion
   val Hostname = "com.evolutiongaming" %% "hostname" % "1.0.0"
-  val SCassandra = "com.evolutiongaming" %% "scassandra" % "5.9.0"
-  val CassandraSync = "com.evolutiongaming" %% "cassandra-sync" % "4.1.0"
+  val SCassandra = "com.evolution" %% "scassandra-v4" % "5.9.0"
+  val CassandraSync = "com.evolution" %% "cassandra-sync" % "5.0.0"
   val CatsHelper = "com.evolutiongaming" %% "cats-helper" % "3.13.2"
   val Random = "com.evolution" %% "random" % "1.0.5"
   val Retry = "com.evolutiongaming" %% "retry" % "3.1.0"

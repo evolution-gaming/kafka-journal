@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
-import com.datastax.driver.core.ConsistencyLevel
+import com.datastax.oss.driver.api.core.ConsistencyLevel
 import com.evolution.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite

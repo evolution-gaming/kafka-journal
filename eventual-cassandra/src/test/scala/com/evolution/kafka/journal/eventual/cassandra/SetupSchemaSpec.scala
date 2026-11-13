@@ -2,12 +2,12 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.implicits.catsStdInstancesForTry
 import cats.syntax.all.*
-import com.datastax.driver.core.{PreparedStatement, RegularStatement, Row, Statement}
+import com.datastax.oss.driver.api.core.cql.{PreparedStatement, Row, SimpleStatement, Statement}
 import com.evolution.kafka.journal.cassandra.CassandraSync
 import com.evolution.kafka.journal.util.StreamHelper.*
 import com.evolution.kafka.journal.{Setting, Settings}
-import com.evolutiongaming.scassandra
-import com.evolutiongaming.scassandra.TableName
+import com.evolution.scassandra
+import com.evolution.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -171,10 +171,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
     def prepare(query: String): StateT[PreparedStatement] = throw NotImplemented
 
-    def execute(statement: Statement): Stream[StateT, Row] = {
+    def execute(statement: Statement[?]): Stream[StateT, Row] = {
       val stateT = StateT { state =>
         val query = statement match {
-          case statement: RegularStatement => statement.getQueryString
+          case statement: SimpleStatement => statement.getQuery
           case other => sys.error(s"Unexpected statement type: $other")
         }
         val state1 = state.add(Action.Query(query))
