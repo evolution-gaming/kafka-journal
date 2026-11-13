@@ -79,10 +79,14 @@ object EventualCassandra {
       _ <- log.info(s"kafka-journal version: ${ Version.current.value }")
     } yield {
       implicit val log1: Log[F] = log
-      val journal = apply[F](statements, dataIntegrity).withLog(log)
-      metrics
-        .fold(journal) { metrics => journal.withMetrics(metrics) }
-        .enhanceError
+
+      val journal = metrics match {
+        case Some(metrics) =>
+          apply[F](statements, dataIntegrity, metrics).withMetrics(metrics)
+        case None =>
+          apply[F](statements, dataIntegrity, EventualJournal.Metrics.empty[F])
+      }
+      journal.withLog(log).enhanceError
     }
   }
 
@@ -96,6 +100,24 @@ object EventualCassandra {
    */
   def apply[F[_]: MonadThrow: Log](statements: Statements[F], dataIntegrity: DataIntegrityConfig)
     : EventualJournal[F] = {
+    apply(statements, dataIntegrity, EventualJournal.Metrics.empty[F])
+  }
+
+  /**
+   * Creates [[EventualJournal]] instance calling Cassandra appropriately.
+   *
+   * @param metrics
+   *   used only to report data integrity violations found on read, wrap the result with
+   *   `withMetrics` to record call latencies
+   */
+  def apply[F[_]: MonadThrow: Log](
+    statements: Statements[F],
+    dataIntegrity: DataIntegrityConfig,
+    metrics: EventualJournal.Metrics[F],
+  ): EventualJournal[F] = {
+
+    def violation(key: Key, violation: EventualJournal.DataIntegrityViolation): F[Unit] =
+      metrics.dataIntegrityViolation(key.topic, violation)
 
     new Main with EventualJournal[F] {
 
@@ -136,32 +158,37 @@ object EventualCassandra {
 
                     case None if dataIntegrity.correlateEventsWithMeta =>
                       for {
+                        _ <- violation(key, EventualJournal.DataIntegrityViolation.OrphanEnforced).toStream
                         _ <- Log[F].error(s"Data integrity violated: event $event is orphan, key $key").toStream
                         r <- Stream.empty[F, JournalRecord]
                       } yield r
 
                     case None =>
-                      Log[F]
-                        .warn(s"Disabled data integrity violated: event $event is orphan, key $key")
-                        .toStream
-                        .as(event)
+                      for {
+                        _ <- violation(key, EventualJournal.DataIntegrityViolation.OrphanDetected).toStream
+                        _ <- Log[F].warn(s"Disabled data integrity violated: event $event is orphan, key $key").toStream
+                      } yield event
 
                     case Some(fromEvent) if fromEvent == fromMeta =>
                       Stream.single(event)
 
                     case Some(_) if dataIntegrity.correlateEventsWithMeta =>
                       for {
-                        _ <-
-                          Log[F].error(s"Data integrity violated: event $event belongs to purged meta, key $key").toStream
+                        _ <- violation(key, EventualJournal.DataIntegrityViolation.PurgedMetaEnforced).toStream
+                        _ <- Log[F].error(
+                          s"Data integrity violated: event $event belongs to purged meta, key $key",
+                        ).toStream
                         r <- Stream.empty[F, JournalRecord]
                       } yield r
 
                     case Some(_) =>
-                      Log[F]
-                        .warn(s"Disabled data integrity violated: event $event belongs to purged meta, key $key")
-                        .toStream
-                        .as(event)
-
+                      for {
+                        _ <-
+                          violation(key, EventualJournal.DataIntegrityViolation.PurgedMetaDetected).toStream
+                        _ <- Log[F].warn(
+                          s"Disabled data integrity violated: event $event belongs to purged meta, key $key",
+                        ).toStream
+                      } yield event
                   }
                 }
               }
@@ -182,7 +209,10 @@ object EventualCassandra {
                         val msg =
                           s"Data integrity violated: seqNr $seqNr duplicated in multiple records from eventual journal, key $key"
                         val err = new JournalError(msg)
-                        (seqNr.some, err.raiseError[F, JournalRecord].toStream)
+                        val fail =
+                          violation(key, EventualJournal.DataIntegrityViolation.SeqNrDuplicateEnforced) *>
+                            err.raiseError[F, JournalRecord]
+                        (seqNr.some, fail.toStream)
                       }
                   }
               } else {

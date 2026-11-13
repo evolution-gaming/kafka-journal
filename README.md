@@ -84,6 +84,18 @@ of the same entity were writing to the journal at the same time:
 
 Both are counted by `replicated_journal_forks_total` metric with `kind` label set to `duplicate` or `regression`.
 
+In addition, the `eventual_journal_data_integrity_violations_total` metric counts how many times client has observed the
+fork and if data integrity checks are `enforced`, reported per `topic`:
+* `orphan` - journal's head has meta-record ID, but new record lacks meta marker
+* `purged_meta` - record from (previous) reincarnation was detected
+* `seqnr_duplicate` - multiple journal records share the `seqNr`
+
+The client-side metric is just for indication, the actual fork is detected by the replicator, if enabled. Client might:
+* detect fork (much) later, when it tries to recover - usually leads to the actor's inability to recover, and it requires 
+  manual inspection of stored journal and its amendments (decision which tine to discard, how it affects downstream 
+  users, etc) to unblock the actor's recovery
+* not detect fork, if an actor managed to save snapshot after fork happened
+
 ## Akka persistence plugin
 
 In order to use `kafka-journal` as [akka persistence plugin](https://doc.akka.io/libraries/akka-core/2.6/persistence-plugins.html)

@@ -6,8 +6,8 @@ import cats.effect.Concurrent
 import cats.syntax.all.*
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.Journal.DataIntegrityConfig
-import com.evolution.kafka.journal.eventual.EventualPayloadAndType
 import com.evolution.kafka.journal.eventual.cassandra.JournalStatements.JournalRecord
+import com.evolution.kafka.journal.eventual.{EventualJournal, EventualPayloadAndType}
 import com.evolution.kafka.journal.util.ConcurrentOf
 import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolution.kafka.journal.util.StreamHelper.*
@@ -21,6 +21,7 @@ import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
 import java.time.Instant
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.*
 import scala.util.{Failure, Try}
 
@@ -219,6 +220,8 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       val key = Key(id = "id", topic = topic0)
       val segment = segmentOf.metaJournal(key)
       val record1 = record.copy(event = record.event.copy(timestamp = timestamp1))
+      val violations = ListBuffer.empty[Violation]
+      val journal = EventualCassandra(statements, config, violationsMetrics(violations))
 
       val stateT = for {
         records <- journal.read(key, seqNr).toList
@@ -230,6 +233,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       } yield {}
 
       stateT.run(State.empty) should matchPattern { case Failure(_: JournalError) => }
+      violations.toList shouldEqual List((topic0, EventualJournal.DataIntegrityViolation.SeqNrDuplicateEnforced))
     }
 
     test(s"ids, $suffix") {
@@ -258,14 +262,15 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
         .map { case (_, a) => a } shouldEqual ().pure[Try]
     }
 
-    test(s"read only events that corelate with meta, $suffix") {
+    test(s"read only events that correlate with meta, $suffix") {
       val seqNr = SeqNr.min
       val key = Key(id = "id", topic = topic0)
       val segment = segmentOf.metaJournal(key)
       val actual = RecordId.unsafe
       val legacy = RecordId.unsafe
 
-      val stateT = journal.read(key, seqNr).toList
+      val violations = ListBuffer.empty[Violation]
+      val stateT = EventualCassandra(statements, config, violationsMetrics(violations)).read(key, seqNr).toList
 
       val record1 = eventRecordOf(seqNr, partitionOffset).copy(
         event = record.event.copy(origin = Origin("legacy").some),
@@ -295,15 +300,17 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       )
 
       stateT.run(initial).map { case (_, events) => events } shouldEqual List(record2.event).pure[Try]
+      violations.toList shouldEqual List((topic0, EventualJournal.DataIntegrityViolation.PurgedMetaEnforced))
     }
 
-    test(s"read events with duplicated seqNr if only one 'branch' correlate with meta, $suffix") {
+    test(s"read events with duplicated seqNr if only one 'branch' correlates with meta, $suffix") {
       val seqNr = SeqNr.min
       val key = Key(id = "id", topic = topic0)
       val segment = segmentOf.metaJournal(key)
       val recordId = RecordId.unsafe
 
-      val stateT = journal.read(key, seqNr).toList
+      val violations = ListBuffer.empty[Violation]
+      val stateT = EventualCassandra(statements, config, violationsMetrics(violations)).read(key, seqNr).toList
 
       val record1 = eventRecordOf(seqNr, partitionOffset).copy(
         event = record.event.copy(origin = Origin("legacy").some),
@@ -332,11 +339,35 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       )
 
       stateT.run(initial).map { case (_, events) => events } shouldEqual List(record2.event).pure[Try]
+      violations.toList shouldEqual List((topic0, EventualJournal.DataIntegrityViolation.OrphanEnforced))
     }
   }
 }
 
 object EventualCassandraTest {
+
+  type Violation = (Topic, EventualJournal.DataIntegrityViolation)
+
+  /**
+   * Records reported data integrity violations, ignores everything else
+   */
+  def violationsMetrics(violations: ListBuffer[Violation]): EventualJournal.Metrics[StateT] = {
+    val unit = ().pure[StateT]
+    new EventualJournal.Metrics[StateT] {
+      def offset(topic: Topic, latency: FiniteDuration): StateT[Unit] = unit
+      def read(topic: Topic, latency: FiniteDuration): StateT[Unit] = unit
+      def read(topic: Topic): StateT[Unit] = unit
+      def pointer(topic: Topic, latency: FiniteDuration): StateT[Unit] = unit
+      def ids(topic: Topic, latency: FiniteDuration): StateT[Unit] = unit
+      def dataIntegrityViolation(
+        topic: Topic,
+        violation: EventualJournal.DataIntegrityViolation,
+      ): StateT[Unit] = StateT.unit { state =>
+        violations += ((topic, violation))
+        state
+      }
+    }
+  }
 
   val insertRecords: JournalStatements.InsertRecords[StateT] = {
     (key: Key, segment: SegmentNr, records: Nel[JournalRecord]) =>
