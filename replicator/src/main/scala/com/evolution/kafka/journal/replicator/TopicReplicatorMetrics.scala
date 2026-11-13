@@ -249,7 +249,7 @@ object TopicReplicatorMetrics {
         value.toLowerCase match {
           case "summary" => Summary.asRight
           case "histogram" => Histogram.asRight
-          case _ => CannotConvert(value, "ReplicationLatencyMetric", "expected one of: summary, histogram").asLeft
+          case _ => CannotConvert(value, "ReplicationLatencyKind", "expected either: `summary` or `histogram`").asLeft
         }
       }
   }
