@@ -76,6 +76,8 @@ lazy val commonSettings = Seq(
   versionPolicyIgnored ++= Seq(
     // add libraries here that are known to be binary compatible, like:
 //    "com.evolutiongaming" %% "smetrics",
+    // TODO remove after release
+    "com.fasterxml.jackson.module" %% "jackson-module-scala",
   ),
 )
 
