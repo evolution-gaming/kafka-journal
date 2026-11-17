@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.replicator
 
-import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem}
+import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet}
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.effect.unsafe.implicits.global
@@ -992,11 +992,13 @@ object TopicReplicatorSpec {
 
   implicit val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
-    def subscribe(listener: RebalanceListener1[StateT]): StateT[Unit] = {
+    def subscribe(topics: NonEmptySet[Topic], listener: RebalanceListener1[StateT]): StateT[Unit] = {
       StateT { s =>
         (s.subscribe(topic), ())
       }
     }
+
+    def commitOf(topic: Topic): Resource[StateT, TopicCommit[StateT]] = Resource.pure(commit)
 
     val commit: TopicCommit[StateT] = offsets => {
       StateT.unit { state =>
@@ -1005,16 +1007,11 @@ object TopicReplicatorSpec {
       }
     }
 
-    def poll: Stream[StateT, Map[Partition, Nel[ConsRecord]]] = {
+    def poll: Stream[StateT, Map[TopicPartition, Nel[ConsRecord]]] = {
       val records = StateT { state =>
         state.records match {
           case head :: tail =>
-            val records = for {
-              (partition, records) <- head.values
-            } yield {
-              (partition.partition, records)
-            }
-            (state.copy(records = tail), records.some)
+            (state.copy(records = tail), head.values.some)
 
           case Nil => (state, none)
         }

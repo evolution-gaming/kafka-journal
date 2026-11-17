@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.replicator
 
-import cats.data.NonEmptyList as Nel
+import cats.data.{NonEmptyList as Nel, NonEmptySet as Nes}
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
@@ -23,6 +23,7 @@ import com.evolutiongaming.skafka.{Bytes as _, ClientId, Topic}
 import com.evolutiongaming.smetrics.CollectorRegistry
 import scodec.bits.ByteVector
 
+import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.*
 
 /**
@@ -74,21 +75,55 @@ object Replicator {
     replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
   ): Resource[F, F[Unit]] = {
 
-    val topicReplicator: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]] =
-      (topic: Topic) => {
-        val consumer = TopicReplicator.ConsumerOf.make[F](topic, config.kafka.consumer, config.pollTimeout, hostName)
+    def topicMetricsOf(topic: Topic): TopicReplicatorMetrics[F] = metrics
+      .flatMap { _.replicator }
+      .fold { TopicReplicatorMetrics.empty[F] } { metrics => metrics(topic) }
 
-        val metrics1 = metrics
-          .flatMap { _.replicator }
-          .fold { TopicReplicatorMetrics.empty[F] } { metrics => metrics(topic) }
-
-        val cacheOf = CacheOf[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
-        TopicReplicator.make(topic, journal, consumer, metrics1, cacheOf, replicatedOffsetNotifier)
-      }
+    def cacheOf: CacheOf[F] = CacheOf[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
 
     val consumer = Consumer.make[F](config.kafka.consumer)
 
-    make[F](config = Config(config), consumer = consumer, topicReplicatorOf = topicReplicator)
+    if (config.sharedKafkaClient) {
+      // single Kafka consumer for all topics: discovered topics are only registered here,
+      // `ConsumeTopic` picks them up and adds them to the consumer's subscription
+      for {
+        topicsRef <- Ref.of[F, Set[Topic]](Set.empty).toResource
+        sharedConsumer = TopicReplicator
+          .ConsumerOf
+          .makeShared[F](config.kafka.consumer, config.pollTimeout, hostName)
+        // `ConsumeTopic` needs at least one topic to subscribe to, so wait until any is discovered
+        topics = topicsRef
+          .get
+          .flatMap { topics =>
+            Nes
+              .fromSet(SortedSet.from(topics))
+              .fold { Sleep[F].sleep(100.millis).as(none[Nes[Topic]]) } { _.some.pure[F] }
+          }
+          .untilDefinedM
+        done <- TopicReplicator.makeShared(
+          topics = topics,
+          journal = journal,
+          consumer = sharedConsumer,
+          metrics = topicMetricsOf,
+          cacheOf = cacheOf,
+          replicatedOffsetNotifier = replicatedOffsetNotifier,
+        )
+        topicReplicator = (topic: Topic) => {
+          // outcome of the shared replication process, so its failure is propagated the same way
+          // as a failure of a per-topic one
+          topicsRef.update { _ + topic }.toResource.as(done)
+        }
+        result <- make[F](config = Config(config), consumer = consumer, topicReplicatorOf = topicReplicator)
+      } yield result
+    } else {
+      val topicReplicator: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]] =
+        (topic: Topic) => {
+          val consumer = TopicReplicator.ConsumerOf.make[F](topic, config.kafka.consumer, config.pollTimeout, hostName)
+          TopicReplicator.make(topic, journal, consumer, topicMetricsOf(topic), cacheOf, replicatedOffsetNotifier)
+        }
+
+      make[F](config = Config(config), consumer = consumer, topicReplicatorOf = topicReplicator)
+    }
   }
 
   def make[F[_]: Concurrent: Sleep: Parallel: LogOf: MeasureDuration](

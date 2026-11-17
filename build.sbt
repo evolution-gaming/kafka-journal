@@ -108,6 +108,9 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[DirectMissingMethodProblem](
     "com.evolution.kafka.journal.HeadCache.make(com.evolutiongaming.skafka.consumer.ConsumerConfig,com.evolution.kafka.journal.eventual.EventualJournal,scala.Option,cats.effect.kernel.Async,cats.Parallel,com.evolutiongaming.catshelper.Runtime,com.evolutiongaming.catshelper.LogOf,com.evolution.kafka.journal.KafkaConsumerOf,com.evolutiongaming.catshelper.MeasureDuration,com.evolutiongaming.catshelper.FromTry,com.evolution.kafka.journal.FromJsResult,com.evolution.kafka.journal.JsonCodec#Decode)cats.effect.kernel.Resource",
   ),
+  // new multi-topic `subscribe` in `KafkaConsumer`: breaks only clients implementing the trait themselves,
+  // rather than using `KafkaConsumer.apply` or `KafkaConsumerOf`
+  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolution.kafka.journal.KafkaConsumer.subscribe"),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(

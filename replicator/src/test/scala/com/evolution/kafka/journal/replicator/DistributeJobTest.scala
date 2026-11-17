@@ -45,6 +45,9 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
             def subscribe(topic: Topic, listener: RebalanceListener1[IO]): IO[Unit] = {
               deferred.complete(listener).void
             }
+            def subscribe(topics: Nes[Topic], listener: RebalanceListener1[IO]): IO[Unit] = {
+              deferred.complete(listener).void
+            }
             def poll(timeout: FiniteDuration): IO[ConsumerRecords[K, V]] = {
               IO
                 .sleep(timeout)

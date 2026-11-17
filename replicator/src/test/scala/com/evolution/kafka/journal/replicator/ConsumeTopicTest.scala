@@ -237,13 +237,13 @@ object ConsumeTopicTest {
 
     val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
-      def subscribe(listener: RebalanceListener1[StateT]): StateT[Unit] = {
+      def subscribe(topics: Nes[Topic], listener: RebalanceListener1[StateT]): StateT[Unit] = {
         StateT.unit {
           _ + Action.Subscribe()(listener)
         }
       }
 
-      val poll: Stream[StateT, Map[Partition, Nel[ConsRecord]]] = {
+      val poll: Stream[StateT, Map[TopicPartition, Nel[ConsRecord]]] = {
 
         def apply(state: State, command: Command) = {
           command match {
@@ -260,10 +260,11 @@ object ConsumeTopicTest {
                       .map { case (s, _) => s }
                 }
                 .getOrElse(state.pure[IO])
-                .map { state => (state, Map.empty[Partition, Nel[ConsRecord]].some.pure[Try]) }
+                .map { state => (state, Map.empty[TopicPartition, Nel[ConsRecord]].some.pure[Try]) }
 
             case Command.ProduceRecords(records) =>
-              IO.pure((state, records.some.pure[Try]))
+              val records1 = records.map { case (partition, records) => (TopicPartition(topic, partition), records) }
+              IO.pure((state, records1.some.pure[Try]))
 
             case Command.RevokePartitions(partitions) =>
               state
@@ -278,22 +279,24 @@ object ConsumeTopicTest {
                       .map { case (s, _) => s }
                 }
                 .getOrElse(state.pure[IO])
-                .map { s => (s, Map.empty[Partition, Nel[ConsRecord]].some.pure[Try]) }
+                .map { s => (s, Map.empty[TopicPartition, Nel[ConsRecord]].some.pure[Try]) }
 
             case Command.Fail(error) =>
-              IO.delay((state, error.raiseError[Try, Option[Map[Partition, Nel[ConsRecord]]]]))
+              IO.delay((state, error.raiseError[Try, Option[Map[TopicPartition, Nel[ConsRecord]]]]))
           }
         }
 
         val stateT = StateT.of { state =>
           state.commands match {
-            case Nil => (state, none[Map[Partition, Nel[ConsRecord]]].pure[Try]).pure[IO]
+            case Nil => (state, none[Map[TopicPartition, Nel[ConsRecord]]].pure[Try]).pure[IO]
             case command :: commands => apply(state.copy(commands = commands), command)
           }
         }
 
         Stream.whileSome(stateT)
       }
+
+      def commitOf(topic: Topic): Resource[StateT, TopicCommit[StateT]] = Resource.pure(commit)
 
       val commit: TopicCommit[StateT] = {
         new TopicCommit[StateT] {
@@ -370,7 +373,8 @@ object ConsumeTopicTest {
       .get
   }
 
-  val subscriptionFlow: StateT[Unit] = ConsumeTopic(topic, consumer, topicFlowOf, Log.empty[StateT], retry)
+  val subscriptionFlow: StateT[Unit] =
+    ConsumeTopic(Nes.of(topic).pure[StateT], consumer, topicFlowOf, Log.empty[StateT], retry)
 
   sealed abstract class Command
 

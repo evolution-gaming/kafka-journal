@@ -27,6 +27,7 @@ final case class ReplicatorConfig(
   excludeTopics: List[String] = List.empty,
   replicationLatencyKind: TopicReplicatorMetrics.ReplicationLatencyKind =
     TopicReplicatorMetrics.ReplicationLatencyKind.Default,
+  sharedKafkaClient: Boolean = false,
 )
 
 object ReplicatorConfig {
@@ -85,6 +86,7 @@ object ReplicatorConfig {
       replicationLatencyKind = get[TopicReplicatorMetrics.ReplicationLatencyKind](
         "metrics.replication-latency-kind",
       ) getOrElse default.replicationLatencyKind,
+      sharedKafkaClient = get[Boolean]("shared-kafka-client") getOrElse default.sharedKafkaClient,
     )
   }
 }

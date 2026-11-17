@@ -26,6 +26,7 @@ class ReplicatorConfigSpec extends AnyFunSuite with Matchers {
         pollTimeout = 200.millis,
         excludeTopics = List("prefix1-excluded"),
         replicationLatencyKind = TopicReplicatorMetrics.ReplicationLatencyKind.Histogram,
+        sharedKafkaClient = true,
       )
     ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.pure[ConfigReader.Result]
   }

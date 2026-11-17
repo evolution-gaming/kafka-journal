@@ -19,6 +19,11 @@ trait KafkaConsumer[F[_], K, V] {
 
   def subscribe(topic: Topic, listener: RebalanceListener1[F]): F[Unit]
 
+  /**
+   * Subscribes to the given topics, replacing the previous subscription (if any).
+   */
+  def subscribe(topics: Nes[Topic], listener: RebalanceListener1[F]): F[Unit]
+
   def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]]
 
   def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit]
@@ -79,6 +84,10 @@ object KafkaConsumer {
         consumer.subscribe(Nes.of(topic), listener)
       }
 
+      def subscribe(topics: Nes[Topic], listener: RebalanceListener1[F]): F[Unit] = {
+        consumer.subscribe(topics, listener)
+      }
+
       def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]] = {
         consumer.poll(timeout)
       }
@@ -130,6 +139,11 @@ object KafkaConsumer {
         fg(self.subscribe(topic, listener1))
       }
 
+      def subscribe(topics: Nes[Topic], listener: RebalanceListener1[G]): G[Unit] = {
+        val listener1 = listener.mapK(gf)
+        fg(self.subscribe(topics, listener1))
+      }
+
       def poll(timeout: FiniteDuration): G[ConsumerRecords[K, V]] = fg(self.poll(timeout))
 
       def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): G[Unit] = fg(self.commit(offsets))
@@ -151,6 +165,10 @@ object KafkaConsumer {
 
       def subscribe(topic: Topic, listener: RebalanceListener1[F]): F[Unit] = {
         f(self.subscribe(topic, listener), "subscribe")
+      }
+
+      def subscribe(topics: Nes[Topic], listener: RebalanceListener1[F]): F[Unit] = {
+        f(self.subscribe(topics, listener), "subscribe")
       }
 
       def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]] = f(self.poll(timeout), "poll")
@@ -180,6 +198,10 @@ object KafkaConsumer {
 
         def subscribe(topic: Topic, listener: RebalanceListener1[F]): F[Unit] = {
           self.subscribe(topic, listener)
+        }
+
+        def subscribe(topics: Nes[Topic], listener: RebalanceListener1[F]): F[Unit] = {
+          self.subscribe(topics, listener)
         }
 
         def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]] = {
