@@ -15,6 +15,11 @@ private[journal] trait TopicFlow[F[_]] {
   def revoke(partitions: Nes[Partition]): F[Unit]
 
   def lose(partitions: Nes[Partition]): F[Unit]
+
+  /**
+   * Offsets of the last replicated records (pointers) as stored in the eventual journal.
+   */
+  def replicatedOffsets(partitions: Nes[Partition]): F[Map[Partition, Offset]]
 }
 
 private[journal] object TopicFlow {
@@ -29,6 +34,9 @@ private[journal] object TopicFlow {
     def revoke(partitions: Nes[Partition]): F[Unit] = ().pure[F]
 
     def lose(partitions: Nes[Partition]): F[Unit] = ().pure[F]
+
+    def replicatedOffsets(partitions: Nes[Partition]): F[Map[Partition, Offset]] =
+      Map.empty[Partition, Offset].pure[F]
   }
 
   implicit class TopicFlowOps[F[_]](val self: TopicFlow[F]) extends AnyVal {
@@ -42,6 +50,9 @@ private[journal] object TopicFlow {
       def revoke(partitions: Nes[Partition]): G[Unit] = f(self.revoke(partitions))
 
       def lose(partitions: Nes[Partition]): G[Unit] = f(self.lose(partitions))
+
+      def replicatedOffsets(partitions: Nes[Partition]): G[Map[Partition, Offset]] =
+        f(self.replicatedOffsets(partitions))
     }
   }
 }

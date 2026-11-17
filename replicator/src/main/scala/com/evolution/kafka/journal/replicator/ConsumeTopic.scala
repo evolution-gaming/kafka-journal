@@ -1,11 +1,12 @@
 package com.evolution.kafka.journal.replicator
 
-import cats.data.{NonEmptyList as Nel, NonEmptySet as Nes}
+import cats.data.{NonEmptyList as Nel, NonEmptySet as Nes, NonEmptyVector}
 import cats.effect.*
 import cats.effect.implicits.*
 import cats.syntax.all.*
 import com.evolution.kafka.journal.ConsRecord
 import com.evolution.kafka.journal.util.ResourceRegistry
+import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.catshelper.ParallelHelper.*
@@ -16,6 +17,7 @@ import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*
 import com.evolutiongaming.skafka.consumer.{RebalanceCallback, RebalanceListener1}
 
 import scala.concurrent.duration.*
+import scala.util.Try
 
 /**
  * Consumes one or more topics with a single Kafka consumer and replicates their records into the
@@ -94,12 +96,57 @@ private[journal] object ConsumeTopic {
         } yield {}
       }
 
+      /**
+       * Partitions without an offset committed by the consumer group (e.g. a new group, as after
+       * switching between per-topic and shared consumers) would be consumed from
+       * `auto.offset.reset`, i.e. from the earliest offset, re-reading records which are already
+       * replicated (and skipped by [[TopicFlow]]). Instead, seeks such partitions right after the
+       * last replicated record.
+       *
+       * On failure, falls back to the default behaviour: it is slower, but still correct.
+       */
+      def seekToReplicated(partitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] = {
+        def seek(partition: TopicPartition, offset: Offset): RebalanceCallback[F, Unit] =
+          RebalanceCallback.seek(partition, offset)
+
+        val committed: RebalanceCallback[F, Map[TopicPartition, OffsetAndMetadata]] =
+          RebalanceCallback.committed(partitions)
+
+        val result = for {
+          committed <- committed
+          subscriptions <- subscriptionsRef.get.lift
+          notCommitted = partitions.toSortedSet.toVector
+            .filterNot(committed.contains)
+            .groupBy { _.topic }.toVector.flatMap {
+              case (topic, partitions) =>
+                subscriptions.get(topic).map { subscription =>
+                  (topic, subscription, NonEmptyVector.fromVectorUnsafe(partitions.map { _.partition }).toNes)
+                }
+            }
+          replicated <- notCommitted.parFoldMap1 {
+            case (topic, subscription, partitions) =>
+              subscription.flow.replicatedOffsets(partitions)
+                .map { _.toVector.map { case (partition, offset) => (TopicPartition(topic, partition), offset) } }
+          }.lift
+          seeks = replicated.flatMap { case (partition, offset) => offset.inc[Try].toOption.map { (partition, _) } }
+          _ <- seeks.traverse_ { case (partition, offset) => seek(partition, offset) }
+          _ <- seeks.toNev.traverse_ { seeks =>
+            val seeks1 = seeks.map { case (partition, offset) => s"$partition:$offset" }.mkString_(",")
+            log.info(s"no committed offsets, seek to after the last replicated: $seeks1").lift
+          }
+        } yield ()
+
+        result.handleErrorWith { e =>
+          log.warn(s"failed to seek to the last replicated offsets, consuming from committed or reset ones: $e", e).lift
+        }
+      }
+
       new RebalanceListener1[F] {
 
         def onPartitionsAssigned(partitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] = {
           perTopic(partitions) { (subscription, partitions) =>
             subscription.flow.assign(partitions).lift >> subscription.commit.onPartitionsAssigned(partitions)
-          }
+          } >> seekToReplicated(partitions)
         }
 
         def onPartitionsRevoked(partitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] = {
@@ -172,19 +219,11 @@ private[journal] object ConsumeTopic {
 
       for {
         _ <- subscribe
-        a <- consumer
-          .poll
-          .mapM { records =>
-            val replicated = records.groupBy { case (topicPartition, _) => topicPartition.topic }.toList match {
-              case Nil => ().pure[F]
-              // no need for parallelism with a single topic, which is always the case for per-topic consumers
-              case (topic, records) :: Nil => replicate(topic, records)
-              case records => records.parFoldMap1 { case (topic, records) => replicate(topic, records) }
-            }
-            replicated >> subscribe
-          }
-          .drain
-      } yield a
+        _ <- consumer.poll.mapM { records =>
+          val records1 = records.groupBy { case (topicPartition, _) => topicPartition.topic }.toVector
+          records1.parFoldMap1 { case (topic, records) => replicate(topic, records) } >> subscribe
+        }.drain
+      } yield ()
     }
 
     retry {

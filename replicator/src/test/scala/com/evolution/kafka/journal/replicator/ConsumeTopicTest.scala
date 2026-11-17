@@ -11,11 +11,12 @@ import com.evolutiongaming.catshelper.{Log, ToTry}
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*
-import com.evolutiongaming.skafka.consumer.{RebalanceCallback, RebalanceListener1, WithSize}
+import com.evolutiongaming.skafka.consumer.{RebalanceCallback, RebalanceConsumer, RebalanceListener1, WithSize}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import scala.collection.mutable
 import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
@@ -87,6 +88,30 @@ class ConsumeTopicTest extends AsyncFunSuite with Matchers {
             Action.AcquireConsumer,
           ),
         )
+    }
+  }
+
+  test("seek partitions without committed offsets to after the last replicated offsets") {
+    val state = State(commands = List(Command.AssignPartitions(Nes.of(Partition.unsafe(0), Partition.unsafe(1)))))
+    // partition 0 has a committed offset, partition 1 doesn't
+    val rebalanceConsumer = new TestRebalanceConsumer(committed = Set(TopicPartition(topic, Partition.unsafe(0))))
+
+    subscriptionFlowOf(rebalanceConsumer).run(state).unsafeToFuture().map {
+      case (result, _) =>
+        result shouldEqual State(
+          actions = List(
+            Action.ReleaseConsumer,
+            Action.ReleaseTopicFlow(topic),
+            Action.ReplicatedOffsets(Nes.of(Partition.unsafe(1))),
+            Action.CommitAssignPartitions(Nes.of(Partition.unsafe(0), Partition.unsafe(1))),
+            Action.FlowAssignPartitions(Nes.of(Partition.unsafe(0), Partition.unsafe(1))),
+            Action.Subscribe()(RebalanceListener1.empty[StateT]),
+            Action.AcquireTopicFlow(topic),
+            Action.AcquireConsumer,
+          ),
+        )
+        // right after the last replicated offset
+        rebalanceConsumer.seeks.toList shouldEqual List((TopicPartition(topic, Partition.unsafe(1)), Offset.unsafe(11)))
     }
   }
 
@@ -164,7 +189,7 @@ object ConsumeTopicTest {
 
   implicit class RebalanceCallbackOps[A](val callback: RebalanceCallback[StateT, A]) extends AnyVal {
 
-    def runAsIO(state: State): IO[(State, A)] = {
+    def runAsIO(state: State, rebalanceConsumer: RebalanceConsumer): IO[(State, A)] = {
 
       IO.delay {
         var result: State = state
@@ -183,7 +208,7 @@ object ConsumeTopicTest {
           }
         }
 
-        callback.run(EmptyRebalanceConsumer) match {
+        callback.run(rebalanceConsumer) match {
           case Failure(e) => throw e
           case Success(a) => result -> a
         }
@@ -221,6 +246,13 @@ object ConsumeTopicTest {
             }
           }
 
+          def replicatedOffsets(partitions: Nes[Partition]): StateT[Map[Partition, Offset]] = {
+            StateT.pure { state =>
+              val state1 = state + Action.ReplicatedOffsets(partitions)
+              (state1, partitions.toSortedSet.toList.map { partition => (partition, Offset.unsafe(10)) }.toMap)
+            }
+          }
+
           def lose(partitions: Nes[Partition]): StateT[Unit] = {
             StateT.unit {
               _ + Action.FlowLosePartitions(partitions)
@@ -233,7 +265,9 @@ object ConsumeTopicTest {
     }
   }
 
-  val consumer: Resource[StateT, TopicConsumer[StateT]] = {
+  val consumer: Resource[StateT, TopicConsumer[StateT]] = consumerOf(EmptyRebalanceConsumer)
+
+  def consumerOf(rebalanceConsumer: RebalanceConsumer): Resource[StateT, TopicConsumer[StateT]] = {
 
     val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
@@ -256,7 +290,7 @@ object ConsumeTopicTest {
                     action
                       .listener
                       .onPartitionsAssigned(topicPartitions)
-                      .runAsIO(state)
+                      .runAsIO(state, rebalanceConsumer)
                       .map { case (s, _) => s }
                 }
                 .getOrElse(state.pure[IO])
@@ -275,7 +309,7 @@ object ConsumeTopicTest {
                     action
                       .listener
                       .onPartitionsRevoked(topicPartitions)
-                      .runAsIO(state)
+                      .runAsIO(state, rebalanceConsumer)
                       .map { case (s, _) => s }
                 }
                 .getOrElse(state.pure[IO])
@@ -373,6 +407,23 @@ object ConsumeTopicTest {
       .get
   }
 
+  def subscriptionFlowOf(rebalanceConsumer: RebalanceConsumer): StateT[Unit] =
+    ConsumeTopic(Nes.of(topic).pure[StateT], consumerOf(rebalanceConsumer), topicFlowOf, Log.empty[StateT], retry)
+
+  /**
+   * Committed offsets for the given partitions, records seeks
+   */
+  final class TestRebalanceConsumer(committed: Set[TopicPartition]) extends EmptyRebalanceConsumer {
+
+    val seeks: mutable.ListBuffer[(TopicPartition, Offset)] = mutable.ListBuffer.empty
+
+    override def committed(partitions: Nes[TopicPartition]): Try[Map[TopicPartition, OffsetAndMetadata]] =
+      Success(partitions.toSortedSet.toList.filter(committed.contains).map { (_, OffsetAndMetadata.empty) }.toMap)
+
+    override def seek(partition: TopicPartition, offset: Offset): Try[Unit] =
+      Try { seeks += ((partition, offset)) }.void
+  }
+
   val subscriptionFlow: StateT[Unit] =
     ConsumeTopic(Nes.of(topic).pure[StateT], consumer, topicFlowOf, Log.empty[StateT], retry)
 
@@ -416,6 +467,8 @@ object ConsumeTopicTest {
     final case class Poll(records: Nem[Partition, Nel[ConsRecord]]) extends Action
 
     final case class Commit(offsets: Nem[Partition, Offset]) extends Action
+
+    final case class ReplicatedOffsets(partitions: Nes[Partition]) extends Action
 
     final case class RetryOnError(error: Throwable, decision: OnError.Decision) extends Action
   }

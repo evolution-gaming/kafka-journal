@@ -297,6 +297,18 @@ private[journal] object TopicReplicator {
                 a <- remove(partitions)
               } yield a
             }
+
+            def replicatedOffsets(partitions: Nes[Partition]): F[Map[Partition, Offset]] = {
+              partitions
+                .toSortedSet
+                .toVector
+                .parFoldMap1 { partition =>
+                  journal(partition)
+                    .use { _.offsets.get }
+                    .map { _.map { offset => (partition, offset) }.toList }
+                }
+                .map { _.toMap }
+            }
           }
         }
       }
