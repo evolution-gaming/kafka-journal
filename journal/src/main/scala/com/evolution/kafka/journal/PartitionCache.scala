@@ -27,7 +27,7 @@ private[journal] trait PartitionCache[F[_]] {
    *   Journal id
    * @param offset
    *   Current [[Offset]], i.e. maximum offset where Kafka records related to a journal are located.
-   *   The usual way to get such an offset is to write a "marker" record to Kafka patition and use
+   *   The usual way to get such an offset is to write a "marker" record to Kafka partition and use
    *   the offset of the marker as a current one.
    *
    * @return
@@ -735,7 +735,7 @@ private[journal] object PartitionCache {
       /**
        * The cache was behind Kafka when [[PartitionCache#get]] got called.
        *
-       * It was also behind Casssandra or [[Now.Ahead]] would have returned.
+       * It was also behind Cassandra or [[Now.Ahead]] would have returned.
        *
        * The caller may try to wait for an actual [[HeadInfo]] by calling [[Empty#value]].
        *
