@@ -90,7 +90,7 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
     "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.journalFork",
   ),
   ProblemFilters.exclude[ReversedMissingMethodProblem](
-    "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.journalForkInit",
+    "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.init",
   ),
   // new `excludeTopics` field in `ReplicatorConfig` and `Replicator.Config`
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.ReplicatorConfig.this"),
