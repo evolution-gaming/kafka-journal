@@ -215,12 +215,12 @@ object ReplicatedJournal {
     def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit]
 
     /**
-     * Creates the journal fork metrics of a topic with zero values, so that they are present, and
+     * Creates the journal fork metrics for a topic with zero values, so that they are present, and
      * can be alerted on, before the first fork is detected.
      *
      * Called when the topic is discovered, only if fork detection is enabled.
      */
-    def journalForkInit(topic: Topic): F[Unit]
+    def init(topic: Topic): F[Unit]
   }
 
   object Metrics {
@@ -249,7 +249,7 @@ object ReplicatedJournal {
 
         def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] = unit
 
-        def journalForkInit(topic: Topic): F[Unit] = unit
+        def init(topic: Topic): F[Unit] = unit
       }
     }
 
@@ -353,16 +353,13 @@ object ReplicatedJournal {
           def setSchemaVersion(version: Int): F[Unit] =
             schemaVersionInfo.labels(s"$version").set()
 
-          def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] = {
+          def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit] =
             forksCounter.labels(topic, forkKind(duplicateProven)).inc()
-          }
 
-          def journalForkInit(topic: Topic): F[Unit] = {
+          def init(topic: Topic): F[Unit] =
             List(true, false).traverse_ { duplicateProven =>
               forksCounter.labels(topic, forkKind(duplicateProven)).inc(0)
             }
-          }
-
         }
       }
     }

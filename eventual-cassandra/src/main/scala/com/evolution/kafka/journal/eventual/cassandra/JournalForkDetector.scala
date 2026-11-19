@@ -16,7 +16,8 @@ private[journal] trait JournalForkDetector[F[_]] {
   def detect(key: Key, journalHead: Option[JournalHead], events: Nel[EventRecord[EventualPayloadAndType]]): F[Unit]
 
   /**
-   * Called when a topic is discovered, see [[JournalForkReporter.init]]
+   * Initializes handling of the topic, e.g. sets metrics to zero. Should be called right after the
+   * topic gets discovered, see [[JournalForkReporter.init]]
    */
   def init(topic: Topic): F[Unit]
 }
@@ -29,9 +30,11 @@ private[journal] object JournalForkDetector {
       key: Key,
       journalHead: Option[JournalHead],
       events: Nel[EventRecord[EventualPayloadAndType]],
-    ): F[Unit] = ().pure[F]
+    ): F[Unit] =
+      ().pure[F]
 
-    def init(topic: Topic): F[Unit] = ().pure[F]
+    def init(topic: Topic): F[Unit] =
+      ().pure[F]
   }
 
   def fromReporter[F[_]: Applicative](reporter: JournalForkReporter[F]): JournalForkDetector[F] = {

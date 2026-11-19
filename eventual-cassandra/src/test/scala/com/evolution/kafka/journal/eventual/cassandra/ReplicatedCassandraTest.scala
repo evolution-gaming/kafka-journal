@@ -2245,7 +2245,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     val program = for {
       _ <- journal.journal(topic0).use { _ => ().pure[StateT] }
       _ <- journal.journal(topic1).use { _ => ().pure[StateT] }
-    } yield {}
+    } yield ()
 
     program.run(State.empty).get shouldEqual ((State(forkReporterInits = List(topic0, topic1)), ()))
   }

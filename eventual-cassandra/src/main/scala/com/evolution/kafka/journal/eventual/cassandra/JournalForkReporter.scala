@@ -49,6 +49,6 @@ private[journal] object JournalForkReporter {
     }
 
     def init(topic: Topic): F[Unit] =
-      metrics.journalForkInit(topic)
+      metrics.init(topic)
   }
 }
