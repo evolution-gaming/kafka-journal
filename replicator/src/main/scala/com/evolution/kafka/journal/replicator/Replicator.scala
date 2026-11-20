@@ -277,8 +277,16 @@ object Replicator {
     }
 
     def make[F[_]: Monad](registry: CollectorRegistry[F], clientId: ClientId): Resource[F, Replicator.Metrics[F]] = {
+      make(registry, clientId, TopicReplicatorMetrics.ReplicationLatencyKind.Default)
+    }
+
+    def make[F[_]: Monad](
+      registry: CollectorRegistry[F],
+      clientId: ClientId,
+      replicationLatencyKind: TopicReplicatorMetrics.ReplicationLatencyKind,
+    ): Resource[F, Replicator.Metrics[F]] = {
       for {
-        replicator1 <- TopicReplicatorMetrics.make[F](registry)
+        replicator1 <- TopicReplicatorMetrics.make[F](registry, "replicator", replicationLatencyKind)
         journal1 <- ReplicatedJournal.Metrics.make[F](registry)
         consumer1 <- ConsumerMetrics.of[F](registry)
         cache1 <- CacheMetrics.of[F](registry)

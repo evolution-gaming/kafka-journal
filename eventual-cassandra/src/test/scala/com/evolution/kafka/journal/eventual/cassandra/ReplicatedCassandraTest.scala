@@ -24,7 +24,7 @@ import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.*
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   import ReplicatedCassandraTest.*
@@ -2642,10 +2642,19 @@ object ReplicatedCassandraTest {
 
   val forkReporter: JournalForkReporter[StateT] = new JournalForkReporter[StateT] {
 
-    def report(fork: JournalFork): StateT[Unit] =
+    def forkSuspected(fork: JournalFork): StateT[Unit] =
       StateT.unit { state => state.copy(forks = state.forks :+ fork) }
 
-    def init(topic: Topic): StateT[Unit] = ().pure[StateT]
+    def detectionFailed(
+      key: Key,
+      journalHead: Option[JournalHead],
+      events: Nel[EventRecord[EventualPayloadAndType]],
+      error: Throwable,
+    ): StateT[Unit] =
+      StateT { _ => Failure(error) }
+    
+    def init(topic: Topic): StateT[Unit] =
+      ().pure[StateT]
   }
 
   final case class State(
