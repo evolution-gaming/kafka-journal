@@ -369,16 +369,9 @@ object EventualCassandraTest {
     }
   }
 
-  val insertRecords: JournalStatements.InsertRecords[StateT] = {
-    (key: Key, segment: SegmentNr, records: Nel[JournalRecord]) =>
-      {
-        StateT.unit { state =>
-          val k = (key, segment)
-          val entries = state
-            .journal
-            .getOrElse(k, Map.empty)
+  val insertRecords: JournalStatements.InsertRecords[StateT] = new JournalStatements.InsertRecords[StateT] {
 
-    def apply(key: Key, segment: SegmentNr, records: Nel[JournalRecord]): StateT[Unit] = {
+    def apply(key: Key, segment: SegmentNr, records: Nel[JournalRecord]): StateT[Unit] =
       StateT.unit { state =>
         val k = (key, segment)
         val entries = state
@@ -392,7 +385,6 @@ object EventualCassandraTest {
         val journal1 = state.journal.updated(k, entries1)
         state.copy(journal = journal1)
       }
-    }
   }
 
   val deleteRecords: JournalStatements.DeleteTo[StateT] = new JournalStatements.DeleteTo[StateT] {
