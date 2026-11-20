@@ -16,13 +16,13 @@ private[journal] object HeaderToTuple {
   implicit def apply[F[_]: ApplicativeThrowable](
     implicit
     stringFromBytes: FromBytes[F, String],
-  ): HeaderToTuple[F] = {
-    (header: Header) =>
-      {
-        val bytes = ByteVector.view(header.value)
-        stringFromBytes(bytes)
-          .map { value => (header.key, value) }
-          .adaptErr { case e => JournalError(s"HeaderToTuple failed for $header: $e", e) }
-      }
+  ): HeaderToTuple[F] = new HeaderToTuple[F] {
+
+    def apply(header: Header): F[(String, String)] = {
+      val bytes = ByteVector.view(header.value)
+      stringFromBytes(bytes)
+        .map { value => (header.key, value) }
+        .adaptErr { case e => JournalError(s"HeaderToTuple failed for $header: $e", e) }
+    }
   }
 }

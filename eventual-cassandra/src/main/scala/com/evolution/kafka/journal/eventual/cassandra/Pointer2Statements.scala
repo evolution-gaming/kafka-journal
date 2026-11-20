@@ -43,16 +43,19 @@ private[journal] object Pointer2Statements {
 
       query
         .prepare
-        .map { prepared => () =>
-          {
-            prepared
-              .bind()
-              .setConsistencyLevel(consistencyConfig.value)
-              .execute
-              .toList
-              .map { records =>
-                records.map { _.decode[Topic]("topic") }.toSortedSet
-              }
+        .map { prepared =>
+          new SelectTopics[F] {
+
+            def apply(): F[SortedSet[Topic]] = {
+              prepared
+                .bind()
+                .setConsistencyLevel(consistencyConfig.value)
+                .execute
+                .toList
+                .map { records =>
+                  records.map { _.decode[Topic]("topic") }.toSortedSet
+                }
+            }
           }
         }
     }
@@ -68,8 +71,8 @@ private[journal] object Pointer2Statements {
     final case class Result(created: Option[Instant])
 
     object Result {
-      implicit val decodeResult: DecodeRow[Result] = { (row: GettableByNameData) =>
-        {
+      implicit val decodeResult: DecodeRow[Result] = new DecodeRow[Result] {
+        def apply(row: GettableByNameData): Result = {
           Result(row.decode[Option[Instant]]("created"))
         }
       }
@@ -86,14 +89,19 @@ private[journal] object Pointer2Statements {
          |"""
         .stripMargin
         .prepare
-        .map { prepared => (topic: Topic, partition: Partition) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .map { _.map { _.decode[Result] } }
+        .map { prepared =>
+          new Select[F] {
+
+            def apply(topic: Topic, partition: Partition): F[Option[Select.Result]] = {
+              prepared
+                .bind()
+                .encode("topic", topic)
+                .encode("partition", partition)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .map { _.map { _.decode[Result] } }
+            }
+          }
         }
     }
   }
@@ -119,14 +127,19 @@ private[journal] object Pointer2Statements {
 
       query
         .prepare
-        .map { prepared => (topic: Topic, partition: Partition) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .map { _.map { _.decode[Offset]("offset") } }
+        .map { prepared =>
+          new SelectOffset[F] {
+
+            def apply(topic: Topic, partition: Partition): F[Option[Offset]] = {
+              prepared
+                .bind()
+                .encode("topic", topic)
+                .encode("partition", partition)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .map { _.map { _.decode[Offset]("offset") } }
+            }
+          }
         }
     }
   }
@@ -157,24 +170,28 @@ private[journal] object Pointer2Statements {
 
       query
         .prepare
-        .map {
-          prepared => (
-            topic: Topic,
-            partition: Partition,
-            offset: Offset,
-            created: Instant,
-            updated: Instant,
-          ) =>
-            prepared
-              .bind()
-              .encode("topic", topic)
-              .encode(partition)
-              .encode(offset)
-              .encode("created", created)
-              .encode("updated", updated)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { prepared =>
+          new Insert[F] {
+
+            def apply(
+              topic: Topic,
+              partition: Partition,
+              offset: Offset,
+              created: Instant,
+              updated: Instant,
+            ): F[Unit] = {
+              prepared
+                .bind()
+                .encode("topic", topic)
+                .encode(partition)
+                .encode(offset)
+                .encode("created", created)
+                .encode("updated", updated)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
+            }
+          }
         }
     }
   }
@@ -206,22 +223,26 @@ private[journal] object Pointer2Statements {
 
       query
         .prepare
-        .map {
-          prepared => (
-            topic: Topic,
-            partition: Partition,
-            offset: Offset,
-            timestamp: Instant,
-          ) =>
-            prepared
-              .bind()
-              .encode("topic", topic)
-              .encode("partition", partition)
-              .encode("offset", offset)
-              .encode("updated", timestamp)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { prepared =>
+          new Update[F] {
+
+            def apply(
+              topic: Topic,
+              partition: Partition,
+              offset: Offset,
+              timestamp: Instant,
+            ): F[Unit] = {
+              prepared
+                .bind()
+                .encode("topic", topic)
+                .encode("partition", partition)
+                .encode("offset", offset)
+                .encode("updated", timestamp)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
+            }
+          }
         }
     }
   }

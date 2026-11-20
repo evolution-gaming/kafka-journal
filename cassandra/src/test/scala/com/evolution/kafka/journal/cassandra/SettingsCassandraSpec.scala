@@ -87,10 +87,16 @@ class SettingsCassandraSpec extends AnyFunSuite {
   private val settings = {
 
     val statements = SettingsCassandra.Statements(
-      select = Database.select(_),
-      insert = Database.insert(_),
+      select = new SettingStatements.Select[F] {
+        def apply(key: Key): F[Option[Setting]] = Database.select(key)
+      },
+      insert = new SettingStatements.Insert[F] {
+        def apply(setting: Setting): F[Unit] = Database.insert(setting)
+      },
       all = Database.all,
-      delete = Database.delete(_),
+      delete = new SettingStatements.Delete[F] {
+        def apply(key: Key): F[Unit] = Database.delete(key)
+      },
     )
 
     implicit val clock: Clock[F] = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)

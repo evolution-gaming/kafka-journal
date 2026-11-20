@@ -109,7 +109,7 @@ ThisBuild / libraryDependencySchemes ++= Seq(
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
-  addCommandAlias("fmt", "+all scalafmtRepo") ++
+  addCommandAlias("fmt", "scalafmtRepo") ++
     addCommandAlias(
       "check", // check is called with + from the release action
       "all versionPolicyCheck Compile/doc scalafmtCheckRepo",

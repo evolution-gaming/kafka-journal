@@ -983,12 +983,14 @@ object TopicReplicatorSpec {
     def topics: StateT[SortedSet[Topic]] = SortedSet.empty[Topic].pure[StateT]
   }
 
-  val replicatedOffsetNotifier: ReplicatedOffsetNotifier[StateT] =
-    (topicPartition: TopicPartition, offset: Offset) => {
+  val replicatedOffsetNotifier: ReplicatedOffsetNotifier[StateT] = new ReplicatedOffsetNotifier[StateT] {
+
+    def onReplicatedOffset(topicPartition: TopicPartition, offset: Offset): StateT[Unit] = {
       StateT.unit { state =>
         state.addReplicatedOffsetNotification(topicPartition, offset.value)
       }
     }
+  }
 
   implicit val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
@@ -998,10 +1000,13 @@ object TopicReplicatorSpec {
       }
     }
 
-    val commit: TopicCommit[StateT] = offsets => {
-      StateT.unit { state =>
-        val offsets1 = offsets.mapKV { case (partition, offset) => (partition.value, offset.value) }
-        state.copy(commits = offsets1 :: state.commits)
+    val commit: TopicCommit[StateT] = new TopicCommit[StateT] {
+
+      def apply(offsets: Nem[Partition, Offset]): StateT[Unit] = {
+        StateT.unit { state =>
+          val offsets1 = offsets.mapKV { case (partition, offset) => (partition.value, offset.value) }
+          state.copy(commits = offsets1 :: state.commits)
+        }
       }
     }
 

@@ -56,21 +56,25 @@ object JsonCodec {
     ): Encode[F] = codec.encode
 
     def playJson[F[_]: FromTry]: Encode[F] = {
-      Encode { value =>
-        FromTry[F].unsafe {
-          val bytes = Json.toBytes(value)
-          ByteVector.view(bytes)
+      Encode(new ToBytes[F, JsValue] {
+        def apply(value: JsValue): F[ByteVector] = {
+          FromTry[F].unsafe {
+            val bytes = Json.toBytes(value)
+            ByteVector.view(bytes)
+          }
         }
-      }
+      })
     }
 
     def jsoniter[F[_]: FromTry]: Encode[F] = {
-      Encode { value =>
-        FromTry[F].unsafe {
-          val bytes = PlayJsonJsoniter.serialize(value)
-          ByteVector.view(bytes)
+      Encode(new ToBytes[F, JsValue] {
+        def apply(value: JsValue): F[ByteVector] = {
+          FromTry[F].unsafe {
+            val bytes = PlayJsonJsoniter.serialize(value)
+            ByteVector.view(bytes)
+          }
         }
-      }
+      })
     }
 
     implicit class EncodeOps[F[_]](val self: Encode[F]) extends AnyVal {
@@ -82,15 +86,17 @@ object JsonCodec {
       )(implicit
         F: ApplicativeThrowable[F],
       ): Encode[F] = {
-        Encode { jsValue =>
-          self
-            .toBytes(jsValue)
-            .handleErrorWith { e =>
-              encode
-                .toBytes(jsValue)
-                .adaptErr { case _ => e }
-            }
-        }
+        Encode(new ToBytes[F, JsValue] {
+          def apply(jsValue: JsValue): F[ByteVector] = {
+            self
+              .toBytes(jsValue)
+              .handleErrorWith { e =>
+                encode
+                  .toBytes(jsValue)
+                  .adaptErr { case _ => e }
+              }
+          }
+        })
       }
 
       def toStr(
@@ -120,18 +126,22 @@ object JsonCodec {
     ): Decode[F] = codec.decode
 
     def playJson[F[_]: FromTry]: Decode[F] = {
-      Decode { byteVector =>
-        val bytes = byteVector.toArray
-        Try { Json.parse(bytes) }.adapt(byteVector)
-      }
+      Decode(new FromBytes[F, JsValue] {
+        def apply(byteVector: ByteVector): F[JsValue] = {
+          val bytes = byteVector.toArray
+          Try { Json.parse(bytes) }.adapt(byteVector)
+        }
+      })
     }
 
     def jsoniter[F[_]: FromTry]: Decode[F] = {
-      Decode { byteVector =>
-        PlayJsonJsoniter
-          .deserialize(byteVector.toArray)
-          .adapt(byteVector)
-      }
+      Decode(new FromBytes[F, JsValue] {
+        def apply(byteVector: ByteVector): F[JsValue] = {
+          PlayJsonJsoniter
+            .deserialize(byteVector.toArray)
+            .adapt(byteVector)
+        }
+      })
     }
 
     implicit class DecodeOps[F[_]](val self: Decode[F]) extends AnyVal {
@@ -143,15 +153,17 @@ object JsonCodec {
       )(implicit
         F: ApplicativeThrowable[F],
       ): Decode[F] = {
-        Decode { bytes =>
-          self
-            .fromBytes(bytes)
-            .handleErrorWith { e =>
-              decode
-                .fromBytes(bytes)
-                .adaptErr { case _ => e }
-            }
-        }
+        Decode(new FromBytes[F, JsValue] {
+          def apply(bytes: ByteVector): F[JsValue] = {
+            self
+              .fromBytes(bytes)
+              .handleErrorWith { e =>
+                decode
+                  .fromBytes(bytes)
+                  .adaptErr { case _ => e }
+              }
+          }
+        })
       }
 
       def fromStr(
