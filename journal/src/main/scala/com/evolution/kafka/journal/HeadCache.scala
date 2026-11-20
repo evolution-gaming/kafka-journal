@@ -90,6 +90,9 @@ object HeadCache {
    * @param metrics
    *   Interface to report the metrics to. The intended way to configure it is overriding
    *   [[KafkaJournal#metrics]] in a custom implementation of [[KafkaJournal]].
+   * @param config
+   *   Cache configuration, i.e. size limits and timeouts. Usually read from
+   *   [[JournalConfig.HeadCache#config]].
    * @return
    *   Resource which will configure a [[HeadCache]] with the passed parameters. Instance of
    *   `Resource[HeadCache]` are, obviously, reusable and there is no need to call [[HeadCache#of]]
@@ -101,10 +104,17 @@ object HeadCache {
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]],
+    config: HeadCacheConfig,
   ): Resource[F, HeadCache[F]] = {
     for {
       log <- LogOf[F].apply(HeadCache.getClass).toResource
-      result <- HeadCache.make(Eventual(eventualJournal), log, TopicCache.Consumer.make[F](consumerConfig), metrics)
+      result <- HeadCache.make(
+        Eventual(eventualJournal),
+        log,
+        TopicCache.Consumer.make[F](consumerConfig),
+        metrics,
+        config,
+      )
       result <- result.withFence
     } yield {
       result.withLog(log)
@@ -130,8 +140,8 @@ object HeadCache {
    *   Interface to report the metrics to. The intended way to configure it is overriding
    *   [[KafkaJournal#metrics]] in a custom implementation of [[KafkaJournal]].
    * @param config
-   *   Cache configuration. It is recommended to keep it default, and only change it for unit
-   *   testing purposes.
+   *   Cache configuration. The defaults are recommended for most cases, but the partition cache
+   *   size may need to be increased for topics with a large number of active journals.
    * @return
    *   Resource which will configure a [[HeadCache]] with the passed parameters. Instance of
    *   `Resource[HeadCache]` are, obviously, reusable and there is no need to call [[HeadCache#of]]

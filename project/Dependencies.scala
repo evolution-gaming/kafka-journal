@@ -6,7 +6,7 @@ object Dependencies {
   val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.5"
   val KafkaClients = "org.apache.kafka" % "kafka-clients" % "4.4.0"
   val PlayJson = "org.playframework" %% "play-json" % "3.0.6"
-  val Lz4 = "at.yawk.lz4" % "lz4-java" % "1.14.0"
+  val Lz4 = "at.yawk.lz4" % "lz4-java" % "1.14.1"
 
   private val PekkoExtensionVersion = "2.1.3"
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.5.1"
@@ -20,7 +20,7 @@ object Dependencies {
   val Random = "com.evolution" %% "random" % "1.0.5"
   val Retry = "com.evolutiongaming" %% "retry" % "3.1.0"
   val SStream = "com.evolutiongaming" %% "sstream" % "1.3.0"
-  val SKafka = "com.evolutiongaming" %% "skafka" % "21.0.3"
+  val SKafka = "com.evolutiongaming" %% "skafka" % "21.0.5"
   val AkkaTestActor = "com.evolutiongaming" %% "akka-test-actor" % "0.3.0"
   val PekkoTestActor = "com.evolution" %% "pekko-extension-test-actor" % PekkoExtensionVersion
   val SCache = "com.evolution" %% "scache" % "6.0.2"
@@ -32,7 +32,7 @@ object Dependencies {
   }
 
   object Jackson {
-    private val version = "2.22.4"
+    private val version = "2.23.0"
     val Core = "com.fasterxml.jackson.core" % "jackson-core" % version
     val Databind = "com.fasterxml.jackson.core" % "jackson-databind" % version
     val Jdk8 = "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8" % version
@@ -42,7 +42,7 @@ object Dependencies {
   }
 
   object Logback {
-    private val version = "1.6.6"
+    private val version = "1.6.7"
     val Core = "ch.qos.logback" % "logback-core" % version
     val Classic = "ch.qos.logback" % "logback-classic" % version
   }

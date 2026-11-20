@@ -52,7 +52,11 @@ private[it] trait JournalSuite extends SuiteScopedResources with Matchers with I
     useHeadCache: Boolean,
   ): ResourceIO[HeadCache[IO]] = {
     if (useHeadCache) {
-      HeadCacheOf[IO](metrics = none).apply(config.journal.kafka.consumer, eventualJournal)
+      HeadCacheOf[IO](metrics = none).apply(
+        config.journal.kafka.consumer,
+        eventualJournal,
+        config.journal.headCache.config,
+      )
     } else {
       Resource.pure[IO, HeadCache[IO]](HeadCache.empty[IO])
     }

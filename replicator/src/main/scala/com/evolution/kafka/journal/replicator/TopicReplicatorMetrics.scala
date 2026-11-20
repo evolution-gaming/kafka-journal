@@ -1,11 +1,14 @@
 package com.evolution.kafka.journal.replicator
 
+import cats.data.NonEmptyList
 import cats.effect.*
 import cats.syntax.all.*
 import cats.{Applicative, Monad}
 import com.evolutiongaming.skafka.{Bytes as _, *}
 import com.evolutiongaming.smetrics.*
 import com.evolutiongaming.smetrics.MetricsHelper.*
+import pureconfig.ConfigReader
+import pureconfig.error.CannotConvert
 
 import scala.concurrent.duration.*
 
@@ -73,13 +76,41 @@ object TopicReplicatorMetrics {
     registry: CollectorRegistry[F],
     prefix: String = "replicator",
   ): Resource[F, Topic => TopicReplicatorMetrics[F]] = {
+    make(registry, prefix, ReplicationLatencyKind.Default)
+  }
 
-    val replicationSummary = registry.summary(
-      name = s"${ prefix }_replication_latency",
-      help = "Replication latency in seconds",
-      quantiles = Quantiles.Default,
-      labels = LabelNames("topic", "type"),
-    )
+  /**
+   * @param replicationLatencyKind
+   *   selects which metric type is registered for replication latency, see
+   *   [[ReplicationLatencyKind]]
+   */
+  def make[F[_]: Monad](
+    registry: CollectorRegistry[F],
+    prefix: String,
+    replicationLatencyKind: ReplicationLatencyKind,
+  ): Resource[F, Topic => TopicReplicatorMetrics[F]] = {
+
+    val replicationLatencyObserver: Resource[F, (Topic, String) => Double => F[Unit]] = replicationLatencyKind match {
+      case ReplicationLatencyKind.Summary =>
+        registry
+          .summary(
+            name = s"${ prefix }_replication_latency",
+            help = "Replication latency in seconds",
+            quantiles = Quantiles.Default,
+            labels = LabelNames("topic", "type"),
+          )
+          .map { summary => (topic: Topic, name: String) => summary.labels(topic, name).observe(_) }
+
+      case ReplicationLatencyKind.Histogram =>
+        registry
+          .histogram(
+            name = s"${ prefix }_replication_latency_seconds",
+            help = "Replication latency in seconds",
+            buckets = Buckets(NonEmptyList.of(0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0)),
+            labels = LabelNames("topic", "type"),
+          )
+          .map { histogram => (topic: Topic, name: String) => histogram.labels(topic, name).observe(_) }
+    }
 
     val deliverySummary = registry.summary(
       name = s"${ prefix }_delivery_latency",
@@ -136,7 +167,7 @@ object TopicReplicatorMetrics {
     )
 
     for {
-      replicationSummary <- replicationSummary
+      replicationLatencyObserver <- replicationLatencyObserver
       deliverySummary <- deliverySummary
       eventsSummary <- eventsSummary
       bytesSummary <- bytesSummary
@@ -150,7 +181,7 @@ object TopicReplicatorMetrics {
 
         def observeMeasurements(name: String, measurements: Measurements): F[Unit] = {
           for {
-            _ <- replicationSummary.labels(topic, name).observe(measurements.replicationLatency.toNanos.nanosToSeconds)
+            _ <- replicationLatencyObserver(topic, name)(measurements.replicationLatency.toNanos.nanosToSeconds)
             _ <- deliverySummary.labels(topic, name).observe(measurements.deliveryLatency.toNanos.nanosToSeconds)
             _ <- recordsSummary.labels(topic).observe(measurements.records.toDouble)
           } yield {}
@@ -195,4 +226,31 @@ object TopicReplicatorMetrics {
   }
 
   final case class Measurements(replicationLatency: FiniteDuration, deliveryLatency: FiniteDuration, records: Int)
+
+  /**
+   * Metric type used to expose replication latency; exactly one of them is registered:
+   *   - [[ReplicationLatencyKind.Summary]] - `<prefix>_replication_latency` summary with
+   *     client-side quantiles (default, the original metric)
+   *   - [[ReplicationLatencyKind.Histogram]] - `<prefix>_replication_latency_seconds` histogram,
+   *     aggregatable across instances
+   */
+  sealed trait ReplicationLatencyKind extends Product with Serializable
+
+  object ReplicationLatencyKind {
+
+    case object Summary extends ReplicationLatencyKind
+
+    case object Histogram extends ReplicationLatencyKind
+
+    val Default: ReplicationLatencyKind = Summary
+
+    implicit val configReaderReplicationLatencyKind: ConfigReader[ReplicationLatencyKind] =
+      ConfigReader[String].emap { value =>
+        value.toLowerCase match {
+          case "summary" => Summary.asRight
+          case "histogram" => Histogram.asRight
+          case _ => CannotConvert(value, "ReplicationLatencyKind", "expected either: `summary` or `histogram`").asLeft
+        }
+      }
+  }
 }
