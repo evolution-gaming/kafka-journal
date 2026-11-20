@@ -28,7 +28,15 @@ class JournalConfigSpec extends AnyFunSuite with Matchers {
           consumer =
             default.kafka.consumer.copy(common = default.kafka.consumer.common.copy(clientId = "clientId".some)),
         ),
-      headCache = default.headCache.copy(enabled = false),
+      headCache = default
+        .headCache
+        .copy(
+          enabled = false,
+          config = default
+            .headCache
+            .config
+            .copy(timeout = 2.seconds, partition = HeadCacheConfig.Partition(maxSize = 50000)),
+        ),
     )
     ConfigSource.fromConfig(config).load[JournalConfig] shouldEqual expected.asRight
   }

@@ -76,6 +76,8 @@ lazy val commonSettings = Seq(
   versionPolicyIgnored ++= Seq(
     // add libraries here that are known to be binary compatible, like:
 //    "com.evolutiongaming" %% "smetrics",
+    // TODO remove after release
+    "com.fasterxml.jackson.module" %% "jackson-module-scala",
   ),
 )
 
@@ -84,6 +86,21 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
 //  ProblemFilters.exclude[IncompatibleMethTypeProblem](
 //    "com.evolution.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
 //  ),
+  // new `excludeTopics` field in `ReplicatorConfig` and `Replicator.Config`
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.ReplicatorConfig.this"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.ReplicatorConfig.apply"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.ReplicatorConfig.copy"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.Replicator#Config.this"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.Replicator#Config.apply"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.Replicator#Config.copy"),
+  // configurable `HeadCacheConfig`: new `config` field in `JournalConfig.HeadCache`, new `config` parameter
+  // in `HeadCacheOf.apply` and `HeadCache.make`
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.JournalConfig#HeadCache.this"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.JournalConfig#HeadCache.apply"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.JournalConfig#HeadCache.copy"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
+  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCache.make"),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(

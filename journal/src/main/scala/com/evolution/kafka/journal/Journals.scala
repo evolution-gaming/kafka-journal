@@ -58,7 +58,7 @@ object Journals {
 
     val headCache = {
       if (config.headCache.enabled) {
-        HeadCacheOf[F].apply(config.kafka.consumer, eventualJournal)
+        HeadCacheOf[F].apply(config.kafka.consumer, eventualJournal, config.headCache.config)
       } else {
         Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
       }
