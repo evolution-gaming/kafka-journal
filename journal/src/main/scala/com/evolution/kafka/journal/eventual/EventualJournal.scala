@@ -115,13 +115,78 @@ object EventualJournal {
     def ids(topic: Topic, latency: FiniteDuration): F[Unit]
   }
 
+  /**
+   * Kind of data integrity violation detected on read
+   */
+  sealed abstract class DataIntegrityViolation(val label: String, val enforced: Boolean) extends Product
+  with Serializable
+
+  object DataIntegrityViolation {
+
+    /**
+     * Event has no meta record id, while the journal head has one
+     */
+    case object OrphanEnforced extends DataIntegrityViolation("orphan", true)
+    case object OrphanDetected extends DataIntegrityViolation("orphan", false)
+
+    /**
+     * Event belongs to a different (purged) meta record than the current journal head
+     */
+    case object PurgedMetaEnforced extends DataIntegrityViolation("purged_meta", true)
+    case object PurgedMetaDetected extends DataIntegrityViolation("purged_meta", false)
+
+    /**
+     * The same `seqNr` is stored in multiple records
+     */
+    case object SeqNrDuplicateEnforced extends DataIntegrityViolation("seqnr_duplicate", true)
+  }
+
   object Metrics {
+
+    /**
+     * Optional capability, mixed into [[Metrics]] implementations provided by this library.
+     *
+     * Kept out of [[Metrics]] itself, so implementations compiled against its previous version stay
+     * binary compatible. Use [[MetricsOps.dataIntegrityViolation]] to call it on any [[Metrics]].
+     */
+    trait DataIntegrityViolations[F[_]] {
+
+      /**
+       * Records a data integrity violation found while reading the journal, see
+       * [[com.evolution.kafka.journal.Journal.DataIntegrityConfig]].
+       *
+       * @param violation
+       *   sets the `kind` label of the `data_integrity_violations_total` counter and its `enforced`
+       *   label:
+       *   - `true` if the corresponding check is enabled, so the event was dropped or the read
+       *     failed
+       *   - `false` if the check is disabled and the event was still returned
+       */
+      def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation): F[Unit]
+    }
+
+    implicit final class MetricsOps[F[_]](val self: Metrics[F]) extends AnyVal {
+
+      /**
+       * Records a data integrity violation if `self` supports [[DataIntegrityViolations]], no-op
+       * otherwise
+       */
+      def dataIntegrityViolation(
+        topic: Topic,
+        violation: DataIntegrityViolation,
+      )(implicit
+        F: Applicative[F],
+      ): F[Unit] = self match {
+        case self: DataIntegrityViolations[F @unchecked] => self.dataIntegrityViolation(topic, violation)
+        case _ => F.unit
+      }
+    }
 
     def empty[F[_]: Applicative]: Metrics[F] = const(Applicative[F].unit)
 
     private sealed abstract class Const
 
-    def const[F[_]](unit: F[Unit]): Metrics[F] = new Const with Metrics[F] {
+    def const[F[_]](unit: F[Unit]): Metrics[F] = new Const with Metrics[F] with DataIntegrityViolations[F] {
 
       def read(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
@@ -132,6 +197,8 @@ object EventualJournal {
       def ids(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
       def offset(topic: Topic, latency: FiniteDuration): F[Unit] = unit
+
+      def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation): F[Unit] = unit
     }
 
     private sealed abstract class Main
@@ -161,11 +228,18 @@ object EventualJournal {
         labels = LabelNames("topic"),
       )
 
+      val dataIntegrityViolationsCounter = registry.counter(
+        name = s"${ prefix }_data_integrity_violations_total",
+        help = "Number of data integrity violations detected on read",
+        labels = LabelNames("topic", "kind", "enforced"),
+      )
+
       for {
         versionGauge <- versionGauge
         _ <- versionGauge.labels(Version.current.value).set().toResource
         latencySummary <- latencySummary
         eventsSummary <- eventsSummary
+        dataIntegrityViolationsCounter <- dataIntegrityViolationsCounter
       } yield {
 
         def observeLatency(name: String, topic: Topic, latency: FiniteDuration) = {
@@ -174,7 +248,7 @@ object EventualJournal {
             .observe(latency.toNanos.nanosToSeconds)
         }
 
-        new Main with Metrics[F] {
+        new Main with Metrics[F] with DataIntegrityViolations[F] {
 
           def read(topic: Topic, latency: FiniteDuration): F[Unit] = {
             observeLatency(name = "read", topic = topic, latency = latency)
@@ -194,6 +268,12 @@ object EventualJournal {
 
           def offset(topic: Topic, latency: FiniteDuration): F[Unit] = {
             observeLatency(name = "offset", topic = topic, latency = latency)
+          }
+
+          def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation): F[Unit] = {
+            dataIntegrityViolationsCounter
+              .labels(topic, violation.label, violation.enforced.toString)
+              .inc()
           }
         }
       }
