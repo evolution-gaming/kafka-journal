@@ -2221,6 +2221,43 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       forks.map(_.isDuplicate) shouldEqual List(false)
     }
   }
+
+  test("fork reporter is initialized for a topic when its journal is created") {
+    val reporter = new JournalForkReporter[StateT] {
+
+      def forkSuspected(fork: JournalFork): StateT[Unit] =
+        ().pure[StateT]
+
+      def detectionFailed(
+        key: Key,
+        journalHead: Option[JournalHead],
+        events: Nel[EventRecord[EventualPayloadAndType]],
+        error: Throwable,
+      ): StateT[Unit] =
+        ().pure[StateT]
+
+      def init(topic: Topic): StateT[Unit] = StateT.unit { state =>
+        state.copy(forkReporterInits = state.forkReporterInits :+ topic)
+      }
+    }
+    val journal = {
+      implicit val secureRandom: SecureRandom[StateT] = staticSecureRandom
+      ReplicatedCassandra(
+        SegmentSize.default,
+        SegmentNrs.Of[StateT](first = Segments.default, second = Segments.old),
+        statements,
+        ExpiryService(ZoneOffset.UTC),
+        JournalForkDetector.fromReporter(reporter),
+      )
+    }
+
+    val program = for {
+      _ <- journal.journal(topic0).use { _ => ().pure[StateT] }
+      _ <- journal.journal(topic1).use { _ => ().pure[StateT] }
+    } yield ()
+
+    program.run(State.empty).get shouldEqual ((State(forkReporterInits = List(topic0, topic1)), ()))
+  }
 }
 
 object ReplicatedCassandraTest {
@@ -2624,6 +2661,9 @@ object ReplicatedCassandraTest {
       error: Throwable,
     ): StateT[Unit] =
       StateT { _ => Failure(error) }
+
+    def init(topic: Topic): StateT[Unit] =
+      ().pure[StateT]
   }
 
   final case class State(
@@ -2632,6 +2672,7 @@ object ReplicatedCassandraTest {
     metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]] = Map.empty,
     journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), JournalRecord]] = Map.empty,
     forks: List[JournalFork] = List.empty,
+    forkReporterInits: List[Topic] = List.empty,
   )
 
   object State {

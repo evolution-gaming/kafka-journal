@@ -6,6 +6,7 @@ import cats.syntax.all.*
 import com.evolution.kafka.journal.eventual.{EventualPayloadAndType, ReplicatedJournal}
 import com.evolution.kafka.journal.{EventRecord, Key}
 import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.skafka.Topic
 
 /**
  * Reports suspected [[JournalFork]]s and failed detections, e.g. to logs and metrics.
@@ -27,13 +28,20 @@ private[journal] trait JournalForkReporter[F[_]] {
     events: Nel[EventRecord[EventualPayloadAndType]],
     error: Throwable,
   ): F[Unit]
+
+  /**
+   * Called when a topic is discovered, before any of its forks is reported, e.g. to create its
+   * metrics with zero values.
+   */
+  def init(topic: Topic): F[Unit]
 }
 
 private[journal] object JournalForkReporter {
 
   def empty[F[_]: Applicative]: JournalForkReporter[F] = new JournalForkReporter[F] {
 
-    def forkSuspected(fork: JournalFork): F[Unit] = ().pure[F]
+    def forkSuspected(fork: JournalFork): F[Unit] =
+      ().pure[F]
 
     def detectionFailed(
       key: Key,
@@ -41,6 +49,9 @@ private[journal] object JournalForkReporter {
       events: Nel[EventRecord[EventualPayloadAndType]],
       error: Throwable,
     ): F[Unit] =
+      ().pure[F]
+
+    def init(topic: Topic): F[Unit] =
       ().pure[F]
   }
 
@@ -75,5 +86,9 @@ private[journal] object JournalForkReporter {
       val offsets = s"${ events.head.partitionOffset }..${ events.last.partitionOffset }"
       log.error(s"Journal fork detection failed, key: $key, head: $head, offsets: $offsets, error: $error", error)
     }
+
+    def init(topic: Topic): F[Unit] =
+      metrics.init(topic)
+
   }
 }
