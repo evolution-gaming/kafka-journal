@@ -2225,7 +2225,16 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   test("fork reporter is initialized for a topic when its journal is created") {
     val reporter = new JournalForkReporter[StateT] {
 
-      def report(fork: JournalFork): StateT[Unit] = ().pure[StateT]
+      def forkSuspected(fork: JournalFork): StateT[Unit] =
+        ().pure[StateT]
+
+      def detectionFailed(
+        key: Key,
+        journalHead: Option[JournalHead],
+        events: Nel[EventRecord[EventualPayloadAndType]],
+        error: Throwable,
+      ): StateT[Unit] =
+        ().pure[StateT]
 
       def init(topic: Topic): StateT[Unit] = StateT.unit { state =>
         state.copy(forkReporterInits = state.forkReporterInits :+ topic)
@@ -2652,7 +2661,7 @@ object ReplicatedCassandraTest {
       error: Throwable,
     ): StateT[Unit] =
       StateT { _ => Failure(error) }
-    
+
     def init(topic: Topic): StateT[Unit] =
       ().pure[StateT]
   }
