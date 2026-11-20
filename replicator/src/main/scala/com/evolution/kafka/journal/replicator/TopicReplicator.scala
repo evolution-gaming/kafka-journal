@@ -74,6 +74,51 @@ private[journal] object TopicReplicator {
     } yield done
   }
 
+  /**
+   * Replicates multiple topics using a single Kafka consumer.
+   *
+   * @param topics
+   *   topics to replicate, re-read after processing each poll result, see [[ConsumeTopic]]
+   */
+  def makeShared[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
+    topics: F[Nes[Topic]],
+    journal: ReplicatedJournal[F],
+    consumer: Resource[F, TopicConsumer[F]],
+    metrics: Topic => TopicReplicatorMetrics[F],
+    cacheOf: CacheOf[F],
+    replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
+  ): Resource[F, F[Outcome[F, Throwable, Unit]]] = {
+
+    implicit val fromAttempt: FromAttempt[F] = FromAttempt.lift[F]
+    implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
+    implicit val jsonCodec: JsonCodec[Try] = JsonCodec.summon[F].mapK(ToTry.functionK)
+
+    val kafkaRead = KafkaRead.summon[F, Payload]
+    val eventualWrite = EventualWrite.summon[F, Payload]
+    val consRecordToActionRecord = ConsRecordToActionRecord[F]
+
+    val topicFlowOf1: TopicFlowOf[F] = { (topic: Topic) =>
+      for {
+        log <- topicLoggerOf[F](topic).toResource
+        topicFlow <- topicFlowOf(
+          consRecordToActionRecord = consRecordToActionRecord,
+          kafkaRead = kafkaRead,
+          eventualWrite = eventualWrite,
+          journal = journal,
+          metrics = metrics(topic),
+          log = log,
+          cacheOf = cacheOf,
+          replicatedOffsetNotifier = replicatedOffsetNotifier,
+        ).apply(topic)
+      } yield topicFlow
+    }
+
+    for {
+      log <- LogOf[F].apply(ConsumeTopic.getClass).toResource
+      done <- ConsumeTopic(topics, consumer, topicFlowOf1, log).background
+    } yield done
+  }
+
   private def topicLoggerOf[F[_]: LogOf: Monad](topic: Topic): F[Log[F]] = {
     LogOf[F].apply(TopicReplicator.getClass).map(_ prefixed topic)
   }
@@ -90,6 +135,29 @@ private[journal] object TopicReplicator {
     cacheOf: CacheOf[F],
     replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
   ): F[Unit] = {
+    val topicFlowOf1 = topicFlowOf(
+      consRecordToActionRecord = consRecordToActionRecord,
+      kafkaRead = kafkaRead,
+      eventualWrite = eventualWrite,
+      journal = journal,
+      metrics = metrics,
+      log = log,
+      cacheOf = cacheOf,
+      replicatedOffsetNotifier = replicatedOffsetNotifier,
+    )
+    ConsumeTopic(Nes.of(topic).pure[F], consumer, topicFlowOf1, log)
+  }
+
+  private[journal] def topicFlowOf[F[_]: Concurrent: Sleep: MeasureDuration, A](
+    consRecordToActionRecord: ConsRecordToActionRecord[F],
+    kafkaRead: KafkaRead[F, A],
+    eventualWrite: EventualWrite[F, A],
+    journal: ReplicatedJournal[F],
+    metrics: TopicReplicatorMetrics[F],
+    log: Log[F],
+    cacheOf: CacheOf[F],
+    replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
+  ): TopicFlowOf[F] = {
 
     trait PartitionFlow {
       def apply(timestamp: Instant, records: Nel[ConsRecord]): F[Unit]
@@ -229,12 +297,24 @@ private[journal] object TopicReplicator {
                 a <- remove(partitions)
               } yield a
             }
+
+            def replicatedOffsets(partitions: Nes[Partition]): F[Map[Partition, Offset]] = {
+              partitions
+                .toSortedSet
+                .toVector
+                .parFoldMap1 { partition =>
+                  journal(partition)
+                    .use { _.offsets.get }
+                    .map { _.map { offset => (partition, offset) }.toList }
+                }
+                .map { _.toMap }
+            }
           }
         }
       }
     }
 
-    ConsumeTopic(topic, consumer, topicFlowOf, log)
+    topicFlowOf
   }
 
   object ConsumerOf {
@@ -245,28 +325,58 @@ private[journal] object TopicReplicator {
       pollTimeout: FiniteDuration,
       hostName: Option[HostName],
     ): Resource[F, TopicConsumer[F]] = {
+      make(config, groupIdSuffix = topic, pollTimeout, hostName)
+    }
 
+    def makeShared[F[_]: Temporal: KafkaConsumerOf: FromTry: LogOf](
+      config: ConsumerConfig,
+      pollTimeout: FiniteDuration,
+      hostName: Option[HostName],
+    ): Resource[F, TopicConsumer[F]] = {
+      make(config, groupIdSuffix = "shared", pollTimeout, hostName)
+    }
+
+    private def make[F[_]: Temporal: KafkaConsumerOf: FromTry: LogOf](
+      config: ConsumerConfig,
+      groupIdSuffix: String,
+      pollTimeout: FiniteDuration,
+      hostName: Option[HostName],
+    ): Resource[F, TopicConsumer[F]] = {
+      for {
+        consumer <- KafkaConsumerOf[F].apply[String, ByteVector](consumerConfig(config, groupIdSuffix, hostName))
+      } yield {
+        TopicConsumer(pollTimeout, consumer, topic => topicCommitOf(topic, consumer, hostName))
+      }
+    }
+
+    private def consumerConfig(
+      config: ConsumerConfig,
+      groupIdSuffix: String,
+      hostName: Option[HostName],
+    ): ConsumerConfig = {
       val groupId = {
         val prefix = config.groupId getOrElse "replicator"
-        s"$prefix-$topic"
+        s"$prefix-$groupIdSuffix"
       }
-
       val common = config.common
-
       val clientId = {
         val clientId = common.clientId getOrElse "replicator"
         hostName.fold(clientId) { hostName => s"$clientId-$hostName" }
       }
-
-      val config1 = config.copy(
+      config.copy(
         common = common.copy(clientId = clientId.some),
         groupId = groupId.some,
         autoOffsetReset = AutoOffsetReset.Earliest,
         autoCommit = false,
       )
+    }
 
+    private def topicCommitOf[F[_]: Temporal: LogOf](
+      topic: Topic,
+      consumer: KafkaConsumer[F, String, ByteVector],
+      hostName: Option[HostName],
+    ): Resource[F, TopicCommit[F]] = {
       for {
-        consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
         log <- topicLoggerOf[F](topic).toResource
         metadata = hostName.fold { Metadata.empty } { _.value }
         commit <- TopicCommit.asyncPeriodic(
@@ -276,9 +386,7 @@ private[journal] object TopicReplicator {
           consumer = consumer,
           log = log,
         )
-      } yield {
-        TopicConsumer(topic, pollTimeout, commit, consumer)
-      }
+      } yield commit
     }
   }
 }

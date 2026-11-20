@@ -184,6 +184,9 @@ private object AsyncPeriodicTopicCommitTest {
 
     override def subscribe(topic: Topic, listener: RebalanceListener1[SyncIO]): SyncIO[Unit] = doNotCallF
 
+    override def subscribe(topics: NonEmptySet[Topic], listener: RebalanceListener1[SyncIO]): SyncIO[Unit] =
+      doNotCallF
+
     override def poll(timeout: FiniteDuration): SyncIO[ConsumerRecords[String, String]] = doNotCallF
 
     override def topics: SyncIO[Set[Topic]] = doNotCallF
