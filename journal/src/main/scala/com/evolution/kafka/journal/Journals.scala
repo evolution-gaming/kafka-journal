@@ -94,6 +94,29 @@ object Journals {
     headCache: HeadCache[F],
     log: Log[F],
     conversionMetrics: Option[ConversionMetrics[F]],
+  )(implicit
+    F: MonadCancel[F, Throwable],
+  ): Journals[F] = {
+    apply[F](
+      origin = origin,
+      producer = producer,
+      consumer = consumer,
+      eventualJournal = eventualJournal,
+      headCache = headCache,
+      log = log,
+      conversionMetrics = conversionMetrics,
+      metrics = JournalMetrics.empty[F],
+    )
+  }
+
+  def apply[F[_]: Clock: RandomIdOf: Fail: JsonCodec: MeasureDuration](
+    origin: Option[Origin],
+    producer: Producer[F],
+    consumer: Resource[F, Consumer[F]],
+    eventualJournal: EventualJournal[F],
+    headCache: HeadCache[F],
+    log: Log[F],
+    conversionMetrics: Option[ConversionMetrics[F]],
     metrics: JournalMetrics[F],
   )(implicit
     F: MonadCancel[F, Throwable],
@@ -109,6 +132,27 @@ object Journals {
       log = log,
       conversionMetrics = conversionMetrics,
       metrics = metrics,
+    )
+  }
+
+  def apply[F[_]: RandomIdOf: MeasureDuration](
+    eventual: EventualJournal[F],
+    consumeActionRecords: ConsumeActionRecords[F],
+    produce: Produce[F],
+    headCache: HeadCache[F],
+    log: Log[F],
+    conversionMetrics: Option[ConversionMetrics[F]],
+  )(implicit
+    F: MonadCancel[F, Throwable],
+  ): Journals[F] = {
+    apply[F](
+      eventual = eventual,
+      consumeActionRecords = consumeActionRecords,
+      produce = produce,
+      headCache = headCache,
+      log = log,
+      conversionMetrics = conversionMetrics,
+      metrics = JournalMetrics.empty[F],
     )
   }
 

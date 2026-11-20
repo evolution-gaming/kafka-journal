@@ -106,8 +106,7 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
   ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCache.make"),
-  // new temporary API in `Journals` and `JournalMetrics`
-  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.Journals.apply"),
+  // new temporary method in `JournalMetrics`
   ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolution.kafka.journal.JournalMetrics.temporaryClampdown"),
 )
 
