@@ -31,10 +31,12 @@ trait JournalMetrics[F[_]] {
 object JournalMetrics {
 
   /**
-   * TEMPORARY: optional capability, mixed into [[JournalMetrics]] implementations provided by this library.
+   * TEMPORARY: optional capability, mixed into [[JournalMetrics]] implementations provided by this
+   * library.
    *
-   * Kept out of [[JournalMetrics]] itself, so implementations compiled against its previous version stay
-   * binary compatible. Use [[JournalMetricsOps.temporaryClampdown]] to call it on any [[JournalMetrics]].
+   * Kept out of [[JournalMetrics]] itself, so implementations compiled against its previous version
+   * stay binary compatible. Use [[JournalMetricsOps.temporaryClampdown]] to call it on any
+   * [[JournalMetrics]].
    */
   trait TemporaryClampdown[F[_]] {
     def temporaryClampdown(topic: Topic): F[Unit]
@@ -43,9 +45,14 @@ object JournalMetrics {
   implicit final class JournalMetricsOps[F[_]](val self: JournalMetrics[F]) extends AnyVal {
 
     /**
-     * TEMPORARY: counts `Journals.deleteTo` clampdowns if `self` supports [[TemporaryClampdown]], no-op otherwise
+     * TEMPORARY: counts `Journals.deleteTo` clampdowns if `self` supports [[TemporaryClampdown]],
+     * no-op otherwise
      */
-    def temporaryClampdown(topic: Topic)(implicit F: Applicative[F]): F[Unit] = self match {
+    def temporaryClampdown(
+      topic: Topic,
+    )(implicit
+      F: Applicative[F],
+    ): F[Unit] = self match {
       case self: TemporaryClampdown[F @unchecked] => self.temporaryClampdown(topic)
       case _ => F.unit
     }
