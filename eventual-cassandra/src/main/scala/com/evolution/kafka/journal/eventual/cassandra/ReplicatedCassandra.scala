@@ -15,9 +15,9 @@ import com.evolution.kafka.journal.eventual.cassandra.SegmentNr.implicits.*
 import com.evolution.kafka.journal.util.CatsHelper.*
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.{cassandra as _, *}
+import com.evolution.scassandra.TableName
 import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
-import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant

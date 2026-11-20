@@ -1,12 +1,12 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.{Eq, Show}
-import com.datastax.driver.core.{GettableByNameData, SettableData}
+import com.datastax.oss.driver.api.core.data.{GettableByName, SettableByName}
 import com.evolution.kafka.journal.ExpireAfter
 import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.eventual.cassandra.CassandraHelper.*
-import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
+import com.evolution.scassandra.syntax.*
+import com.evolution.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -33,7 +33,7 @@ object Expiry {
 
   implicit val decodeByNameOptExpireAfter: DecodeByName[Option[ExpireAfter]] = DecodeByName.optDecodeByName[ExpireAfter]
 
-  implicit val decodeRowExpiryOpt: DecodeRow[Option[Expiry]] = { (row: GettableByNameData) =>
+  implicit val decodeRowExpiryOpt: DecodeRow[Option[Expiry]] = { (row: GettableByName) =>
     {
       for {
         expireAfter <- row.decode[Option[ExpireAfter]]("expire_after")
@@ -45,7 +45,7 @@ object Expiry {
   }
 
   implicit val encodeRowExpiry: EncodeRow[Expiry] = new EncodeRow[Expiry] {
-    def apply[B <: SettableData[B]](data: B, a: Expiry): B = {
+    def apply[B <: SettableByName[B]](data: B, a: Expiry): B = {
       data
         .encode("expire_after", a.after)
         .encode(a.on)

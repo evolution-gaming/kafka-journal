@@ -1,8 +1,10 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
-import cats.FlatMap
+import cats.Functor
 import cats.syntax.all.*
-import com.evolutiongaming.scassandra
+import com.evolution.scassandra
+
+import scala.jdk.OptionConverters.*
 
 trait CassandraMetadata[F[_]] {
 
@@ -11,16 +13,23 @@ trait CassandraMetadata[F[_]] {
 
 object CassandraMetadata {
 
-  def apply[F[_]: FlatMap](metadata: scassandra.Metadata[F]): CassandraMetadata[F] = new CassandraMetadata[F] {
+  /**
+   * Reads the metadata of the session.
+   *
+   * The Java driver 4 provides immutable snapshots of the metadata, so each call takes a fresh
+   * snapshot from the session, i.e. the tables created after a keyspace metadata was obtained are
+   * visible.
+   */
+  def apply[F[_]: Functor](session: scassandra.CassandraSession[F]): CassandraMetadata[F] = new CassandraMetadata[F] {
 
     def keyspace(name: String): F[Option[KeyspaceMetadata[F]]] = {
       for {
-        keyspace <- metadata.keyspace(name)
+        metadata <- session.metadata
       } yield
         for {
-          keyspace <- keyspace
+          _ <- metadata.getKeyspace(name).toScala
         } yield {
-          KeyspaceMetadata[F](keyspace)
+          KeyspaceMetadata[F](session, name)
         }
     }
   }
@@ -33,19 +42,21 @@ trait KeyspaceMetadata[F[_]] {
 
 object KeyspaceMetadata {
 
-  def apply[F[_]: FlatMap](metadata: scassandra.KeyspaceMetadata[F]): KeyspaceMetadata[F] = new KeyspaceMetadata[F] {
+  def apply[F[_]: Functor](session: scassandra.CassandraSession[F], keyspace: String): KeyspaceMetadata[F] =
+    new KeyspaceMetadata[F] {
 
-    def table(name: String): F[Option[TableMetadata]] = {
-      for {
-        table <- metadata.table(name)
-      } yield
+      def table(name: String): F[Option[TableMetadata]] = {
         for {
-          table <- table
-        } yield {
-          TableMetadata(table.name)
-        }
+          metadata <- session.metadata
+        } yield
+          for {
+            keyspace <- metadata.getKeyspace(keyspace).toScala
+            table <- keyspace.getTable(name).toScala
+          } yield {
+            TableMetadata(table.getName.asInternal)
+          }
+      }
     }
-  }
 }
 
 final case class TableMetadata(name: String)

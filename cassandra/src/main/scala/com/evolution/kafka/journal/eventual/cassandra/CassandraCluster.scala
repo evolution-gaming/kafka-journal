@@ -2,11 +2,17 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.Parallel
 import cats.effect.{Async, Resource}
-import cats.syntax.all.*
-import com.evolutiongaming.scassandra
-import com.evolutiongaming.scassandra.util.FromGFuture
-import com.evolutiongaming.scassandra.{CassandraClusterOf, CassandraConfig}
+import com.evolution.scassandra
+import com.evolution.scassandra.{CassandraConfig, NextHostRetryPolicy}
+import com.typesafe.config.ConfigValueFactory
 
+/**
+ * Provides access to a Cassandra cluster.
+ *
+ * Unlike the Java driver 3, the session of the Java driver 4 holds the connections and the metadata
+ * of the whole cluster, so a single underlying session is shared by all the sessions created by
+ * this instance.
+ */
 trait CassandraCluster[F[_]] {
 
   def session: Resource[F, CassandraSession[F]]
@@ -21,39 +27,45 @@ object CassandraCluster {
     F: CassandraCluster[F],
   ): CassandraCluster[F] = F
 
-  def apply[F[_]: Async: Parallel: FromGFuture](
-    cluster: scassandra.CassandraCluster[F],
-    retries: Int,
+  /**
+   * Creates a cluster backed by the given session, the session is not closed by the cluster.
+   */
+  def apply[F[_]: Async: Parallel](
+    underlying: scassandra.CassandraSession[F],
   ): CassandraCluster[F] = new CassandraCluster[F] {
 
     def session: Resource[F, CassandraSession[F]] = {
-      for {
-        session <- cluster.connect
-        session <- CassandraSession.make[F](session)
-      } yield {
-        CassandraSession(session, retries)
-      }
+      CassandraSession.make[F](underlying).map { session => CassandraSession(session) }
     }
 
     def metadata: F[CassandraMetadata[F]] = {
-      for {
-        metadata <- cluster.metadata
-      } yield {
-        CassandraMetadata[F](metadata)
-      }
+      Async[F].pure(CassandraMetadata[F](underlying))
     }
   }
 
-  def make[F[_]: Async: Parallel: FromGFuture](
+  /**
+   * Creates a cluster with the given configuration.
+   *
+   * @param retries
+   *   max number of retries of a request, configures [[NextHostRetryPolicy]] as the retry policy of
+   *   the default execution profile, overriding `advanced.retry-policy` of `config`
+   */
+  def make[F[_]: Async: Parallel](
     config: CassandraConfig,
-    cassandraClusterOf: CassandraClusterOf[F],
     retries: Int,
   ): Resource[F, CassandraCluster[F]] = {
-
     for {
-      cluster <- cassandraClusterOf(config)
+      session <- scassandra.CassandraSession.make[F](withRetries(config, retries))
     } yield {
-      apply[F](cluster, retries)
+      apply[F](session)
     }
+  }
+
+  private[cassandra] def withRetries(config: CassandraConfig, retries: Int): CassandraConfig = {
+    val driver = config
+      .driver
+      .withValue("advanced.retry-policy.class", ConfigValueFactory.fromAnyRef(classOf[NextHostRetryPolicy].getName))
+      .withValue(NextHostRetryPolicy.MaxRetries.getPath, ConfigValueFactory.fromAnyRef(retries))
+    CassandraConfig(driver)
   }
 }

@@ -1,14 +1,14 @@
 package com.evolution.kafka.journal.cassandra
 
 import cats.arrow.FunctionK
-import cats.effect.Temporal
+import cats.effect.Async
 import cats.effect.std.Semaphore
 import cats.syntax.all.*
 import cats.~>
+import com.evolution.cassandra
+import com.evolution.cassandra.sync.AutoCreate
 import com.evolution.kafka.journal.Origin
 import com.evolution.kafka.journal.eventual.cassandra.CassandraSession
-import com.evolutiongaming.cassandra
-import com.evolutiongaming.cassandra.sync.AutoCreate
 
 private[journal] trait CassandraSync[F[_]] {
   def apply[A](fa: F[A]): F[A]
@@ -25,7 +25,7 @@ private[journal] object CassandraSync {
     F: CassandraSync[F],
   ): CassandraSync[F] = F
 
-  def apply[F[_]: Temporal: CassandraSession](
+  def apply[F[_]: Async: CassandraSession](
     keyspace: KeyspaceConfig,
     table: String,
     origin: Option[Origin],
@@ -35,7 +35,7 @@ private[journal] object CassandraSync {
     apply(keyspace = keyspace.name, table = table, autoCreate = autoCreate, metadata = origin.map(_.value))
   }
 
-  def apply[F[_]: Temporal: CassandraSession](
+  def apply[F[_]: Async: CassandraSession](
     keyspace: String,
     table: String,
     autoCreate: AutoCreate,
@@ -75,9 +75,9 @@ private[journal] object CassandraSync {
    *   Identification of the code performing the lock.
    *
    * @see
-   *   [[com.evolutiongaming.cassandra.sync.CassandraSync]] for more details.
+   *   [[com.evolution.cassandra.sync.CassandraSync]] for more details.
    */
-  def of[F[_]: Temporal: CassandraSession](
+  def of[F[_]: Async: CassandraSession](
     keyspace: KeyspaceConfig,
     table: String,
     origin: Option[Origin],

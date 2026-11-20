@@ -2,7 +2,7 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import com.evolution.kafka.journal.Headers
 import com.evolution.kafka.journal.eventual.cassandra.CassandraHelper.*
-import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
+import com.evolution.scassandra.{DecodeRow, EncodeRow}
 
 private[journal] object HeadersHelper {
 

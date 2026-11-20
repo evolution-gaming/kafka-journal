@@ -3,10 +3,11 @@ package com.evolution.kafka.journal.eventual.cassandra
 import cats.Applicative
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
-import com.datastax.driver.core.{Duration as DurationC, *}
+import com.datastax.oss.driver.api.core.cql.{PreparedStatement, Row, Statement}
+import com.datastax.oss.driver.api.core.data.{CqlDuration, GettableByName, SettableByName}
 import com.evolution.kafka.journal.eventual.cassandra.util.FiniteDurationHelper.*
-import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
+import com.evolution.scassandra.syntax.*
+import com.evolution.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import com.evolutiongaming.sstream.Stream
 
 import scala.concurrent.duration.*
@@ -14,7 +15,7 @@ import scala.jdk.CollectionConverters.*
 
 object CassandraHelper {
 
-  implicit class StatementOps(val self: Statement) extends AnyVal {
+  implicit class StatementOps(val self: Statement[?]) extends AnyVal {
 
     def execute[F[_]: CassandraSession]: Stream[F, Row] = CassandraSession[F].execute(self)
 
@@ -35,8 +36,8 @@ object CassandraHelper {
   implicit class RowOps(val self: Row) extends AnyVal {
 
     /**
-     * Same as [[com.datastax.driver.core.ResultSet#wasApplied]] with some minor differences (i.e.
-     * it may throw an exception).
+     * Same as [[com.datastax.oss.driver.api.core.cql.AsyncResultSet#wasApplied]] with some minor
+     * differences (i.e. it may throw an exception).
      *
      * @throws IllegalArgumentException
      *   if `[applied]` column is not found, i.e. for non-conditional or DDL queries.
@@ -49,7 +50,7 @@ object CassandraHelper {
 
     def empty[A]: EncodeRow[A] = new EncodeRow[A] {
 
-      def apply[B <: SettableData[B]](data: B, value: A): B = data
+      def apply[B <: SettableByName[B]](data: B, value: A): B = data
     }
 
     def noneAsUnset[A](
@@ -57,7 +58,7 @@ object CassandraHelper {
       encode: EncodeRow[A],
     ): EncodeRow[Option[A]] = new EncodeRow[Option[A]] {
 
-      def apply[B <: SettableData[B]](data: B, value: Option[A]): B = {
+      def apply[B <: SettableByName[B]](data: B, value: Option[A]): B = {
         value.fold(data) { encode(data, _) }
       }
     }
@@ -65,13 +66,13 @@ object CassandraHelper {
 
   implicit class DecodeRowObjOps(val self: DecodeRow.type) extends AnyVal {
 
-    def const[A](a: A): DecodeRow[A] = (_: GettableByNameData) => a
+    def const[A](a: A): DecodeRow[A] = (_: GettableByName) => a
   }
 
   implicit val mapTextEncodeByName: EncodeByName[Map[String, String]] = {
     val text = classOf[String]
     new EncodeByName[Map[String, String]] {
-      def apply[B <: SettableData[B]](data: B, name: String, value: Map[String, String]): B = {
+      def apply[B <: SettableByName[B]](data: B, name: String, value: Map[String, String]): B = {
         data.setMap(name, value.asJava, text, text)
       }
     }
@@ -79,7 +80,7 @@ object CassandraHelper {
 
   implicit val mapTextDecodeByName: DecodeByName[Map[String, String]] = {
     val text = classOf[String]
-    (data: GettableByNameData, name: String) => {
+    (data: GettableByName, name: String) => {
       data.getMap(name, text, text).asScala.toMap
     }
   }
@@ -87,7 +88,7 @@ object CassandraHelper {
   implicit val nelIntEncodeByName: EncodeByName[Nel[Int]] = {
     val integer = classOf[Integer]
     new EncodeByName[Nel[Int]] {
-      def apply[B <: SettableData[B]](data: B, name: String, value: Nel[Int]): B = {
+      def apply[B <: SettableByName[B]](data: B, name: String, value: Nel[Int]): B = {
         val values = value.distinct.toList.map(a => a: Integer).asJava
         data.setList(name, values, integer)
       }
@@ -95,10 +96,10 @@ object CassandraHelper {
   }
 
   implicit val finiteDurationEncodeByName: EncodeByName[FiniteDuration] = {
-    EncodeByName[DurationC].contramap(finiteDurationToDuration)
+    EncodeByName[CqlDuration].contramap(finiteDurationToDuration)
   }
 
   implicit val finiteDurationDecodeByName: DecodeByName[FiniteDuration] = {
-    DecodeByName[DurationC].map(durationToFiniteDuration)
+    DecodeByName[CqlDuration].map(durationToFiniteDuration)
   }
 }
