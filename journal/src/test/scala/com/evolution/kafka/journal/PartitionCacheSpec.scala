@@ -26,6 +26,14 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
     PartitionCache.make[IO](maxSize, dropUponLimit, timeout)
   }
 
+  private def dropTwoJournals(cache: PartitionCache[IO]): IO[Unit] = {
+    for {
+      _ <- cache.add(Record(id0, offset0, actionHeaderOf(seqNr0)))
+      _ <- cache.add(Record(id1, offset1, actionHeaderOf(seqNr0)))
+      _ <- cache.add(Record(id2, offset2, actionHeaderOf(seqNr0)))
+    } yield {}
+  }
+
   test("get Result.empty when cache is empty") {
     partitionCacheOf()
       .use { cache =>
@@ -447,7 +455,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           a <- cache.add(Record(id2, offset3, actionHeaderOf(seqNr0)))
           _ <- IO { a shouldEqual Diff(1).some }
           a <- cache.get(id2, offset3)
-          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset3, seqNr0, none)) }
+          _ <- IO { a shouldEqual Result.limited }
           a <- cache.get(id0, offset2)
           _ <- IO { a shouldEqual Result.limited }
         } yield {}
@@ -470,7 +478,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           a <- cache.get(id1, offset1)
           _ <- IO { a shouldEqual Result.limited }
           a <- cache.get(id2, offset2)
-          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset2, seqNr0, none)) }
+          _ <- IO { a shouldEqual Result.limited }
         } yield {}
       }
       .run()
@@ -497,31 +505,194 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           a <- cache.get(id1, offset0)
           _ <- IO { a shouldEqual Result.limited }
           a <- cache.get(id2, offset2)
-          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset2, seqNr0, none)) }
+          _ <- IO { a shouldEqual Result.limited }
         } yield {}
       }
       .run()
   }
 
-  test("get Result.value even if within limited range") {
+  test("get Result.limited until the dropped record with offset 0 is replicated") {
     partitionCacheOf(maxSize = 2, dropUponLimit = 0.4)
       .use { cache =>
         for {
           a <- cache.add(
             Nel.of(
-              Record(id0, offset0, actionHeaderOf(seqNr0)),
-              Record(id1, offset1, actionHeaderOf(seqNr0)),
-              Record(id0, offset2, actionHeaderOf(seqNr1)),
-              Record(id2, offset3, actionHeaderOf(seqNr0)),
+              Record(id1, offset0, actionHeaderOf(seqNr0)),
+              Record(id0, offset1, actionHeaderOf(seqNr0)),
+              Record(id0, offset3, actionHeaderOf(seqNr1)),
+              Record(id2, offset4, actionHeaderOf(seqNr0)),
             ),
           )
           _ <- IO { a shouldEqual none }
-          a <- cache.get(id0, offset0)
-          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset0, seqNr1, none)) }
-          a <- cache.get(id1, offset1)
+          a <- cache.get(id0, offset2)
           _ <- IO { a shouldEqual Result.limited }
-          a <- cache.get(id2, offset3)
-          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset3, seqNr0, none)) }
+          _ <- cache.remove(offset0)
+          a <- cache.get(id0, offset2)
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset1, seqNr1, none)) }
+          a <- cache.get(id1, offset2)
+          _ <- IO { a shouldEqual Result.value(HeadInfo.empty) }
+          a <- cache.get(id2, offset4)
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset4, seqNr0, none)) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("get Result.limited for all journals when some of them are dropped") {
+    partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
+      .use { cache =>
+        for {
+          _ <- dropTwoJournals(cache)
+          result <- cache.get(id0, offset2)
+          _ <- IO { result shouldEqual Result.limited }
+          result <- cache.get(id2, offset2)
+          _ <- IO { result shouldEqual Result.limited }
+          result <- cache.get(id3, offset2)
+          _ <- IO { result shouldEqual Result.limited }
+          result <- cache.get(id2, offset3)
+          _ <- IO { result shouldEqual Result.limited }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("get Result.value after dropped records are replicated") {
+    partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
+      .use { cache =>
+        for {
+          _ <- dropTwoJournals(cache)
+          _ <- cache.add(Record(id0, offset3, actionHeaderOf(seqNr1)))
+          result <- cache.get(id0, offset3)
+          _ <- IO { result shouldEqual Result.limited }
+          _ <- cache.remove(offset0)
+          result <- cache.get(id0, offset3)
+          _ <- IO { result shouldEqual Result.limited }
+          _ <- cache.remove(offset1)
+          result <- cache.get(id0, offset3)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.append(offset3, seqNr1, none)) }
+          result <- cache.get(id1, offset3)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.empty) }
+          result <- cache.get(id2, offset3)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.append(offset2, seqNr0, none)) }
+          result <- cache.get(id3, offset3)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.empty) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("get Result.limited until all dropped records are replicated") {
+    partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
+      .use { cache =>
+        for {
+          _ <- dropTwoJournals(cache)
+          _ <- cache.add(Record(id3, offset3, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id4, offset4, actionHeaderOf(seqNr0)))
+          _ <- cache.remove(offset1)
+          result <- cache.get(id4, offset4)
+          _ <- IO { result shouldEqual Result.limited }
+          _ <- cache.remove(offset3)
+          result <- cache.get(id4, offset4)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.append(offset4, seqNr0, none)) }
+          result <- cache.get(id2, offset4)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.empty) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("get Result.value when dropped records are replicated already") {
+    partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
+      .use { cache =>
+        for {
+          _ <- cache.remove(offset3)
+          _ <- dropTwoJournals(cache)
+          _ <- cache.add(Record(offset4, none))
+          result <- cache.get(id0, offset4)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.empty) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("get Result.Later.Behind[IO] and drop journals") {
+    partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, offset0, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id1, offset1, actionHeaderOf(seqNr0)))
+          result <- cache.get(id0, offset3)
+          resultLater <- result.matchOrError { case behind: Result.Later.Behind[IO] => behind.value }
+          _ <- cache.add(Record(id2, offset2, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id0, offset3, actionHeader))
+          result <- resultLater
+          _ <- IO { result shouldEqual Result.limited }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("get Result.Later.Behind[IO], drop journals and add after dropped records are replicated") {
+    partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, offset0, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id1, offset1, actionHeaderOf(seqNr0)))
+          result <- cache.get(id0, offset3)
+          resultLater <- result.matchOrError { case behind: Result.Later.Behind[IO] => behind.value }
+          _ <- cache.add(Record(id2, offset2, actionHeaderOf(seqNr0)))
+          _ <- cache.remove(offset1)
+          _ <- cache.add(Record(id0, offset3, actionHeaderOf(seqNr1)))
+          result <- resultLater
+          _ <- IO { result shouldEqual Result.value(HeadInfo.append(offset3, seqNr1, none)) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("get Result.limited until the last record of a dropped journal is replicated") {
+    partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, offset0, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id1, offset1, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id1, offset2, actionHeaderOf(seqNr1)))
+          _ <- cache.add(Record(id2, offset3, actionHeaderOf(seqNr0)))
+          _ <- cache.remove(offset1)
+          result <- cache.get(id1, offset3)
+          _ <- IO { result shouldEqual Result.limited }
+          _ <- cache.remove(offset2)
+          result <- cache.get(id1, offset3)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.empty) }
+          result <- cache.get(id2, offset3)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.append(offset3, seqNr0, none)) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("get Result.ahead for a replicated offset after journals are dropped") {
+    partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
+      .use { cache =>
+        for {
+          _ <- dropTwoJournals(cache)
+          _ <- cache.remove(offset0)
+          result <- cache.get(id0, offset0)
+          _ <- IO { result shouldEqual Result.ahead }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("get Result.limited for an offset before the first seen record after journals are dropped") {
+    partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, offset1, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id1, offset2, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id2, offset3, actionHeaderOf(seqNr0)))
+          result <- cache.get(id2, offset0)
+          _ <- IO { result shouldEqual Result.limited }
         } yield {}
       }
       .run()
@@ -632,9 +803,12 @@ object PartitionCacheSpec {
   val offset1: Offset = offset0.inc[Try].get
   val offset2: Offset = offset1.inc[Try].get
   val offset3: Offset = offset2.inc[Try].get
+  val offset4: Offset = offset3.inc[Try].get
   val id0: String = "id0"
   val id1: String = "id1"
   val id2: String = "id2"
+  val id3: String = "id3"
+  val id4: String = "id4"
   val seqNr0: SeqNr = SeqNr.min
   val seqNr1: SeqNr = seqNr0.next[Try].get
 
