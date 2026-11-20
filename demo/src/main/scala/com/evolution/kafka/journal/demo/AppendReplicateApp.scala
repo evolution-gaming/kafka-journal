@@ -76,6 +76,7 @@ object AppendReplicateApp extends IOApp {
           headCache = HeadCache.empty[F],
           log = log,
           conversionMetrics = none,
+          metrics = JournalMetrics.empty[F],
         )
       }
     }

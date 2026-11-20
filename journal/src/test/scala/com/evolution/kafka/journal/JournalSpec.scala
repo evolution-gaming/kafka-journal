@@ -273,6 +273,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         headCache = StateT.headCache,
         log = log,
         conversionMetrics = none,
+        metrics = JournalMetrics.empty[StateT],
       )
 
       val (state, partitionOffset) = journals(JournalSpec.key)
@@ -544,6 +545,7 @@ object JournalSpec {
         headCache = headCache,
         log = log,
         conversionMetrics = none,
+        metrics = JournalMetrics.empty[F],
       )
         .withLog(log)
         .withMetrics(JournalMetrics.empty[F])

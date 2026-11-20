@@ -69,6 +69,7 @@ object Journals {
       log <- LogOf[F].apply(Journals.getClass).toResource
       headCache <- headCache
       consumer <- ConsumerPool.make[F](consumerPoolConfig, consumerPoolMetrics, consumer)
+      metrics = journalMetrics.getOrElse(JournalMetrics.empty[F])
     } yield {
       val withLog = apply(
         origin,
@@ -78,6 +79,7 @@ object Journals {
         headCache,
         log,
         conversionMetrics,
+        metrics,
       )
         .withLog(log, callTimeThresholds)
       journalMetrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
@@ -95,6 +97,30 @@ object Journals {
   )(implicit
     F: MonadCancel[F, Throwable],
   ): Journals[F] = {
+    apply[F](
+      origin = origin,
+      producer = producer,
+      consumer = consumer,
+      eventualJournal = eventualJournal,
+      headCache = headCache,
+      log = log,
+      conversionMetrics = conversionMetrics,
+      metrics = JournalMetrics.empty[F],
+    )
+  }
+
+  def apply[F[_]: Clock: RandomIdOf: Fail: JsonCodec: MeasureDuration](
+    origin: Option[Origin],
+    producer: Producer[F],
+    consumer: Resource[F, Consumer[F]],
+    eventualJournal: EventualJournal[F],
+    headCache: HeadCache[F],
+    log: Log[F],
+    conversionMetrics: Option[ConversionMetrics[F]],
+    metrics: JournalMetrics[F],
+  )(implicit
+    F: MonadCancel[F, Throwable],
+  ): Journals[F] = {
     implicit val fromAttempt: FromAttempt[F] = FromAttempt.lift[F]
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
 
@@ -105,6 +131,7 @@ object Journals {
       headCache = headCache,
       log = log,
       conversionMetrics = conversionMetrics,
+      metrics = metrics,
     )
   }
 
@@ -115,6 +142,28 @@ object Journals {
     headCache: HeadCache[F],
     log: Log[F],
     conversionMetrics: Option[ConversionMetrics[F]],
+  )(implicit
+    F: MonadCancel[F, Throwable],
+  ): Journals[F] = {
+    apply[F](
+      eventual = eventual,
+      consumeActionRecords = consumeActionRecords,
+      produce = produce,
+      headCache = headCache,
+      log = log,
+      conversionMetrics = conversionMetrics,
+      metrics = JournalMetrics.empty[F],
+    )
+  }
+
+  def apply[F[_]: RandomIdOf: MeasureDuration](
+    eventual: EventualJournal[F],
+    consumeActionRecords: ConsumeActionRecords[F],
+    produce: Produce[F],
+    headCache: HeadCache[F],
+    log: Log[F],
+    conversionMetrics: Option[ConversionMetrics[F]],
+    metrics: JournalMetrics[F],
   )(implicit
     F: MonadCancel[F, Throwable],
   ): Journals[F] = {
@@ -326,7 +375,12 @@ object Journals {
           def delete(to: DeleteTo): F[Option[PartitionOffset]] = {
             pointer.flatMap { seqNr =>
               seqNr.traverse { seqNr =>
-                produce.delete(key, seqNr.toDeleteTo min to)
+//                produce.delete(key, seqNr.toDeleteTo min to)
+                if (seqNr > to.value)
+                  produce.delete(key, to)
+                else
+                  metrics.temporaryClampdown(key.topic) *>
+                    produce.delete(key, seqNr.toDeleteTo)
               }
             }
           }

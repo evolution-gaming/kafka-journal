@@ -76,6 +76,7 @@ private[it] trait JournalSuite extends SuiteScopedResources with Matchers with I
       headCache = headCache,
       log = JournalSuite.journalsLog,
       conversionMetrics = none,
+      metrics = JournalMetrics.empty[IO],
     )
   }
 }
