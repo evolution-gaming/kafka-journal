@@ -353,7 +353,7 @@ object EventualCassandraTest {
    */
   def violationsMetrics(violations: ListBuffer[Violation]): EventualJournal.Metrics[StateT] = {
     val unit = ().pure[StateT]
-    new EventualJournal.Metrics[StateT] {
+    new EventualJournal.Metrics[StateT] with EventualJournal.Metrics.DataIntegrityViolations[StateT] {
       def offset(topic: Topic, latency: FiniteDuration): StateT[Unit] = unit
       def read(topic: Topic, latency: FiniteDuration): StateT[Unit] = unit
       def read(topic: Topic): StateT[Unit] = unit

@@ -113,19 +113,6 @@ object EventualJournal {
     def pointer(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def ids(topic: Topic, latency: FiniteDuration): F[Unit]
-
-    /**
-     * Records a data integrity violation found while reading the journal, see
-     * [[com.evolution.kafka.journal.Journal.DataIntegrityConfig]].
-     *
-     * @param violation
-     *   sets the `kind` label of the `data_integrity_violations_total` counter
-     * @param enforced
-     *   sets the `enforced` label: `true` if the corresponding check is enabled, so the event was
-     *   dropped or the read failed; `false` if the check is disabled and the event was still
-     *   returned
-     */
-    def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation): F[Unit]
   }
 
   /**
@@ -156,11 +143,50 @@ object EventualJournal {
 
   object Metrics {
 
+    /**
+     * Optional capability, mixed into [[Metrics]] implementations provided by this library.
+     *
+     * Kept out of [[Metrics]] itself, so implementations compiled against its previous version stay
+     * binary compatible. Use [[MetricsOps.dataIntegrityViolation]] to call it on any [[Metrics]].
+     */
+    trait DataIntegrityViolations[F[_]] {
+
+      /**
+       * Records a data integrity violation found while reading the journal, see
+       * [[com.evolution.kafka.journal.Journal.DataIntegrityConfig]].
+       *
+       * @param violation
+       *   sets the `kind` label of the `data_integrity_violations_total` counter and its `enforced`
+       *   label:
+       *   - `true` if the corresponding check is enabled, so the event was dropped or the read
+       *     failed
+       *   - `false` if the check is disabled and the event was still returned
+       */
+      def dataIntegrityViolation(topic: Topic, violation: DataIntegrityViolation): F[Unit]
+    }
+
+    implicit final class MetricsOps[F[_]](val self: Metrics[F]) extends AnyVal {
+
+      /**
+       * Records a data integrity violation if `self` supports [[DataIntegrityViolations]], no-op
+       * otherwise
+       */
+      def dataIntegrityViolation(
+        topic: Topic,
+        violation: DataIntegrityViolation,
+      )(implicit
+        F: Applicative[F],
+      ): F[Unit] = self match {
+        case self: DataIntegrityViolations[F @unchecked] => self.dataIntegrityViolation(topic, violation)
+        case _ => F.unit
+      }
+    }
+
     def empty[F[_]: Applicative]: Metrics[F] = const(Applicative[F].unit)
 
     private sealed abstract class Const
 
-    def const[F[_]](unit: F[Unit]): Metrics[F] = new Const with Metrics[F] {
+    def const[F[_]](unit: F[Unit]): Metrics[F] = new Const with Metrics[F] with DataIntegrityViolations[F] {
 
       def read(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
@@ -222,7 +248,7 @@ object EventualJournal {
             .observe(latency.toNanos.nanosToSeconds)
         }
 
-        new Main with Metrics[F] {
+        new Main with Metrics[F] with DataIntegrityViolations[F] {
 
           def read(topic: Topic, latency: FiniteDuration): F[Unit] = {
             observeLatency(name = "read", topic = topic, latency = latency)
