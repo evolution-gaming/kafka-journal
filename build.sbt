@@ -86,14 +86,6 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
 //  ProblemFilters.exclude[IncompatibleMethTypeProblem](
 //    "com.evolution.kafka.journal.replicator.TopicReplicator#ConsumerOf.make",
 //  ),
-  // new method in `ReplicatedJournal.Metrics`: breaks only clients implementing the trait
-  // themselves, rather than using `Metrics.const` or `Metrics.make`
-  ProblemFilters.exclude[ReversedMissingMethodProblem](
-    "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.journalFork",
-  ),
-  ProblemFilters.exclude[ReversedMissingMethodProblem](
-    "com.evolution.kafka.journal.eventual.ReplicatedJournal#Metrics.init",
-  ),
   // new `excludeTopics` field in `ReplicatorConfig` and `Replicator.Config`
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.ReplicatorConfig.this"),
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.replicator.ReplicatorConfig.apply"),
@@ -108,9 +100,7 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.JournalConfig#HeadCache.copy"),
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
   ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
-  ProblemFilters.exclude[DirectMissingMethodProblem](
-    "com.evolution.kafka.journal.HeadCache.make(com.evolutiongaming.skafka.consumer.ConsumerConfig,com.evolution.kafka.journal.eventual.EventualJournal,scala.Option,cats.effect.kernel.Async,cats.Parallel,com.evolutiongaming.catshelper.Runtime,com.evolutiongaming.catshelper.LogOf,com.evolution.kafka.journal.KafkaConsumerOf,com.evolutiongaming.catshelper.MeasureDuration,com.evolutiongaming.catshelper.FromTry,com.evolution.kafka.journal.FromJsResult,com.evolution.kafka.journal.JsonCodec#Decode)cats.effect.kernel.Resource",
-  ),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCache.make"),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(

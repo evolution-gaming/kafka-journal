@@ -173,8 +173,8 @@ object ReplicatedJournal {
   ) {
 
     /**
-     * Reports journal forks to logs and to [[Metrics.journalFork]]. Forked events are stored as
-     * before.
+     * Reports journal forks to logs and to [[Metrics.JournalForks.journalFork]]. Forked events are
+     * stored as before.
      */
     def withJournalForkDetection(journalForkDetection: Boolean): DataIntegrityConfig = {
       new DataIntegrityConfig(journalForkDetection = journalForkDetection)
@@ -203,33 +203,71 @@ object ReplicatedJournal {
     def purge(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def setSchemaVersion(version: Int): F[Unit]
-
-    /**
-     * Records a detected journal fork: an event with a repeated or out-of-order `seqNr`.
-     *
-     * @param duplicateProven
-     *   sets the `kind` label of the `forks_total` counter:
-     *   - `true`: `duplicate`, the `seqNr` is repeated
-     *   - `false`: `regression`, the `seqNr` is out of order
-     */
-    def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit]
-
-    /**
-     * Creates the journal fork metrics for a topic with zero values, so that they are present, and
-     * can be alerted on, before the first fork is detected.
-     *
-     * Called when the topic is discovered, only if fork detection is enabled.
-     */
-    def init(topic: Topic): F[Unit]
   }
 
   object Metrics {
+
+    /**
+     * Optional capability, mixed into [[Metrics]] implementations provided by this library.
+     *
+     * Kept out of [[Metrics]] itself, so implementations compiled against its previous version stay
+     * binary compatible. Use [[MetricsOps]] to call its methods on any [[Metrics]].
+     */
+    trait JournalForks[F[_]] {
+
+      /**
+       * Records a detected journal fork: an event with a repeated or out-of-order `seqNr`.
+       *
+       * @param duplicateProven
+       *   sets the `kind` label of the `forks_total` counter:
+       *   - `true`: `duplicate`, the `seqNr` is repeated
+       *   - `false`: `regression`, the `seqNr` is out of order
+       */
+      def journalFork(topic: Topic, duplicateProven: Boolean): F[Unit]
+
+      /**
+       * Creates the journal fork metrics for a topic with zero values, so that they are present,
+       * and can be alerted on, before the first fork is detected.
+       *
+       * Called when the topic is discovered, only if fork detection is enabled.
+       */
+      def init(topic: Topic): F[Unit]
+    }
+
+    implicit final class MetricsOps[F[_]](val self: Metrics[F]) extends AnyVal {
+
+      /**
+       * Records a detected journal fork if `self` supports [[JournalForks]], no-op otherwise
+       */
+      def journalFork(
+        topic: Topic,
+        duplicateProven: Boolean,
+      )(implicit
+        F: Applicative[F],
+      ): F[Unit] = self match {
+        case self: JournalForks[F @unchecked] => self.journalFork(topic, duplicateProven)
+        case _ => F.unit
+      }
+
+      /**
+       * Creates the journal fork metrics for a topic with zero values if `self` supports
+       * [[JournalForks]], no-op otherwise
+       */
+      def init(
+        topic: Topic,
+      )(implicit
+        F: Applicative[F],
+      ): F[Unit] = self match {
+        case self: JournalForks[F @unchecked] => self.init(topic)
+        case _ => F.unit
+      }
+    }
 
     def empty[F[_]: Applicative]: Metrics[F] = const(().pure[F])
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = {
       class Const
-      new Const with Metrics[F] {
+      new Const with Metrics[F] with JournalForks[F] {
 
         def topics(latency: FiniteDuration): F[Unit] = unit
 
@@ -324,7 +362,7 @@ object ReplicatedJournal {
 
         class Main
 
-        new Main with Metrics[F] {
+        new Main with Metrics[F] with JournalForks[F] {
 
           def topics(latency: FiniteDuration): F[Unit] =
             observeLatency(name = "topics", latency = latency)
