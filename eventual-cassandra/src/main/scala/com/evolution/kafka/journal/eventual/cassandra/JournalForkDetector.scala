@@ -37,7 +37,7 @@ private[journal] object JournalForkDetector {
       ().pure[F]
   }
 
-  def fromReporter[F[_]: Applicative](reporter: JournalForkReporter[F]): JournalForkDetector[F] = {
+  def fromReporter[F[_]: MonadThrow](reporter: JournalForkReporter[F]): JournalForkDetector[F] = {
     new JournalForkDetector[F] {
 
       def detect(
