@@ -80,13 +80,11 @@ object EventualCassandra {
     } yield {
       implicit val log1: Log[F] = log
 
-      val journal = metrics match {
-        case Some(metrics) =>
-          apply[F](statements, dataIntegrity, metrics).withMetrics(metrics)
-        case None =>
-          apply[F](statements, dataIntegrity, EventualJournal.Metrics.empty[F])
-      }
-      journal.withLog(log).enhanceError
+      val journal = apply[F](statements, dataIntegrity, metrics.getOrElse(EventualJournal.Metrics.empty[F]))
+        .withLog(log)
+      metrics
+        .fold(journal) { metrics => journal.withMetrics(metrics) }
+        .enhanceError
     }
   }
 
