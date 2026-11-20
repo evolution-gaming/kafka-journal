@@ -26,6 +26,8 @@ trait JournalMetrics[F[_]] {
   def mark(topic: Topic, latency: FiniteDuration): F[Unit]
 
   def failure(topic: Topic, name: String): F[Unit]
+
+  def temporaryClampdown(topic: Topic): F[Unit]
 }
 
 object JournalMetrics {
@@ -51,6 +53,8 @@ object JournalMetrics {
       def mark(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
       def failure(topic: Topic, name: String): F[Unit] = unit
+
+      def temporaryClampdown(topic: Topic): F[Unit] = unit
     }
   }
 
@@ -79,10 +83,17 @@ object JournalMetrics {
       labels = LabelNames("topic", "type", "result"),
     )
 
+    val temporaryClampdownCounter = registry.counter(
+      name = s"${ prefix }_temp_clampdown",
+      help = "TEMPORARY metric counts how many times `seqNr.toDeleteTo min to` actually clamps down",
+      labels = LabelNames("topic"),
+    )
+
     for {
       latencySummary <- latencySummary
       eventsSummary <- eventsSummary
       resultCounter <- resultCounter
+      temporaryClampdownCounter <- temporaryClampdownCounter
     } yield {
 
       def observeLatency(name: String, topic: Topic, latency: FiniteDuration) = {
@@ -133,6 +144,9 @@ object JournalMetrics {
         def failure(topic: Topic, name: String): F[Unit] = {
           resultCounter.labels(topic, name, "failure").inc()
         }
+
+        def temporaryClampdown(topic: Topic): F[Unit] =
+          temporaryClampdownCounter.labels(topic).inc()
       }
     }
   }
