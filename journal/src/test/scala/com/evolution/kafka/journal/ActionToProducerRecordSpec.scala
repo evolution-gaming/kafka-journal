@@ -4,7 +4,11 @@ import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolution.kafka.journal.ExpireAfter.implicits.*
 import com.evolution.kafka.journal.TestJsonCodec.instance
-import com.evolution.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord}
+import com.evolution.kafka.journal.conversions.{
+  ActionToProducerRecord,
+  ConsRecordToActionHeader,
+  ConsRecordToActionRecord,
+}
 import com.evolutiongaming.skafka.consumer.WithSize
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
 import org.scalatest.funsuite.AnyFunSuite
@@ -79,6 +83,11 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
 
   private val consRecordToActionRecord = ConsRecordToActionRecord[Try]
 
+  private val streamingConsRecordToActionHeader = {
+    implicit val jsonCodec: JsonCodec[Try] = JsonCodec.streaming[Try]
+    ConsRecordToActionHeader[Try]
+  }
+
   private val payloadMetadatas = for {
     expireAfter <- List(1.day.some, none)
     metadata <- List(Json.obj(("key1", "value1")).some, none)
@@ -131,6 +140,10 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
         val record = ActionRecord(action, partitionOffset)
 
         consRecordToActionRecord(consRecord) shouldEqual record.some
+        streamingConsRecordToActionHeader(consRecord).value shouldEqual action.header.some.pure[Try]
+        // the journal's own JSON is decoded without falling back to play-json
+        val headerBytes = consRecord.headers.find { _.key == ActionHeader.key }.map { _.value }
+        headerBytes.map(ActionHeaderJson.decode) shouldEqual action.header.some.some
       }
     }
   }

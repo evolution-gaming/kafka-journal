@@ -169,6 +169,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       case KafkaJournalConfig.JsonCodec.Default => JsonCodec.default
       case KafkaJournalConfig.JsonCodec.PlayJson => JsonCodec.playJson
       case KafkaJournalConfig.JsonCodec.Jsoniter => JsonCodec.jsoniter
+      case KafkaJournalConfig.JsonCodec.Streaming => JsonCodec.streaming
     }
     codec.pure[IO]
   }

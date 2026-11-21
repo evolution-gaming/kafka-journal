@@ -4,6 +4,9 @@ import cats.Monad
 import cats.syntax.all.*
 import com.evolution.kafka.journal.util.PlayJsonHelper.*
 import play.api.libs.json.*
+import scodec.bits.ByteVector
+
+import scala.util.control.NonFatal
 
 sealed abstract class ActionHeader extends Product {
 
@@ -91,8 +94,29 @@ object ActionHeader {
   implicit def toBytesActionHeader[F[_]: JsonCodec.Encode]: ToBytes[F, ActionHeader] = ToBytes.fromWrites
 
   implicit def fromBytesOptActionHeader[F[_]: Monad: FromJsResult: JsonCodec.Decode]
-    : FromBytes[F, Option[ActionHeader]] =
-    FromBytes.fromReads
+    : FromBytes[F, Option[ActionHeader]] = {
+    val tree = FromBytes.fromReads[F, Option[ActionHeader]]
+    if (JsonCodec.Decode.summon[F].isStreaming) new StreamingFromBytes(tree) else tree
+  }
+
+  /**
+   * Decodes the JSON written by the journal with [[ActionHeaderJson]], and any other JSON with
+   * `tree`, which also reports the errors.
+   */
+  private final class StreamingFromBytes[F[_]: Monad](tree: FromBytes[F, Option[ActionHeader]])
+  extends FromBytes[F, Option[ActionHeader]] {
+
+    def apply(bytes: ByteVector): F[Option[ActionHeader]] = {
+      // the header bytes are not copied when `bytes` is a view of a whole array
+      val decoded =
+        try {
+          ActionHeaderJson.decode(bytes.toArrayUnsafe)
+        } catch {
+          case NonFatal(_) => null
+        }
+      if (decoded eq null) tree(bytes) else decoded.pure[F]
+    }
+  }
 
   sealed abstract class AppendOrDelete extends ActionHeader
 
