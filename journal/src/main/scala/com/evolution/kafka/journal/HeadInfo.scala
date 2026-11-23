@@ -126,6 +126,10 @@ object HeadInfo {
 
   object NonEmpty {
 
+    @deprecated(
+      "HeadInfo values cannot be combined with each other, they may be combined only with follow-up journal actions",
+      "11.3.0",
+    )
     implicit val semigroupNonEmpty: Semigroup[NonEmpty] = { (a: NonEmpty, b: NonEmpty) =>
       {
 

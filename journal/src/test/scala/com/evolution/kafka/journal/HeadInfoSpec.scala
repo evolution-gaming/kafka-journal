@@ -5,6 +5,9 @@ import com.evolutiongaming.skafka.Offset
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
+
+@nowarn("cat=deprecation")
 class HeadInfoSpec extends AnyFunSuite with Matchers {
 
   test("Empty apply Append") {
