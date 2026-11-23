@@ -207,6 +207,33 @@ class JournalSpec extends AnyWordSpec with Matchers {
       }
     }
 
+    s"append, purge, stale delete, read, lastSeqNr" in {
+      withJournal { journal =>
+        for {
+          _ <- journal.append(SeqNr.unsafe(1), SeqNr.unsafe(2), SeqNr.unsafe(3))
+          _ <- journal.purge
+          _ <- journal.delete(SeqNr.unsafe(1).toDeleteTo)
+          seqNrs <- journal.read(SeqRange.all)
+          _ = seqNrs shouldEqual Nil
+          pointer <- journal.pointer
+          _ = pointer shouldEqual none
+        } yield Succeeded
+      }
+    }
+
+    s"delete beyond the last seqNr on empty journal, append, read, lastSeqNr" in {
+      withJournal { journal =>
+        for {
+          _ <- journal.delete(SeqNr.unsafe(100).toDeleteTo)
+          _ <- journal.append(SeqNr.unsafe(1))
+          seqNrs <- journal.read(SeqRange.all)
+          _ = seqNrs shouldEqual List(SeqNr.unsafe(1))
+          pointer <- journal.pointer
+          _ = pointer shouldEqual SeqNr.unsafe(1).some
+        } yield Succeeded
+      }
+    }
+
     s"append, delete, append, delete, append, read, lastSeqNr, purge" in {
       withJournal { journal =>
         for {

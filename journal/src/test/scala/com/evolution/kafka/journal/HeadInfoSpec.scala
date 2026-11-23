@@ -62,6 +62,34 @@ class HeadInfoSpec extends AnyFunSuite with Matchers {
     deleteInfo(1)(mark, Offset.unsafe(1)) shouldEqual deleteInfo(1)
   }
 
+  test("Purge apply Delete is a no-op") {
+    HeadInfo.Purge(delete(1), Offset.unsafe(1)) shouldEqual HeadInfo.Purge
+    HeadInfo.Purge(delete(100), Offset.unsafe(1)) shouldEqual HeadInfo.Purge
+  }
+
+  test("Purge apply Append") {
+    HeadInfo.Purge(append(1, 2), Offset.unsafe(1)) shouldEqual appendInfo(1, 2)
+  }
+
+  test("purge, then stale delete, then append from the beginning") {
+    val actions =
+      List[(ActionHeader, Offset)](
+        (purge, Offset.unsafe(1)),
+        (delete(10), Offset.unsafe(2)),
+        (append(1, 1), Offset.unsafe(3)),
+      )
+    HeadInfo(actions) shouldEqual appendInfo(3, 1)
+  }
+
+  test("NonEmpty combine: Purge then Delete is Purge") {
+    (HeadInfo.Purge: HeadInfo.NonEmpty).combine(deleteInfo(1)) shouldEqual HeadInfo.Purge
+  }
+
+  test("NonEmpty combine: Append then Delete clamps deleteTo to the last appended seqNr") {
+    (appendInfo(0, 5): HeadInfo.NonEmpty).combine(deleteInfo(100)) shouldEqual appendInfo(0, 5, 5.some)
+    (appendInfo(0, 5): HeadInfo.NonEmpty).combine(deleteInfo(3)) shouldEqual appendInfo(0, 5, 3.some)
+  }
+
   private def append(from: Int, to: Int) = {
     ActionHeader.Append(
       range = SeqRange.unsafe(from, to),
