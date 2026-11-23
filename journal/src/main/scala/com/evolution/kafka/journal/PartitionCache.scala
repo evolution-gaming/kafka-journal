@@ -957,7 +957,7 @@ private[journal] object PartitionCache {
   private object Entries {
 
     /**
-     * Applies new records on top of existing entries.
+     * Applies new records on top of existing head info state in the cache.
      */
     def add(
       entries: Option[Entries],
@@ -975,7 +975,7 @@ private[journal] object PartitionCache {
             case (offset, _) =>
               val headInfo0 = entry.fold(HeadInfo.empty)(_.headInfo)
               val headInfo = records1.foldLeft(headInfo0) {
-                case (headInfo, (offset, data)) => headInfo(data.header, offset)
+                case (headInfo, (offset, data)) => headInfo.apply(data.header, offset)
               }
               headInfo match {
                 case HeadInfo.Empty => values
