@@ -91,6 +91,15 @@ libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "3.
 libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "3.4.0"
 ```
 
+### Metrics
+
+Metrics are reported through [smetrics](https://github.com/evolution-gaming/smetrics) `CollectorRegistry`,
+so kafka-journal does not depend on a particular Prometheus client. Pick a backend in your application:
+
+* `smetrics-prometheus` - Prometheus `simpleclient` 0.x
+* `smetrics-prometheus-v1` - Prometheus client 1.x; requires smetrics 2.5.0+ (Prometheus client 1.7.0+),
+  older 1.x clients reject metric names with the `_info` suffix used by kafka-journal
+
 ## Presentations
 
 * Jan 2019 [Riga Scala Community](https://www.meetup.com/Riga-Scala-Community/events/257926307)

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
-import cats.data.{NonEmptyList as Nel, State}
+import cats.data.{State, NonEmptyList as Nel}
 import cats.effect.Resource
 import cats.syntax.all.*
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}

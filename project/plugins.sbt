@@ -10,6 +10,6 @@ addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 
 addSbtPlugin("ch.epfl.scala" % "sbt-version-policy" % "3.2.1")
 
-addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.13.0")
+addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.10")
 
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")

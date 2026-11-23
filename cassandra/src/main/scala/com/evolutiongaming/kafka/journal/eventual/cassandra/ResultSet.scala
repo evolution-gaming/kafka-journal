@@ -4,7 +4,7 @@ import cats.effect.Sync
 import cats.effect.implicits.*
 import cats.effect.kernel.{Async, Spawn}
 import cats.syntax.all.*
-import com.datastax.driver.core.{ResultSet as ResultSetJ, Row}
+import com.datastax.driver.core.{Row, ResultSet as ResultSetJ}
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.sstream.FoldWhile.*
 import com.evolutiongaming.sstream.Stream

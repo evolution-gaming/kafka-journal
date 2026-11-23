@@ -6,6 +6,7 @@ import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.util.ResourceHelper.*
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
@@ -239,7 +240,7 @@ object ReplicatedPartitionJournal {
           self
             .journal(id)
             .map { _.enhanceError(key, partition) }
-            .adaptError { case a => journalError(s"journal key: $key", a) }
+            .adaptErrorResource { case a => journalError(s"journal key: $key", a) }
         }
       }
     }

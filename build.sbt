@@ -7,7 +7,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://evolution.com")),
   homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
-  crossScalaVersions := Seq("2.13.15"),
+  crossScalaVersions := Seq("2.13.18"),
   scalaVersion := crossScalaVersions.value.head,
   scalacOptions ++= Seq(
     "-release:17",
@@ -51,6 +51,11 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[IncompatibleMethTypeProblem](
     "com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra#Statements.of",
   ),
+  // private unused implicit classes, removed after Scala 2.13.18 started reporting them as unused
+  ProblemFilters.exclude[MissingClassProblem]("com.evolutiongaming.kafka.journal.TopicCache$SetOps"),
+  ProblemFilters.exclude[MissingClassProblem]("com.evolutiongaming.kafka.journal.TopicCache$SetOps$"),
+  ProblemFilters.exclude[MissingClassProblem]("com.evolutiongaming.kafka.journal.TopicCache$MapOps"),
+  ProblemFilters.exclude[MissingClassProblem]("com.evolutiongaming.kafka.journal.TopicCache$MapOps$"),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =

@@ -6,6 +6,7 @@ import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.util.ResourceHelper.*
 import com.evolutiongaming.skafka.{Partition, Topic}
 
 trait ReplicatedTopicJournal[F[_]] {
@@ -108,7 +109,7 @@ object ReplicatedTopicJournal {
           self
             .apply(partition)
             .map { _.enhanceError(topic, partition) }
-            .adaptError { case a => journalError(s"journal topic: $topic, partition: $partition", a) }
+            .adaptErrorResource { case a => journalError(s"journal topic: $topic, partition: $partition", a) }
         }
       }
     }

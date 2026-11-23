@@ -4,7 +4,7 @@ object Dependencies {
 
   val scalatest                  = "org.scalatest"          %% "scalatest"                      % "3.2.19"
   val `scala-java8-compat`       = "org.scala-lang.modules" %% "scala-java8-compat"             % "1.0.2"
-  val `kind-projector`           = "org.typelevel"           % "kind-projector"                 % "0.13.3"
+  val `kind-projector`           = "org.typelevel"           % "kind-projector"                 % "0.13.4"
   val `cassandra-driver`         = "com.datastax.cassandra"  % "cassandra-driver-core"          % "3.11.2"
   val `play-json`                = "com.typesafe.play"      %% "play-json"                      % "2.9.3"
   val `play-json-jsoniter`       = "com.evolution"          %% "play-json-jsoniter"             % "1.1.1"
@@ -25,8 +25,8 @@ object Dependencies {
   val `resource-pool`            = "com.evolution"          %% "resource-pool"                  % "1.0.4"
 
   object Cats {
-    val core   = "org.typelevel" %% "cats-core"   % "2.12.0"
-    val effect = "org.typelevel" %% "cats-effect" % "3.5.4"
+    val core   = "org.typelevel" %% "cats-core"   % "2.13.0"
+    val effect = "org.typelevel" %% "cats-effect" % "3.7.0"
   }
 
   object Logback {
@@ -63,9 +63,8 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "2.2.0"
-    val smetrics        = "com.evolutiongaming" %% "smetrics"            % version
-    val prometheus      = "com.evolutiongaming" %% "smetrics-prometheus" % version
+    private val version = "2.5.0"
+    val smetrics        = "com.evolutiongaming" %% "smetrics" % version
   }
 
   object Pureconfig {

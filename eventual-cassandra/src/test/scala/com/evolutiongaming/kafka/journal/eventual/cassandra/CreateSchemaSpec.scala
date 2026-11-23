@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{NonEmptyList as Nel, State}
+import cats.data.{State, NonEmptyList as Nel}
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.cassandra.CreateTables.Fresh
 import com.evolutiongaming.kafka.journal.cassandra.{CreateKeyspace, CreateTables, KeyspaceConfig}

@@ -6,6 +6,7 @@ import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.util.ResourceHelper.*
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.*
 import com.evolutiongaming.smetrics.MetricsHelper.*
@@ -127,7 +128,7 @@ object ReplicatedJournal {
           self
             .journal(topic)
             .map { _.enhanceError(topic) }
-            .adaptError { case a => journalError(s"journal, topic: $topic", a) }
+            .adaptErrorResource { case a => journalError(s"journal, topic: $topic", a) }
         }
       }
     }

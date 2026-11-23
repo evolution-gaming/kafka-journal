@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.NonEmptyList as Nel
-import cats.effect.std.UUIDGen
+import cats.effect.std.{SecureRandom, UUIDGen}
 import cats.effect.syntax.all.*
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.syntax.all.*
@@ -41,10 +41,12 @@ private[journal] object ReplicatedCassandra {
       statements    <- Statements.of[F](schema, config.consistencyConfig)
       log           <- LogOf[F].apply(ReplicatedCassandra.getClass)
       expiryService <- ExpiryService.of[F]
+      secureRandom  <- SecureRandom.javaSecuritySecureRandom[F]
       _             <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
-      val segmentOf = SegmentNrs.Of[F](first = Segments.default, second = Segments.old)
-      val journal   = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
+      implicit val uuidGen: UUIDGen[F] = UUIDGen.fromSecureRandom[F](Async[F], secureRandom)
+      val segmentOf                    = SegmentNrs.Of[F](first = Segments.default, second = Segments.old)
+      val journal                      = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError

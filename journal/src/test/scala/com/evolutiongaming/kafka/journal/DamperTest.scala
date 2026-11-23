@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{FiberIO, IO, Ref}
-import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.compatible.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
