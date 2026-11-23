@@ -322,13 +322,12 @@ object Journals {
             } yield pointer
           }
 
-          // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
           def delete(to: DeleteTo): F[Option[PartitionOffset]] = {
-            pointer.flatMap { seqNr =>
-              seqNr.traverse { seqNr =>
-                produce.delete(key, seqNr.toDeleteTo min to)
-              }
-            }
+            // We allow deletes on non-existent journals or past the journal's head.
+            // All invalid deletes will be ignored or clamped in downstream consumers.
+            produce
+              .delete(key, to)
+              .map { _.some }
           }
 
           def purge: F[Option[PartitionOffset]] = {

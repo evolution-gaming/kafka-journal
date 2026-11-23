@@ -96,7 +96,7 @@ abstract class BaseJournalIntSpec[A] extends AsyncFreeSpec with JournalSuite {
                 events <- journal.read
                 _ = events shouldEqual List.empty
                 pointer <- journal.delete(DeleteTo.max)
-                _ = pointer shouldEqual None
+                _ = pointer.isDefined shouldEqual true
                 anEvent = event(seqNr)
                 offset <- journal.append(Nel.of(anEvent), recordMetadata, headers)
                 record = EventRecord(anEvent, timestamp, offset, origin.some, version.some, recordMetadata, headers)

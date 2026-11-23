@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal
 
-import cats.data.NonEmptyList as Nel
+import cats.data.NonEmptyVector
 import cats.effect.IO
 import cats.syntax.all.*
 import com.evolution.kafka.journal.IOSuite.*
@@ -126,6 +126,95 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           _ <- IO { a shouldEqual none }
           a <- cache.get(id0, offset0)
           _ <- IO { a shouldEqual Result.value(HeadInfo.delete(DeleteTo(seqNr0))) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("delete beyond the last seqNr, then append from the beginning in separate polls") {
+    partitionCacheOf()
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, Offset.unsafe(0), deleteHeaderOf(100)))
+          _ <- cache.add(Record(id0, Offset.unsafe(1), actionHeaderOf(SeqNr.min)))
+          a <- cache.get(id0, Offset.unsafe(1))
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(Offset.unsafe(1), SeqNr.min, none)) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("delete beyond the last seqNr, then append in separate polls keeps the valid part of the delete") {
+    partitionCacheOf()
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, Offset.unsafe(0), deleteHeaderOf(100)))
+          _ <- cache.add(Record(id0, Offset.unsafe(1), actionHeaderOf(SeqNr.unsafe(6))))
+          a <- cache.get(id0, Offset.unsafe(1))
+          _ <- IO {
+            a shouldEqual
+              Result.value(HeadInfo.append(Offset.unsafe(1), SeqNr.unsafe(6), SeqNr.unsafe(5).toDeleteTo.some))
+          }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("purge, then stale delete in separate polls stays purged") {
+    partitionCacheOf()
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, Offset.unsafe(0), purgeHeader))
+          _ <- cache.add(Record(id0, Offset.unsafe(1), deleteHeaderOf(1)))
+          a <- cache.get(id0, Offset.unsafe(1))
+          _ <- IO { a shouldEqual Result.value(HeadInfo.Purge) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("append, then purge and append from the beginning in a single poll") {
+    partitionCacheOf()
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, Offset.unsafe(0), actionHeaderOf(SeqNr.unsafe(3))))
+          _ <- cache.add(
+            Record(id0, Offset.unsafe(1), purgeHeader),
+            Record(id0, Offset.unsafe(2), actionHeaderOf(SeqNr.min)),
+          )
+          a <- cache.get(id0, Offset.unsafe(2))
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(Offset.unsafe(2), SeqNr.min, none)) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("valid delete, then purge and append from the beginning in a single poll") {
+    partitionCacheOf()
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, Offset.unsafe(0), deleteHeaderOf(3)))
+          _ <- cache.add(
+            Record(id0, Offset.unsafe(1), purgeHeader),
+            Record(id0, Offset.unsafe(2), actionHeaderOf(SeqNr.min)),
+          )
+          a <- cache.get(id0, Offset.unsafe(2))
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(Offset.unsafe(2), SeqNr.min, none)) }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("records already applied to an entry are ignored") {
+    partitionCacheOf()
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, Offset.unsafe(0), actionHeaderOf(SeqNr.min)))
+          _ <- cache.add(Record(id0, Offset.unsafe(1), purgeHeader))
+          // intentionally same as first addition
+          _ <- cache.add(Record(id0, Offset.unsafe(0), actionHeaderOf(SeqNr.min)))
+          a <- cache.get(id0, Offset.unsafe(1))
+          _ <- IO { a shouldEqual Result.value(HeadInfo.Purge) }
         } yield {}
       }
       .run()
@@ -483,7 +572,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           a <- cache.get(id0, offset0)
           a <- a.matchOrError { case a: Result.Later.Empty[IO] => a.value }
           d <- cache.add(
-            Nel.of(
+            NonEmptyVector.of(
               Record(id0, offset0, actionHeaderOf(seqNr0)),
               Record(id1, offset1, actionHeaderOf(seqNr0)),
               Record(id2, offset2, actionHeaderOf(seqNr0)),
@@ -508,7 +597,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
       .use { cache =>
         for {
           a <- cache.add(
-            Nel.of(
+            NonEmptyVector.of(
               Record(id0, offset0, actionHeaderOf(seqNr0)),
               Record(id1, offset1, actionHeaderOf(seqNr0)),
               Record(id0, offset2, actionHeaderOf(seqNr1)),
@@ -532,7 +621,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
       .use { cache =>
         for {
           a <- cache.add(
-            Nel.of(
+            NonEmptyVector.of(
               Record(id0, offset0, actionHeader),
               Record(id1, offset1, actionHeader),
               Record(id2, offset2, actionHeader),
@@ -649,6 +738,12 @@ object PartitionCacheSpec {
       version = none,
     )
   }
+
+  def deleteHeaderOf(seqNr: Int): ActionHeader.Delete = {
+    ActionHeader.Delete(to = SeqNr.unsafe(seqNr).toDeleteTo, origin = none, version = none)
+  }
+
+  val purgeHeader: ActionHeader.Purge = ActionHeader.Purge(origin = none, version = none)
 
   private implicit class Ops[A](val self: A) extends AnyVal {
     def matchOrError[B](pf: PartialFunction[A, B]): IO[B] = {
