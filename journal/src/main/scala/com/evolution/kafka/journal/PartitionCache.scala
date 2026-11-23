@@ -60,7 +60,8 @@ private[journal] trait PartitionCache[F[_]] {
    * possible that part or all of these events are already replicated.
    *
    * @param records
-   *   Metainformation of the incoming records.
+   *   Metainformation of the incoming records, in ascending offset order, as consumed from a Kafka
+   *   partition.
    * @return
    *   Number of additional records marked as non-replicated after the method was called. `None` if
    *   no new records were counted as non-replicated or if this is the first call on an empty cache.
@@ -342,8 +343,8 @@ private[journal] object PartitionCache {
           def add(records: NonEmptyVector[Record]): F[Option[Diff]] = {
             for {
               bounds <- Bounds.of[F](
-                min = records.minimumBy { _.offset }.offset,
-                max = records.maximumBy { _.offset }.offset,
+                min = records.head.offset,
+                max = records.last.offset,
               )
               recordsById = records.toVector
                 .collect { case Record(offset, Some(data)) => (offset, data) }
@@ -968,9 +969,7 @@ private[journal] object PartitionCache {
       val values = records.foldLeft(values0) {
         case (values, (id, records)) =>
           val entry = values.get(id)
-          val records1 = records
-            .filter { case (offset, _) => entry.forall(_.offset < offset) }
-            .sortBy { case (offset, _) => offset }
+          val records1 = records.filter { case (offset, _) => entry.forall(_.offset < offset) }
           records1.lastOption.fold(values) {
             case (offset, _) =>
               val headInfo0 = entry.fold(HeadInfo.empty)(_.headInfo)
