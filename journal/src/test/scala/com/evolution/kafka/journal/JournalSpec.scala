@@ -117,7 +117,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
           case (journal, offset) =>
             for {
               a <- journal.delete(DeleteTo.min)
-              _ = a shouldEqual offset.map { _.inc[Try].get }
+              _ = a shouldEqual offset.getOrElse(Offset.min).some
               a <- journal.read(SeqRange.all)
               _ = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.min)
               a <- journal.pointer

@@ -1229,6 +1229,68 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       actual shouldEqual (expected, ()).pure[Try]
     }
 
+    test(s"ignore `delete` when there is no journal head, $suffix") {
+      val key = Key(id = "id", topic = topic0)
+      val stateT = journal.delete(
+        key = key,
+        Partition.min,
+        Offset.unsafe(1),
+        timestamp = timestamp1,
+        deleteTo = SeqNr.unsafe(10).toDeleteTo,
+        origin = origin.some,
+      )
+
+      stateT.run(State.empty) shouldEqual (State.empty, false).pure[Try]
+    }
+
+    test(s"stale `delete` after `purge` does not hide subsequent appends, $suffix") {
+      val id = "id"
+      val key = Key(id = id, topic = topic0)
+      val segment = segmentOfId.metaJournal(key)
+      val stateT = for {
+        _ <- journal.append(
+          key = key,
+          Partition.min,
+          Offset.unsafe(2),
+          timestamp = timestamp0,
+          expireAfter = none,
+          events = Nel.of(
+            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))
+              .event,
+            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))
+              .event,
+          ),
+        )
+        _ <- journal.purge(key, Partition.min, Offset.unsafe(3), timestamp1)
+        // issued before the purge, replicated after it
+        changed <- journal.delete(
+          key = key,
+          Partition.min,
+          Offset.unsafe(4),
+          timestamp = timestamp1,
+          deleteTo = SeqNr.unsafe(2).toDeleteTo,
+          origin = origin.some,
+        )
+        _ <- journal.append(
+          key = key,
+          Partition.min,
+          Offset.unsafe(5),
+          timestamp = timestamp1,
+          expireAfter = none,
+          events = Nel.of(
+            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(5)))
+              .event,
+          ),
+        )
+      } yield changed
+
+      val (state, changed) = stateT.run(State.empty).get
+      changed shouldEqual false
+      val journalHead = state.metaJournal.get((topic0, segment)).flatMap(_.get(id)).map(_.journalHead)
+      journalHead.map(_.seqNr) shouldEqual SeqNr.unsafe(1).some
+      journalHead.flatMap(_.deleteTo) shouldEqual none
+    }
+
     test(s"repeat purge again for the same offset, $suffix") {
       val id = "id"
       val key = Key(id = id, topic = topic0)
