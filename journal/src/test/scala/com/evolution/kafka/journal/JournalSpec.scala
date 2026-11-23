@@ -38,7 +38,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
       val seqNrLast = seqNrs.lastOption
 
-      def createAndAppend(f: (SeqNrJournal[F], Option[Offset]) => F[Assertion]) = {
+      def createAndAppend(f: (SeqNrJournal[F], Offset) => F[Assertion]) = {
         withJournal { journal =>
           def append(seqNrs: Nel[SeqNr]) = {
             journal
@@ -47,7 +47,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
           }
           for {
             offset <- combination.foldLeftM(none[Offset]) { (_, seqNrs) => append(seqNrs) }
-            offsetNext = offset.map { _.inc[Try].get }
+            offsetNext = offset.fold(Offset.min) { _.inc[Try].get }
             result <- f(journal, offsetNext)
           } yield result
         }
@@ -117,7 +117,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
           case (journal, offset) =>
             for {
               a <- journal.delete(DeleteTo.min)
-              _ = a shouldEqual offset.getOrElse(Offset.min).some
+              _ = a shouldEqual offset.some
               a <- journal.read(SeqRange.all)
               _ = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.min)
               a <- journal.pointer

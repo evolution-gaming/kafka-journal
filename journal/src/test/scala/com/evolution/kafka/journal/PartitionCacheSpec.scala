@@ -211,6 +211,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
         for {
           _ <- cache.add(Record(id0, Offset.unsafe(0), actionHeaderOf(SeqNr.min)))
           _ <- cache.add(Record(id0, Offset.unsafe(1), purgeHeader))
+          // intentionally same as first addition
           _ <- cache.add(Record(id0, Offset.unsafe(0), actionHeaderOf(SeqNr.min)))
           a <- cache.get(id0, Offset.unsafe(1))
           _ <- IO { a shouldEqual Result.value(HeadInfo.Purge) }

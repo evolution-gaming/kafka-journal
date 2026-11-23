@@ -1262,7 +1262,6 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         )
         _ <- journal.purge(key, Partition.min, Offset.unsafe(3), timestamp1)
-        // issued before the purge, replicated after it
         changed <- journal.delete(
           key = key,
           Partition.min,

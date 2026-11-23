@@ -180,10 +180,9 @@ Generally correct, but wrong assumptions:
     * update `seqNr` in `metajournal` table
     * append events in `journal` table
 * `Delete` action:
-  * when there is no entry in DB, it will:
-    * create record in `metajournal` table with `seqNr` and `deleteTo` both set to `Delete.to` value (allows to "reset" journal)
+  * when there is no entry in DB, it will be ignored
   * when there is entry for aggregate:
-    * update `deleteTo` in `metajournal` table
+    * update `deleteTo` in `metajournal` table, clamped to the aggregate's current `seqNr`
     * delete events between aggregate's `deleteTo` and  `seqNr <= Delete.to` 
 * `Purge` action:
   * when there is no entry in DB, it will do nothing (no-op)
