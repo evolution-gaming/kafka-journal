@@ -11,8 +11,8 @@ import com.evolution.kafka.journal.cassandra.{
   MigrateSchema,
   SettingStatements,
 }
+import com.evolution.scassandra.TableName
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.scassandra.TableName
 
 private[journal] object CreateSchema {
 

@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.eventual.cassandra
 
-import com.datastax.driver.core.ConsistencyLevel
+import com.datastax.oss.driver.api.core.ConsistencyLevel
 import com.evolution.kafka.journal.cassandra.{CassandraConsistencyConfig, CassandraConsistencyConfigSpec}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite

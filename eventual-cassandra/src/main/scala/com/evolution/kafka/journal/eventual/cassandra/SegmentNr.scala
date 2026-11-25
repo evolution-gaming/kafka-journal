@@ -5,7 +5,7 @@ import cats.{Applicative, Eq, Id, Monad, Order, Show}
 import com.evolution.kafka.journal.util.Fail
 import com.evolution.kafka.journal.util.Fail.implicits.*
 import com.evolution.kafka.journal.{Key, SeqNr}
-import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
+import com.evolution.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 
 /**
  * Segment fields in `journal` and `metajournal` tables. Part of clustering key in both tables.

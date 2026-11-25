@@ -3,8 +3,8 @@ package com.evolution.kafka.journal.eventual.cassandra
 import cats.effect.Sync
 import cats.effect.std.{SecureRandom, UUIDGen}
 import cats.syntax.all.*
-import com.datastax.driver.core.{GettableByNameData, SettableData}
-import com.evolutiongaming.scassandra.*
+import com.datastax.oss.driver.api.core.data.{GettableByName, SettableByName}
+import com.evolution.scassandra.*
 
 import java.util.UUID
 
@@ -30,10 +30,10 @@ private[journal] object RecordId {
     }
 
   implicit val recordIdDecodeByName: DecodeByName[RecordId] = new DecodeByName[RecordId] {
-    override def apply(data: GettableByNameData, name: String): RecordId = RecordId(data.getUUID(name))
+    override def apply(data: GettableByName, name: String): RecordId = RecordId(data.getUuid(name))
   }
   implicit val recordIdEncodeByName: EncodeByName[RecordId] = new EncodeByName[RecordId] {
-    override def apply[B <: SettableData[B]](data: B, name: String, recordId: RecordId): B =
-      data.setUUID(name, recordId.value)
+    override def apply[B <: SettableByName[B]](data: B, name: String, recordId: RecordId): B =
+      data.setUuid(name, recordId.value)
   }
 }

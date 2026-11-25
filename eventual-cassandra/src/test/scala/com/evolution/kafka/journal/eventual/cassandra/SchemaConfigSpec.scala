@@ -2,7 +2,7 @@ package com.evolution.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
 import com.evolution.kafka.journal.cassandra.KeyspaceConfig
-import com.evolutiongaming.scassandra.ReplicationStrategyConfig
+import com.evolution.scassandra.ReplicationStrategyConfig
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

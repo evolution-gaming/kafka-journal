@@ -10,8 +10,6 @@ import com.evolution.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolution.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolution.kafka.journal.util.Fail
 import com.evolutiongaming.catshelper.*
-import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
@@ -34,7 +32,7 @@ object JournalAdapter {
   def make[
     F[
       _,
-    ]: Async: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
+    ]: Async: Parallel: LogOf: RandomIdOf: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
     A,
   ](
     toKey: ToKey[F],
@@ -46,7 +44,6 @@ object JournalAdapter {
     log: Log[F],
     batching: Batching[F],
     appendMetadataOf: AppendMetadataOf[F],
-    cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, JournalAdapter[F]] = {
     makeWithJournals[F, A](
       toKey = toKey,
@@ -58,14 +55,13 @@ object JournalAdapter {
       log = log,
       batching = batching,
       appendMetadataOf = appendMetadataOf,
-      cassandraClusterOf = cassandraClusterOf,
     ).map { case (adapter, _) => adapter }
   }
 
   def makeWithJournals[
     F[
       _,
-    ]: Async: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
+    ]: Async: Parallel: LogOf: RandomIdOf: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
     A,
   ](
     toKey: ToKey[F],
@@ -77,7 +73,6 @@ object JournalAdapter {
     log: Log[F],
     batching: Batching[F],
     appendMetadataOf: AppendMetadataOf[F],
-    cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, (JournalAdapter[F], Journals[F])] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
@@ -137,7 +132,6 @@ object JournalAdapter {
         config.cassandra,
         origin,
         metrics.eventual,
-        cassandraClusterOf,
         config.dataIntegrity,
       )
       journals <- journal(eventualJournal)(kafkaConsumerOf, kafkaProducerOf, headCacheOf1)

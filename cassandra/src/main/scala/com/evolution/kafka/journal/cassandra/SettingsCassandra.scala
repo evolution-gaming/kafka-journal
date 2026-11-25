@@ -5,8 +5,8 @@ import cats.syntax.all.*
 import cats.{Monad, Parallel}
 import com.evolution.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolution.kafka.journal.{Origin, Setting, Settings}
+import com.evolution.scassandra.TableName
 import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
 
 private[journal] object SettingsCassandra {

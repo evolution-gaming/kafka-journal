@@ -3,7 +3,7 @@ package com.evolution.kafka.journal.cassandra
 import cats.Id
 import cats.syntax.all.*
 import com.evolution.kafka.journal.SeqNr
-import com.evolutiongaming.scassandra.*
+import com.evolution.scassandra.*
 
 object SeqNrExtension {
   implicit val encodeByNameSeqNr: EncodeByName[SeqNr] = EncodeByName[Long].contramap((seqNr: SeqNr) => seqNr.value)

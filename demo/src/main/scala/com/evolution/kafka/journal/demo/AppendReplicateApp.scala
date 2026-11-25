@@ -14,8 +14,6 @@ import com.evolution.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.retry.Sleep
-import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
 import com.typesafe.config.{Config, ConfigFactory}
 import pureconfig.ConfigSource
@@ -43,7 +41,7 @@ object AppendReplicateApp extends IOApp {
     } yield ExitCode.Success
   }
 
-  private def runF[F[_]: Async: Parallel: FromGFuture: MeasureDuration: FromAttempt: FromTry: ToTry: Fail: LogOf](
+  private def runF[F[_]: Async: Parallel: MeasureDuration: FromAttempt: FromTry: ToTry: Fail: LogOf](
     topic: Topic,
     config: Config,
   ): F[Unit] = {
@@ -86,9 +84,8 @@ object AppendReplicateApp extends IOApp {
       kafkaConsumerOf: KafkaConsumerOf[F],
     ) = {
       for {
-        cassandraClusterOf <- CassandraClusterOf.of[F].toResource
         config <- ReplicatorConfig.fromConfig[F](config).toResource
-        result <- Replicator.make[F](config, cassandraClusterOf, hostName)
+        result <- Replicator.make[F](config, hostName)
       } yield result
     }
 

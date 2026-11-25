@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal.cassandra
 
-import com.evolutiongaming.scassandra.ReplicationStrategyConfig
+import com.evolution.scassandra.ReplicationStrategyConfig
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 

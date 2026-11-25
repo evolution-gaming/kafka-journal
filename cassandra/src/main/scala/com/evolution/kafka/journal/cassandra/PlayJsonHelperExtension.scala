@@ -2,7 +2,7 @@ package com.evolution.kafka.journal.cassandra
 
 import cats.syntax.all.*
 import com.evolution.kafka.journal.JsonCodec
-import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
+import com.evolution.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json.*
 
 import scala.util.Try

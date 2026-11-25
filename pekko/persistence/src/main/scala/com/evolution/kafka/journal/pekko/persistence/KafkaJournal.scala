@@ -11,7 +11,6 @@ import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Strategy}
-import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.typesafe.config.Config
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.persistence.journal.AsyncWriteJournal
@@ -158,12 +157,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       .pure[Resource[IO, *]]
   }
 
-  def cassandraClusterOf: Resource[IO, CassandraClusterOf[IO]] = {
-    CassandraClusterOf
-      .of[IO]
-      .toResource
-  }
-
   def jsonCodec(config: KafkaJournalConfig): IO[JsonCodec[IO]] = {
     val codec: JsonCodec[IO] = config.jsonCodec match {
       case KafkaJournalConfig.JsonCodec.Default => JsonCodec.default
@@ -210,7 +203,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
           appendMetadataOf <- appendMetadataOf
           metrics <- metrics
           batching <- batching(config)
-          cassandraClusterOf <- cassandraClusterOf
           jsonCodec <- jsonCodec(config).toResource
           pair <- adapterOfWithJournals(
             toKey = toKey,
@@ -222,7 +214,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
             appendMetadataOf = appendMetadataOf,
             batching = batching,
             log = log,
-            cassandraClusterOf = cassandraClusterOf,
           )(logOf = logOf, randomIdOf = randomId, measureDuration = measureDuration, jsonCodec = jsonCodec)
         } yield pair
         val strategy = Strategy
@@ -269,7 +260,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     appendMetadataOf: AppendMetadataOf[IO],
     batching: Batching[IO],
     log: Log[IO],
-    cassandraClusterOf: CassandraClusterOf[IO],
   )(implicit
     logOf: LogOf[IO],
     randomIdOf: RandomIdOf[IO],
@@ -287,7 +277,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       log = log,
       batching = batching,
       appendMetadataOf = appendMetadataOf,
-      cassandraClusterOf = cassandraClusterOf,
     )
   }
 
@@ -301,7 +290,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     appendMetadataOf: AppendMetadataOf[IO],
     batching: Batching[IO],
     log: Log[IO],
-    cassandraClusterOf: CassandraClusterOf[IO],
   )(implicit
     logOf: LogOf[IO],
     randomIdOf: RandomIdOf[IO],
@@ -319,7 +307,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       appendMetadataOf = appendMetadataOf,
       batching = batching,
       log = log,
-      cassandraClusterOf = cassandraClusterOf,
     ).map { case (adapter, _) => adapter }
   }
 

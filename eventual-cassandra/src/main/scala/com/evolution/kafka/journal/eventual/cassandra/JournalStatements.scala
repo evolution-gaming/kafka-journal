@@ -3,7 +3,7 @@ package com.evolution.kafka.journal.eventual.cassandra
 import cats.Monad
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
-import com.datastax.driver.core.{BatchStatement, Row}
+import com.datastax.oss.driver.api.core.cql.{BatchStatement, DefaultBatchType, Row}
 import com.evolution.kafka.journal.*
 import com.evolution.kafka.journal.cassandra.KeyExtension.*
 import com.evolution.kafka.journal.cassandra.OriginExtension.*
@@ -16,9 +16,9 @@ import com.evolution.kafka.journal.cassandra.{CassandraConsistencyConfig, Record
 import com.evolution.kafka.journal.eventual.EventualPayloadAndType
 import com.evolution.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolution.kafka.journal.eventual.cassandra.HeadersHelper.*
+import com.evolution.scassandra.syntax.*
+import com.evolution.scassandra.{DecodeByName, EncodeByName, TableName}
 import com.evolutiongaming.catshelper.ToTry
-import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
@@ -140,14 +140,18 @@ private[journal] object JournalStatements {
             .setConsistencyLevel(consistencyConfig.value)
         }
 
-        val statement = {
-          if (events.tail.isEmpty) {
-            statementOf(events.head)
-          } else {
-            events.foldLeft(new BatchStatement()) { (batch, record) => batch.add(statementOf(record)) }
-          }
+        if (events.tail.isEmpty) {
+          statementOf(events.head).first.void
+        } else {
+          // statements of the Java driver 4 are immutable, `add` returns a new batch
+          events
+            .foldLeft(BatchStatement.newInstance(DefaultBatchType.LOGGED)) { (batch, record) =>
+              batch.add(statementOf(record))
+            }
+            .setConsistencyLevel(consistencyConfig.value)
+            .first
+            .void
         }
-        statement.setConsistencyLevel(consistencyConfig.value).first.void
       }
     }
   }
