@@ -230,7 +230,7 @@ object HeadInfo {
      * A new event was appended.
      *
      * We update last saved [[SeqNr]], but ignore [[Offset]] unless this is a first event in our
-     * list of non-replicted events.
+     * list of non-replicated events.
      */
     def append(range: SeqRange, offset: Offset): HeadInfo = {
 
