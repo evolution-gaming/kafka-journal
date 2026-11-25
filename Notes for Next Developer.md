@@ -125,14 +125,14 @@ Kafka consumers and Cassandra session to start [ReplicatedJournal](journal/src/m
 * is implemented in [ReplicatedCassandra](eventual-cassandra/src/main/scala/com/evolution/kafka/journal/eventual/cassandra/ReplicatedCassandra.scala)
 
 [ReplicatedKeyJournal](journal/src/main/scala/com/evolution/kafka/journal/eventual/ReplicatedKeyJournal.scala) 
-defines the **most important API** of the `replicator` - it handles all actions and applies them on Cassandra storage.
+Defines the **most important API** of the `replicator` - it handles all actions and applies them on Cassandra storage.
 The APIs are per `key` (`id` + `topic`):
 * `append` - appends journal entries into `journal` table and updates `seqNr`, `offset` and `updated` fields in
   `metajournal` table 
 * `delete` - deletes entries from `journal` table till requested `seqNr` and updates `deleteTo`, `offset` and `updated` 
   fields in `metajournal` table, on next recovery entity will:
   * if `deleteTo` is less than `seqNr`, get recovered from left-over events
-  * if `delerteTo` is equal to `seqNr`, recovered actor will start with zero-state at `seqNr`
+  * if `deleteTo` is equal to `seqNr`, recovered actor will start with zero-state at `seqNr`
 * `purge` - delete all journal's entries in `journal` table as well as removed entry in `metajournal` table - next
   reincarnation of journal will start from very beginning with `seqNr: 1`
 * is implemented in [ReplicatedCassandra](eventual-cassandra/src/main/scala/com/evolution/kafka/journal/eventual/cassandra/ReplicatedCassandra.scala)
