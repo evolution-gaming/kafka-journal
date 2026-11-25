@@ -1,7 +1,8 @@
 package com.evolution.kafka.journal.replicator
 
 import cats.Monad
-import cats.data.NonEmptyList as Nel
+import cats.data.{NonEmptyList as Nel, NonEmptySet as Nes}
+import cats.effect.Resource
 import cats.syntax.all.*
 import com.evolution.kafka.journal.{ConsRecord, KafkaConsumer}
 import com.evolutiongaming.skafka.*
@@ -13,43 +14,34 @@ import scala.concurrent.duration.*
 
 private[journal] trait TopicConsumer[F[_]] {
 
-  def subscribe(listener: RebalanceListener1[F]): F[Unit]
+  def subscribe(topics: Nes[Topic], listener: RebalanceListener1[F]): F[Unit]
 
-  def poll: Stream[F, Map[Partition, Nel[ConsRecord]]]
+  def poll: Stream[F, Map[TopicPartition, Nel[ConsRecord]]]
 
-  def commit: TopicCommit[F]
+  def commitOf(topic: Topic): Resource[F, TopicCommit[F]]
 }
 
 private[journal] object TopicConsumer {
 
   def apply[F[_]: Monad](
-    topic: Topic,
     pollTimeout: FiniteDuration,
-    commit: TopicCommit[F],
     consumer: KafkaConsumer[F, String, ByteVector],
+    commitOf: Topic => Resource[F, TopicCommit[F]],
   ): TopicConsumer[F] = {
 
-    val commit1 = commit
+    val commitOf1 = commitOf
 
     new TopicConsumer[F] {
 
-      def subscribe(listener: RebalanceListener1[F]): F[Unit] = {
-        consumer.subscribe(topic, listener)
+      def subscribe(topics: Nes[Topic], listener: RebalanceListener1[F]): F[Unit] = {
+        consumer.subscribe(topics, listener)
       }
 
-      val poll: Stream[F, Map[Partition, Nel[ConsRecord]]] = {
-        val records = for {
-          records <- consumer.poll(pollTimeout)
-        } yield
-          for {
-            (partition, records) <- records.values
-          } yield {
-            (partition.partition, records)
-          }
-        Stream.repeat(records)
+      val poll: Stream[F, Map[TopicPartition, Nel[ConsRecord]]] = {
+        Stream.repeat(consumer.poll(pollTimeout).map { _.values })
       }
 
-      def commit: TopicCommit[F] = commit1
+      def commitOf(topic: Topic): Resource[F, TopicCommit[F]] = commitOf1(topic)
     }
   }
 }

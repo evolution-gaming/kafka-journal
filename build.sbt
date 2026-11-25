@@ -101,6 +101,9 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
   ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCache.make"),
+  // new multi-topic `subscribe` in `KafkaConsumer`: breaks only clients implementing the trait themselves,
+  // rather than using `KafkaConsumer.apply` or `KafkaConsumerOf`
+  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolution.kafka.journal.KafkaConsumer.subscribe"),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(
