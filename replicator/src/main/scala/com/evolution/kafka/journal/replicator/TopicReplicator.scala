@@ -99,8 +99,9 @@ private[journal] object TopicReplicator {
       def apply(timestamp: Instant, records: Nel[ConsRecord]): F[Int]
     }
 
-    val topicFlowOf: TopicFlowOf[F] = { (topic: Topic) =>
-      {
+    val topicFlowOf: TopicFlowOf[F] = new TopicFlowOf[F] {
+
+      def apply(topic: Topic): Resource[F, TopicFlow[F]] = {
         for {
           journal <- journal.journal(topic)
           cache <- cacheOf[Partition, PartitionFlow](topic)
@@ -134,8 +135,8 @@ private[journal] object TopicReplicator {
                             } yield ref
                           }
                           cache <- cacheOf[String, KeyFlow](topic)
-                        } yield { (timestamp: Instant, records: Nel[ConsRecord]) =>
-                          {
+                        } yield new PartitionFlow {
+                          def apply(timestamp: Instant, records: Nel[ConsRecord]): F[Unit] = {
                             for {
                               offset <- offsetRef.get
                               _ <- offset
@@ -163,8 +164,10 @@ private[journal] object TopicReplicator {
                                                     eventualWrite,
                                                     log,
                                                   )
-                                                  (timestamp: Instant, records: Nel[ConsRecord]) => {
-                                                    replicateRecords(records, timestamp)
+                                                  new KeyFlow {
+                                                    def apply(timestamp: Instant, records: Nel[ConsRecord]): F[Int] = {
+                                                      replicateRecords(records, timestamp)
+                                                    }
                                                   }
                                                 }
                                             }

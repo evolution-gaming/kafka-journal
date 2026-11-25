@@ -32,8 +32,9 @@ object KafkaWrite {
     implicit
     eventsToBytes: ToBytes[F, Events[Payload]],
     payloadJsonToBytes: ToBytes[F, PayloadJson[JsValue]],
-  ): KafkaWrite[F, Payload] = { (events: Events[Payload]) =>
-    {
+  ): KafkaWrite[F, Payload] = new KafkaWrite[F, Payload] {
+
+    def apply(events: Events[Payload]): F[PayloadAndType] = {
 
       /**
        * Safely cast an argument to `Event[Payload.TextOrJson]`, or returns `None` if payload is
@@ -105,8 +106,9 @@ object KafkaWrite {
   def writeJson[F[_]: MonadThrowable, A, B](
     toEventJsonPayload: A => EventJsonPayloadAndType[B],
     payloadJsonToBytes: ToBytes[F, PayloadJson[B]],
-  ): KafkaWrite[F, A] = { (events: Events[A]) =>
-    {
+  ): KafkaWrite[F, A] = new KafkaWrite[F, A] {
+
+    def apply(events: Events[A]): F[PayloadAndType] = {
 
       def eventJson(event: Event[A]): EventJson[B] = {
 
@@ -142,16 +144,21 @@ object KafkaWrite {
     )(implicit
       F: Monad[F],
       measureDuration: MeasureDuration[F],
-    ): KafkaWrite[F, A] = { events =>
-      for {
-        d <- MeasureDuration[F].start
-        r <- self(events)
-        d <- d
-        _ <- metrics(events, r, d)
-      } yield r
+    ): KafkaWrite[F, A] = new KafkaWrite[F, A] {
+
+      def apply(events: Events[A]): F[PayloadAndType] = {
+        for {
+          d <- MeasureDuration[F].start
+          r <- self(events)
+          d <- d
+          _ <- metrics(events, r, d)
+        } yield r
+      }
     }
 
-    def mapK[G[_]](fg: F ~> G): KafkaWrite[G, A] =
-      (events: Events[A]) => fg(self(events))
+    def mapK[G[_]](fg: F ~> G): KafkaWrite[G, A] = new KafkaWrite[G, A] {
+
+      def apply(events: Events[A]): G[PayloadAndType] = fg(self(events))
+    }
   }
 }

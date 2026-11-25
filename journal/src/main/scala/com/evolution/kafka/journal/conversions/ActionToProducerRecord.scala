@@ -18,8 +18,9 @@ object ActionToProducerRecord {
     implicit
     actionHeaderToHeader: ActionHeaderToHeader[F],
     tupleToHeader: TupleToHeader[F],
-  ): ActionToProducerRecord[F] = { (action: Action) =>
-    {
+  ): ActionToProducerRecord[F] = new ActionToProducerRecord[F] {
+
+    def apply(action: Action): F[ProducerRecord[String, ByteVector]] = {
       val key = action.key
       val result = for {
         header <- actionHeaderToHeader(action.header)
