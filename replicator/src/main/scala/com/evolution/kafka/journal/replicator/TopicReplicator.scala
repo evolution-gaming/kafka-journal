@@ -32,6 +32,8 @@ import scala.util.Try
  */
 private[journal] object TopicReplicator {
 
+  private val pointerWritePeriod: FiniteDuration = 50.millis
+
   def make[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
     topic: Topic,
     journal: ReplicatedJournal[F],
@@ -65,6 +67,7 @@ private[journal] object TopicReplicator {
         log = log,
         cacheOf = cacheOf,
         replicatedOffsetNotifier = replicatedOffsetNotifier,
+        pointerWriterOf = PointerWriter.Of.periodic[F](pointerWritePeriod, log),
       )
     }
 
@@ -89,6 +92,7 @@ private[journal] object TopicReplicator {
     log: Log[F],
     cacheOf: CacheOf[F],
     replicatedOffsetNotifier: ReplicatedOffsetNotifier[F],
+    pointerWriterOf: PointerWriter.Of[F],
   ): F[Unit] = {
 
     trait PartitionFlow {
@@ -99,10 +103,11 @@ private[journal] object TopicReplicator {
       def apply(timestamp: Instant, records: Nel[ConsRecord]): F[Int]
     }
 
-    val topicFlowOf: TopicFlowOf[F] = { (topic: Topic) =>
+    val topicFlowOf: TopicFlowOf[F] = { (topic: Topic, commit: TopicCommit[F]) =>
       {
         for {
           journal <- journal.journal(topic)
+          pointerWriter <- pointerWriterOf.createWriter(topic, commit, replicatedOffsetNotifier)
           cache <- cacheOf[Partition, PartitionFlow](topic)
         } yield {
 
@@ -116,7 +121,7 @@ private[journal] object TopicReplicator {
               log.info(s"assign ${ partitions.mkString_(",") }")
             }
 
-            def apply(records: Nem[Partition, Nel[ConsRecord]]): F[Map[Partition, Offset]] = {
+            def apply(records: Nem[Partition, Nel[ConsRecord]]): F[Unit] = {
               for {
                 duration <- MeasureDuration[F].start
                 timestamp <- Clock[F].instant
@@ -129,8 +134,9 @@ private[journal] object TopicReplicator {
                           offsets = journal.offsets
                           offsetRef <- Resource.eval {
                             for {
-                              offset <- offsets.get
-                              ref <- Ref.of(offset)
+                              stored <- offsets.get
+                              replicated <- pointerWriter.assign(partition, offsets, stored)
+                              ref <- Ref.of(replicated)
                             } yield ref
                           }
                           cache <- cacheOf[String, KeyFlow](topic)
@@ -173,52 +179,28 @@ private[journal] object TopicReplicator {
                                         }
                                     }
                                 }
-                              result <- {
+                              _ <- {
+                                // the pointer itself is written by `pointerWriter` after the round
                                 val offset1 = records.maximumBy { _.offset }.offset
-
-                                def setAndNotify = offsetRef.set(offset1.some) >>
-                                  replicatedOffsetNotifier.onReplicatedOffset(TopicPartition(topic, partition), offset1)
-
-                                offset.fold {
-                                  for {
-                                    a <- offsets.create(offset1, timestamp)
-                                    _ <- setAndNotify
-                                  } yield a
-                                } { offset =>
-                                  if (offset1 > offset) {
-                                    for {
-                                      a <- offsets.update(offset1, timestamp)
-                                      _ <- setAndNotify
-                                    } yield a
-                                  } else {
-                                    ().pure[F]
-                                  }
-                                }
+                                offsetRef.update { _.fold(offset1) { _ max offset1 }.some }
                               }
-                            } yield result
+                            } yield ()
                           }
                         }
                       }
                       result <- partitionFlow(timestamp, records)
                     } yield result
                 }
+                _ <- pointerWriter.mark(records.map { _.maximumBy { _.offset }.offset }, timestamp)
                 duration <- duration
                 _ <- metrics.round(duration, records.foldLeft(0) { _ + _.size })
-              } yield {
-                records.map { records =>
-                  records.foldLeft { Offset.min } { (offset, record) =>
-                    record
-                      .offset
-                      .inc[Try]
-                      .fold(_ => offset, _ max offset)
-                  }
-                }.toSortedMap
-              }
+              } yield ()
             }
 
             def revoke(partitions: Nes[Partition]): F[Unit] = {
               for {
                 _ <- log.info(s"revoke ${ partitions.mkString_(",") }")
+                _ <- pointerWriter.revoke(partitions)
                 a <- remove(partitions)
               } yield a
             }
@@ -226,6 +208,7 @@ private[journal] object TopicReplicator {
             def lose(partitions: Nes[Partition]): F[Unit] = {
               for {
                 _ <- log.info(s"lose ${ partitions.mkString_(",") }")
+                _ <- pointerWriter.lose(partitions)
                 a <- remove(partitions)
               } yield a
             }

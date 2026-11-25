@@ -1089,6 +1089,7 @@ object TopicReplicatorSpec {
       metrics = metrics,
       log = Log.empty[StateT],
       cacheOf = CacheOf.empty[StateT],
+      pointerWriterOf = PointerWriter.Of.sync[StateT],
       replicatedOffsetNotifier = replicatedOffsetNotifier,
     )
   }
