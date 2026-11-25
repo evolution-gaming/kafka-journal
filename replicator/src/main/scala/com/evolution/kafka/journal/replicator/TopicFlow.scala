@@ -4,13 +4,13 @@ import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolution.kafka.journal.ConsRecord
-import com.evolutiongaming.skafka.{Offset, Partition}
+import com.evolutiongaming.skafka.Partition
 
 private[journal] trait TopicFlow[F[_]] {
 
   def assign(partitions: Nes[Partition]): F[Unit]
 
-  def apply(records: Nem[Partition, Nel[ConsRecord]]): F[Map[Partition, Offset]]
+  def apply(records: Nem[Partition, Nel[ConsRecord]]): F[Unit]
 
   def revoke(partitions: Nes[Partition]): F[Unit]
 
@@ -23,8 +23,7 @@ private[journal] object TopicFlow {
 
     def assign(partitions: Nes[Partition]): F[Unit] = ().pure[F]
 
-    def apply(records: Nem[Partition, Nel[ConsRecord]]): F[Map[Partition, Offset]] =
-      Map.empty[Partition, Offset].pure[F]
+    def apply(records: Nem[Partition, Nel[ConsRecord]]): F[Unit] = ().pure[F]
 
     def revoke(partitions: Nes[Partition]): F[Unit] = ().pure[F]
 
@@ -37,7 +36,7 @@ private[journal] object TopicFlow {
 
       def assign(partitions: Nes[Partition]): G[Unit] = f(self.assign(partitions))
 
-      def apply(records: Nem[Partition, Nel[ConsRecord]]): G[Map[Partition, Offset]] = f(self(records))
+      def apply(records: Nem[Partition, Nel[ConsRecord]]): G[Unit] = f(self(records))
 
       def revoke(partitions: Nes[Partition]): G[Unit] = f(self.revoke(partitions))
 

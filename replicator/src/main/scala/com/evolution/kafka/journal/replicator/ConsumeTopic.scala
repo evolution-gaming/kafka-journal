@@ -40,7 +40,7 @@ private[journal] object ConsumeTopic {
         .resetAfter(5.minutes)
       onError = OnError.fromLog(log)
       retry = Retry(strategy, onError)
-      result <- apply(topic, consumer, topicFlowOf, log, retry)
+      result <- apply(topic, consumer, topicFlowOf, retry)
     } yield result
   }
 
@@ -48,7 +48,6 @@ private[journal] object ConsumeTopic {
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     topicFlowOf: TopicFlowOf[F],
-    log: Log[F],
     retry: Retry[F],
   ): F[Unit] = {
 
@@ -72,35 +71,24 @@ private[journal] object ConsumeTopic {
       }
     }
 
+    val consumerAndFlow = for {
+      consumer <- consumer
+      topicFlow <- topicFlowOf(topic, consumer.commit)
+    } yield (consumer, topicFlow)
+
     retry {
-      (consumer, topicFlowOf(topic))
-        .tupled
-        .use {
-          case (consumer, topicFlow) =>
-            val listener = rebalanceListenerOf(topicFlow, consumer.commit)
-            for {
-              _ <- consumer.subscribe(listener)
-              a <- consumer
-                .poll
-                .mapM { records =>
-                  records
-                    .toNem
-                    .foldMapM { records =>
-                      for {
-                        offsets <- topicFlow(records)
-                        _ <- offsets
-                          .toNem
-                          .traverse { offsets =>
-                            consumer
-                              .commit(offsets)
-                              .handleErrorWith { e => log.error(s"commit failed for $offsets: $e", e) }
-                          }
-                      } yield {}
-                    }
-                }
-                .drain
-            } yield a
-        }
+      consumerAndFlow.use {
+        case (consumer, topicFlow) =>
+          val listener = rebalanceListenerOf(topicFlow, consumer.commit)
+          for {
+            _ <- consumer.subscribe(listener)
+            a <- consumer.poll.mapM { records =>
+              records.toNem.traverse_ { records =>
+                topicFlow(records)
+              }
+            }.drain
+          } yield a
+      }
     }
   }
 }

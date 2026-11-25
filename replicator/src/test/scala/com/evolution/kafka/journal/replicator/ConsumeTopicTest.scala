@@ -7,7 +7,7 @@ import cats.syntax.all.*
 import com.evolution.kafka.journal.ConsRecord
 import com.evolution.kafka.journal.util.TestTemporal.temporalTry
 import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.catshelper.{Log, ToTry}
+import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*
@@ -193,7 +193,7 @@ object ConsumeTopicTest {
 
   }
 
-  val topicFlowOf: TopicFlowOf[StateT] = { (topic: Topic) =>
+  val topicFlowOf: TopicFlowOf[StateT] = { (topic: Topic, commit: TopicCommit[StateT]) =>
     {
       val result = StateT.pure { state =>
         val state1 = state + Action.AcquireTopicFlow(topic)
@@ -208,10 +208,9 @@ object ConsumeTopicTest {
             }
           }
 
-          def apply(records: Nem[Partition, Nel[ConsRecord]]): StateT[Map[Partition, Offset]] = {
-            StateT.pure { state =>
-              val state1 = state + Action.Poll(records)
-              (state1, Map((Partition.min, Offset.min)))
+          def apply(records: Nem[Partition, Nel[ConsRecord]]): StateT[Unit] = {
+            temporalTry[State].productR(StateT.unit { _ + Action.Poll(records) }) {
+              commit(Nem.of((Partition.min, Offset.min)))
             }
           }
 
@@ -370,7 +369,7 @@ object ConsumeTopicTest {
       .get
   }
 
-  val subscriptionFlow: StateT[Unit] = ConsumeTopic(topic, consumer, topicFlowOf, Log.empty[StateT], retry)
+  val subscriptionFlow: StateT[Unit] = ConsumeTopic(topic, consumer, topicFlowOf, retry)
 
   sealed abstract class Command
 
