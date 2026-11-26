@@ -355,7 +355,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
       deleteTo <- deleteTo.toDeleteTo.some
       deleteToPointer = journalPointerOf(offset = 1, seqNr = deleteTo.value)
     } {
-      s"deleteTo $deleteTo on empty journal" in {
+      s"deleteTo $deleteTo on empty journal is ignored" in {
         withJournals1 {
           case (eventual, replicated) =>
             for {
@@ -364,28 +364,45 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
               _ = a shouldEqual Nil
               a <- eventual.pointer
             } yield {
-              a shouldEqual deleteToPointer.some
+              a shouldEqual none
             }
         }
       }
 
-      s"deleteTo $deleteTo on empty journal and then append" in {
+      s"deleteTo $deleteTo on empty journal does not hide subsequent appends" in {
         withJournals1 {
           case (eventual, replicated) =>
             for {
               _ <- replicated.delete(deleteTo, deleteToPointer.partitionOffset)
               a <- eventual.events()
               _ = a shouldEqual Nil
-              event = {
-                val pointerNext = deleteToPointer.next getOrElse JournalPointer.min
-                eventOf(pointerNext)
-              }
+              event = eventOf(journalPointerOf(offset = 2, seqNr = SeqNr.min))
               _ <- replicated.append(Nel.of(event))
               a <- eventual.events()
               _ = a shouldEqual List(event)
               a <- eventual.pointer
             } yield {
               a shouldEqual event.pointer.some
+            }
+        }
+      }
+
+      s"deleteTo $deleteTo beyond the last seqNr does not hide subsequent appends" in {
+        withJournals1 {
+          case (eventual, replicated) =>
+            val event1 = eventOf(journalPointerOf(offset = 1, seqNr = SeqNr.min))
+            val event2 = eventOf(journalPointerOf(offset = 3, seqNr = SeqNr.unsafe(2)))
+            for {
+              _ <- replicated.append(Nel.of(event1))
+              _ <- replicated.delete(SeqNr.max.toDeleteTo, partitionOffsetOf(Offset.unsafe(2)))
+              a <- eventual.events()
+              _ = a shouldEqual Nil
+              _ <- replicated.append(Nel.of(event2))
+              a <- eventual.events()
+              _ = a shouldEqual List(event2)
+              a <- eventual.pointer
+            } yield {
+              a shouldEqual event2.pointer.some
             }
         }
       }

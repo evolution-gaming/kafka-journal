@@ -41,5 +41,7 @@ object ReplicatedOffsetNotifier {
    * @tparam F
    *   effect type
    */
-  def empty[F[_]: Applicative]: ReplicatedOffsetNotifier[F] = (_: TopicPartition, _: Offset) => Applicative[F].unit
+  def empty[F[_]: Applicative]: ReplicatedOffsetNotifier[F] = new ReplicatedOffsetNotifier[F] {
+    def onReplicatedOffset(topicPartition: TopicPartition, offset: Offset): F[Unit] = Applicative[F].unit
+  }
 }

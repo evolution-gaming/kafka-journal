@@ -106,48 +106,53 @@ private[journal] object JournalStatements {
 
       for {
         prepared <- query.prepare
-      } yield { (key: Key, segment: SegmentNr, events: Nel[JournalRecord]) =>
-        def statementOf(record: JournalRecord) = {
-          val (payloadType, txt, bin) =
-            record.event.event.payload.map { payloadAndType =>
-              val (text, bytes) = payloadAndType
-                .payload
-                .fold(
-                  str => (str.some, none[ByteVector]),
-                  bytes => (none[String], bytes.some),
-                )
-              (payloadAndType.payloadType.some, text, bytes)
-            } getOrElse {
-              (None, None, None)
+      } yield {
+        new InsertRecords[F] {
+
+          def apply(key: Key, segment: SegmentNr, events: Nel[JournalRecord]): F[Unit] = {
+            def statementOf(record: JournalRecord) = {
+              val (payloadType, txt, bin) =
+                record.event.event.payload.map { payloadAndType =>
+                  val (text, bytes) = payloadAndType
+                    .payload
+                    .fold(
+                      str => (str.some, none[ByteVector]),
+                      bytes => (none[String], bytes.some),
+                    )
+                  (payloadAndType.payloadType.some, text, bytes)
+                } getOrElse {
+                  (None, None, None)
+                }
+
+              prepared
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .encode(record.event.seqNr)
+                .encode(record.event.partitionOffset)
+                .encode("timestamp", record.event.timestamp)
+                .encodeSome(record.event.origin)
+                .encodeSome(record.event.version)
+                .encode("tags", record.event.event.tags)
+                .encodeSome("meta_record_id", record.metaRecordId)
+                .encodeSome("payload_type", payloadType)
+                .encodeSome("payload_txt", txt)
+                .encodeSome("payload_bin", bin)
+                .encode("metadata", record.event.metadata)(encodeByNameRecordMetadata)
+                .encode(record.event.headers)
+                .setConsistencyLevel(consistencyConfig.value)
             }
 
-          prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .encode(record.event.seqNr)
-            .encode(record.event.partitionOffset)
-            .encode("timestamp", record.event.timestamp)
-            .encodeSome(record.event.origin)
-            .encodeSome(record.event.version)
-            .encode("tags", record.event.event.tags)
-            .encodeSome("meta_record_id", record.metaRecordId)
-            .encodeSome("payload_type", payloadType)
-            .encodeSome("payload_txt", txt)
-            .encodeSome("payload_bin", bin)
-            .encode("metadata", record.event.metadata)(encodeByNameRecordMetadata)
-            .encode(record.event.headers)
-            .setConsistencyLevel(consistencyConfig.value)
-        }
-
-        val statement = {
-          if (events.tail.isEmpty) {
-            statementOf(events.head)
-          } else {
-            events.foldLeft(new BatchStatement()) { (batch, record) => batch.add(statementOf(record)) }
+            val statement = {
+              if (events.tail.isEmpty) {
+                statementOf(events.head)
+              } else {
+                events.foldLeft(new BatchStatement()) { (batch, record) => batch.add(statementOf(record)) }
+              }
+            }
+            statement.setConsistencyLevel(consistencyConfig.value).first.void
           }
         }
-        statement.setConsistencyLevel(consistencyConfig.value).first.void
       }
     }
   }
@@ -273,15 +278,20 @@ private[journal] object JournalStatements {
 
       for {
         prepared <- query.prepare
-      } yield { (key: Key, segmentNr: SegmentNr, seqNr: SeqNr) =>
-        prepared
-          .bind()
-          .encode(key)
-          .encode(segmentNr)
-          .encode(seqNr)
-          .setConsistencyLevel(consistencyConfig.value)
-          .first
-          .void
+      } yield {
+        new DeleteTo[F] {
+
+          def apply(key: Key, segmentNr: SegmentNr, seqNr: SeqNr): F[Unit] = {
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segmentNr)
+              .encode(seqNr)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
+          }
+        }
       }
     }
   }
@@ -308,14 +318,19 @@ private[journal] object JournalStatements {
 
       for {
         prepared <- query.prepare
-      } yield { (key: Key, segmentNr: SegmentNr) =>
-        prepared
-          .bind()
-          .encode(key)
-          .encode(segmentNr)
-          .setConsistencyLevel(consistencyConfig.value)
-          .first
-          .void
+      } yield {
+        new Delete[F] {
+
+          def apply(key: Key, segmentNr: SegmentNr): F[Unit] = {
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segmentNr)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
+          }
+        }
       }
     }
   }

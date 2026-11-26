@@ -1,11 +1,11 @@
 package com.evolution.kafka.journal
 
-import cats.data.NonEmptyList as Nel
+import cats.data.NonEmptyVector
 import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.kernel.CommutativeMonoid
 import cats.syntax.all.*
-import cats.{Monad, MonadThrow, Semigroup}
+import cats.{Monad, MonadThrow}
 import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.skafka.Offset
 
@@ -60,12 +60,13 @@ private[journal] trait PartitionCache[F[_]] {
    * possible that part or all of these events are already replicated.
    *
    * @param records
-   *   Metainformation of the incoming records.
+   *   Metainformation of the incoming records, in ascending offset order, as consumed from a Kafka
+   *   partition.
    * @return
    *   Number of additional records marked as non-replicated after the method was called. `None` if
    *   no new records were counted as non-replicated or if this is the first call on an empty cache.
    */
-  def add(records: Nel[PartitionCache.Record]): F[Option[PartitionCache.Diff]]
+  def add(records: NonEmptyVector[PartitionCache.Record]): F[Option[PartitionCache.Diff]]
 
   /**
    * Inform this cache about the latest offset replicated to Cassandra.
@@ -339,27 +340,15 @@ private[journal] object PartitionCache {
               }
           }
 
-          def add(records: Nel[Record]): F[Option[Diff]] = {
+          def add(records: NonEmptyVector[Record]): F[Option[Diff]] = {
             for {
               bounds <- Bounds.of[F](
-                min = records.minimumBy { _.offset }.offset,
-                max = records.maximumBy { _.offset }.offset,
+                min = records.head.offset,
+                max = records.last.offset,
               )
-              values = for {
-                (id, values) <- records
-                  .toList
-                  .collect { case Record(offset, Some(data)) => (offset, data) }
-                  .groupBy { case (_, record) => record.id }
-                (offset, _) = values.maxBy { case (offset, _) => offset }
-                info = values.foldLeft(HeadInfo.empty) { case (info, (offset, data)) => info(data.header, offset) }
-                entry <- info match {
-                  case HeadInfo.Empty => none[Entry]
-                  case a: HeadInfo.NonEmpty => Entry(offset = offset, a).some
-                }
-              } yield {
-                (id, entry)
-              }
-              entries = Entries(bounds = bounds, values = values.toMap)
+              recordsById = records.toVector
+                .collect { case Record(offset, Some(data)) => (offset, data) }
+                .groupBy { case (_, data) => data.id }
 
               result <- 0.tailRecM { counter =>
                 ref
@@ -369,9 +358,7 @@ private[journal] object PartitionCache {
                       state
                         .liftTo[F]
                         .flatMap { state =>
-                          val entriesNotLimited = state
-                            .entries
-                            .fold(entries) { _.combine(entries) }
+                          val entriesNotLimited = Entries.add(state.entries, bounds, recordsById)
                           entriesNotLimited
                             .limit(maxSize, dropUponLimit)
                             .flatMap { entries =>
@@ -952,11 +939,6 @@ private[journal] object PartitionCache {
   private final case class Entry(offset: Offset, headInfo: HeadInfo.NonEmpty)
 
   private object Entry {
-    implicit val semigroupEntry: Semigroup[Entry] = { (a: Entry, b: Entry) =>
-      {
-        Entry(headInfo = a.headInfo combine b.headInfo, offset = a.offset max b.offset)
-      }
-    }
 
     implicit val orderingEntry: Ordering[Entry] = Ordering.by { (a: Entry) => a.offset }(Offset.orderingOffset.reverse)
   }
@@ -974,10 +956,33 @@ private[journal] object PartitionCache {
   private final case class Entries(bounds: Bounds[Offset], values: Map[String, Entry])
 
   private object Entries {
-    implicit val semigroupEntries: Semigroup[Entries] = { (a: Entries, b: Entries) =>
-      {
-        Entries(values = a.values combine b.values, bounds = a.bounds combine b.bounds)
+
+    /**
+     * Applies new records on top of existing head info state in the cache.
+     */
+    def add(
+      entries: Option[Entries],
+      bounds: Bounds[Offset],
+      records: Map[String, Vector[(Offset, Record.Data)]],
+    ): Entries = {
+      val values0 = entries.fold(Map.empty[String, Entry])(_.values)
+      val values = records.foldLeft(values0) {
+        case (values, (id, records)) =>
+          val entry = values.get(id)
+          val records1 = records.filter { case (offset, _) => entry.forall(_.offset < offset) }
+          records1.lastOption.fold(values) {
+            case (offset, _) =>
+              val headInfo0 = entry.fold(HeadInfo.empty)(_.headInfo)
+              val headInfo = records1.foldLeft(headInfo0) {
+                case (headInfo, (offset, data)) => headInfo.apply(data.header, offset)
+              }
+              headInfo match {
+                case HeadInfo.Empty => values
+                case a: HeadInfo.NonEmpty => values.updated(id, Entry(offset = offset, headInfo = a))
+              }
+          }
       }
+      Entries(bounds = entries.fold(bounds)(_.bounds combine bounds), values = values)
     }
 
     implicit class EntriesOps(val self: Entries) extends AnyVal {
@@ -1050,7 +1055,7 @@ private[journal] object PartitionCache {
      * Same as [[PartitionCache#add]], but makes it a bit less verbose
      */
     def add(record: Record, records: Record*): F[Option[Diff]] = {
-      self.add(Nel.of(record, records*))
+      self.add(NonEmptyVector.of(record, records*))
     }
   }
 }

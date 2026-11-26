@@ -106,7 +106,7 @@ private[journal] object ShardedTopicCache {
                 // revoked partition, see `Listener.onRevoked`
                 Vector.empty[Long].pure[F]
               } { owned =>
-                records.traverse { record =>
+                records.toNev.traverse { record =>
                   record.key.traverseFilter { key =>
                     consRecordToActionHeader.apply(record).map { header =>
                       PartitionCache.Record.Data(key.value, header)

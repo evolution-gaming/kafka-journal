@@ -1,7 +1,7 @@
 package com.evolution.kafka.journal
 
 import cats.*
-import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes, NonEmptyVector}
 import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
@@ -151,7 +151,7 @@ private[journal] object TopicCache {
               .values
               .parFoldMap1 {
                 case (topicPartition, records) =>
-                  records
+                  NonEmptyVector.of(records.head, records.tail*)
                     .traverse { record =>
                       record
                         .key

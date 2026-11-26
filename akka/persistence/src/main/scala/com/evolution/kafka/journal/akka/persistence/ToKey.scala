@@ -16,12 +16,12 @@ object ToKey {
 
   def default[F[_]: Applicative]: ToKey[F] = constantTopic("journal")
 
-  def constantTopic[F[_]: Applicative](topic: Topic): ToKey[F] = { (persistenceId: PersistenceId) =>
-    Key(topic = topic, id = persistenceId).pure[F]
+  def constantTopic[F[_]: Applicative](topic: Topic): ToKey[F] = new ToKey[F] {
+    def apply(persistenceId: PersistenceId): F[Key] = Key(topic = topic, id = persistenceId).pure[F]
   }
 
-  def split[F[_]: Applicative](separator: String, fallback: ToKey[F]): ToKey[F] = { (persistenceId: PersistenceId) =>
-    {
+  def split[F[_]: Applicative](separator: String, fallback: ToKey[F]): ToKey[F] = new ToKey[F] {
+    def apply(persistenceId: PersistenceId): F[Key] = {
       persistenceId.lastIndexOf(separator) match {
         case -1 => fallback(persistenceId)
         case idx =>
@@ -32,8 +32,8 @@ object ToKey {
     }
   }
 
-  implicit def configReaderReplicatorConfig[F[_]: Applicative]: ConfigReader[ToKey[F]] = { (cursor: ConfigCursor) =>
-    {
+  implicit def configReaderReplicatorConfig[F[_]: Applicative]: ConfigReader[ToKey[F]] = new ConfigReader[ToKey[F]] {
+    def from(cursor: ConfigCursor): ConfigReader.Result[ToKey[F]] = {
       cursor
         .asObjectCursor
         .flatMap { cursor =>

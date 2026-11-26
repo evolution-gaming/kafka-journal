@@ -124,9 +124,12 @@ object PurgeExpired {
         JournalError(s"PurgeExpired.$msg failed with $cause", cause).raiseError[F, A]
       }
 
-      (topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) => {
-        self(topic, expireOn, segments).handleErrorWith { a =>
-          error(s"apply topic: $topic, expireOn: $expireOn, segments: ${ segments.mkString_(",") }", a)
+      new PurgeExpired[F] {
+
+        def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]): F[Long] = {
+          self(topic, expireOn, segments).handleErrorWith { a =>
+            error(s"apply topic: $topic, expireOn: $expireOn, segments: ${ segments.mkString_(",") }", a)
+          }
         }
       }
     }
@@ -141,7 +144,9 @@ object PurgeExpired {
 
     def empty[F[_]: Applicative]: Metrics[F] = const(().pure[F])
 
-    def const[F[_]](unit: F[Unit]): Metrics[F] = (_: Topic, _: FiniteDuration, _: Long) => unit
+    def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+      def apply(topic: Topic, latency: FiniteDuration, count: Long): F[Unit] = unit
+    }
 
     def make[F[_]: Monad](
       registry: CollectorRegistry[F],

@@ -325,15 +325,9 @@ private[journal] object ReplicatedCassandra {
                         val result = for {
                           journalHead <- journalHeadRef.get
                           journalHead <- journalHead.fold {
-                            val journalHead = JournalHead(
-                              partitionOffset = partitionOffset,
-                              segmentSize = segmentSizeDefault,
-                              seqNr = deleteTo.value,
-                              deleteTo = deleteTo.some,
-                            )
-                            metaJournal
-                              .insert(timestamp, journalHead, origin)
-                              .as(journalHead.some)
+                            // If there is no journal head, there is nothing to delete.
+                            // This also protects against deletes in non-existent journals.
+                            none[JournalHead].pure[F]
                           } { journalHead =>
                             if (offset > journalHead.partitionOffset.offset) {
                               val deleteTo0 = journalHead.deleteTo

@@ -38,7 +38,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
       val seqNrLast = seqNrs.lastOption
 
-      def createAndAppend(f: (SeqNrJournal[F], Option[Offset]) => F[Assertion]) = {
+      def createAndAppend(f: (SeqNrJournal[F], Offset) => F[Assertion]) = {
         withJournal { journal =>
           def append(seqNrs: Nel[SeqNr]) = {
             journal
@@ -47,7 +47,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
           }
           for {
             offset <- combination.foldLeftM(none[Offset]) { (_, seqNrs) => append(seqNrs) }
-            offsetNext = offset.map { _.inc[Try].get }
+            offsetNext = offset.fold(Offset.min) { _.inc[Try].get }
             result <- f(journal, offsetNext)
           } yield result
         }
@@ -117,7 +117,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
           case (journal, offset) =>
             for {
               a <- journal.delete(DeleteTo.min)
-              _ = a shouldEqual offset.map { _.inc[Try].get }
+              _ = a shouldEqual offset.some
               a <- journal.read(SeqRange.all)
               _ = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.min)
               a <- journal.pointer
@@ -204,6 +204,33 @@ class JournalSpec extends AnyWordSpec with Matchers {
         } yield {
           seqNrs shouldEqual Nil
         }
+      }
+    }
+
+    s"append, purge, stale delete, read, lastSeqNr" in {
+      withJournal { journal =>
+        for {
+          _ <- journal.append(SeqNr.unsafe(1), SeqNr.unsafe(2), SeqNr.unsafe(3))
+          _ <- journal.purge
+          _ <- journal.delete(SeqNr.unsafe(1).toDeleteTo)
+          seqNrs <- journal.read(SeqRange.all)
+          _ = seqNrs shouldEqual Nil
+          pointer <- journal.pointer
+          _ = pointer shouldEqual none
+        } yield Succeeded
+      }
+    }
+
+    s"delete beyond the last seqNr on empty journal, append, read, lastSeqNr" in {
+      withJournal { journal =>
+        for {
+          _ <- journal.delete(SeqNr.unsafe(100).toDeleteTo)
+          _ <- journal.append(SeqNr.unsafe(1))
+          seqNrs <- journal.read(SeqRange.all)
+          _ = seqNrs shouldEqual List(SeqNr.unsafe(1))
+          pointer <- journal.pointer
+          _ = pointer shouldEqual SeqNr.unsafe(1).some
+        } yield Succeeded
       }
     }
 
@@ -331,8 +358,9 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
       s"kafka journal is empty, $name" should {
 
-        val consumeActionRecords: ConsumeActionRecords[StateT] = { (_: Key, _: Partition, from: Offset) =>
-          {
+        val consumeActionRecords: ConsumeActionRecords[StateT] = new ConsumeActionRecords[StateT] {
+
+          def apply(key: Key, partition: Partition, from: Offset): Stream[StateT, ActionRecord[Action]] = {
             StateT.stream { state =>
               val records = state
                 .records
@@ -619,8 +647,9 @@ object JournalSpec {
         .flatten
     }
 
-    val consumeActionRecords: ConsumeActionRecords[StateT] = { (_: Key, _: Partition, from: Offset) =>
-      {
+    val consumeActionRecords: ConsumeActionRecords[StateT] = new ConsumeActionRecords[StateT] {
+
+      def apply(key: Key, partition: Partition, from: Offset): Stream[StateT, ActionRecord[Action]] = {
         StateT.stream { state =>
           val records = state
             .records
@@ -631,8 +660,9 @@ object JournalSpec {
       }
     }
 
-    val produceAction: ProduceAction[StateT] = { (action: Action) =>
-      {
+    val produceAction: ProduceAction[StateT] = new ProduceAction[StateT] {
+
+      def apply(action: Action): StateT[PartitionOffset] = {
         StateT { state =>
           val offset = Offset.unsafe(state.records.size)
           val partitionOffset = PartitionOffset(partition = partition, offset = offset)
@@ -646,9 +676,9 @@ object JournalSpec {
       }
     }
 
-    val headCache: HeadCache[StateT] = { (_: Key, _: Partition, _: Offset) =>
-      {
+    val headCache: HeadCache[StateT] = new HeadCache[StateT] {
 
+      def get(key: Key, partition: Partition, offset: Offset): StateT[Option[HeadInfo]] = {
         StateT { state =>
           val headInfo = state
             .records
@@ -658,18 +688,21 @@ object JournalSpec {
       }
     }
 
-    def eventualActionsBehind(n: Int): ProduceAction[StateT] = { (action: Action) =>
-      StateT { state =>
-        val offset = Offset.unsafe(state.records.size)
-        val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-        val record = ActionRecord(action, partitionOffset)
-        val records = state.records.enqueue(record)
-        val replicatedState = for {
-          actions <- records.dropLast(n)
-          action <- actions.lastOption
-        } yield state.replicatedState(action)
-        val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
-        (state1, partitionOffset)
+    def eventualActionsBehind(n: Int): ProduceAction[StateT] = new ProduceAction[StateT] {
+
+      def apply(action: Action): StateT[PartitionOffset] = {
+        StateT { state =>
+          val offset = Offset.unsafe(state.records.size)
+          val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+          val record = ActionRecord(action, partitionOffset)
+          val records = state.records.enqueue(record)
+          val replicatedState = for {
+            actions <- records.dropLast(n)
+            action <- actions.lastOption
+          } yield state.replicatedState(action)
+          val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
+          (state1, partitionOffset)
+        }
       }
     }
 

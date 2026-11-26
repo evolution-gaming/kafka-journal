@@ -126,6 +126,10 @@ object HeadInfo {
 
   object NonEmpty {
 
+    @deprecated(
+      "HeadInfo values cannot be combined with each other, they may be combined only with follow-up journal actions",
+      "11.3.0",
+    )
     implicit val semigroupNonEmpty: Semigroup[NonEmpty] = { (a: NonEmpty, b: NonEmpty) =>
       {
 
@@ -136,13 +140,13 @@ object HeadInfo {
 
         (a, b) match {
           case (a: Append, b: Append) => Append(a.offset min b.offset, a.seqNr max b.seqNr, a.deleteTo max b.deleteTo)
-          case (a: Append, b: Delete) => onDelete(a, b)
+          case (a: Append, b: Delete) => onDelete(a, b.copy(deleteTo = b.deleteTo min a.seqNr.toDeleteTo))
           case (_: Append, Purge) => Purge
           case (a: Delete, b: Append) => onDelete(b, a)
           case (a: Delete, b: Delete) => Delete(a.deleteTo max b.deleteTo)
           case (_: Delete, Purge) => Purge
           case (Purge, b: Append) => b
-          case (Purge, b: Delete) => b
+          case (Purge, _: Delete) => Purge
           case (Purge, Purge) => Purge
         }
       }
@@ -190,7 +194,8 @@ object HeadInfo {
   ) extends NonEmpty
 
   /**
-   * The last non-replicated record was a journal purge action.
+   * The last non-replicated record was a journal purge action, possibly followed by delete actions,
+   * which are no-ops after a purge.
    *
    * It means there is no need to read either Cassandra or Kafka as journal was purged.
    */
@@ -213,13 +218,11 @@ object HeadInfo {
         self.copy(seqNr = self.seqNr, deleteTo = deleteTo.some)
       }
 
-      def delete = Delete(to)
-
       self match {
         case a: Append => onAppend(a)
         case a: Delete => Delete(a.deleteTo max to)
-        case Empty => delete
-        case Purge => delete
+        case Empty => Delete(to)
+        case Purge => Purge
       }
     }
 
@@ -227,7 +230,7 @@ object HeadInfo {
      * A new event was appended.
      *
      * We update last saved [[SeqNr]], but ignore [[Offset]] unless this is a first event in our
-     * list of non-replicted events.
+     * list of non-replicated events.
      */
     def append(range: SeqRange, offset: Offset): HeadInfo = {
 
