@@ -279,7 +279,7 @@ private[journal] object ShardedTopicCache {
           (kept, revoked.toVector)
         }
         _ <- releaseOwned(revoked, log)
-        _ <- log.info(s"partitions revoked: ${ partitions.toSortedSet.map(_.value).mkString(",") }")
+        _ <- log.info(s"partitions revoked: ${ partitions.map(_.value).mkString_(",") }")
       } yield ()
     }
 
