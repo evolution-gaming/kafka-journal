@@ -33,7 +33,7 @@ import scala.concurrent.duration.*
  */
 private[journal] final class ShardedTopicCache[F[_]: MonadThrow: MeasureDuration] private (
   topic: Topic,
-  ownedRef: Ref[F, Map[Partition, ShardedTopicCache.Owned[F]]],
+  ownedPartitions: Ref[F, Map[Partition, ShardedTopicCache.Owned[F]]],
   transport: HeadCacheTransport[F],
   metrics: Option[HeadCache.Metrics[F]],
   log: Log[F],
@@ -43,7 +43,7 @@ private[journal] final class ShardedTopicCache[F[_]: MonadThrow: MeasureDuration
   def get(id: String, partition: Partition, offset: Offset): F[Option[HeadInfo]] = {
     for {
       duration <- MeasureDuration[F].start
-      owned <- ownedRef.get
+      owned <- ownedPartitions.get
       answer <- owned.get(partition) match {
         case Some(owned) => local(owned.cache, id, offset)
         case None => remote(Key(id = id, topic = topic), partition, offset)
@@ -272,13 +272,13 @@ private[journal] object ShardedTopicCache {
 
     def onRevoked(partitions: NonEmptySet[Partition]): F[Unit] = {
       for {
-        owned <- ownedRef.modify { owned =>
-          val revoked = partitions.toSortedSet.toVector.flatMap { partition =>
-            owned.get(partition).tupleLeft(partition)
+        revoked <- ownedRef.modify { owned =>
+          val (revoked, kept) = owned.partition { case (p, _) =>
+            partitions.contains(p)
           }
-          (owned -- partitions.toSortedSet, revoked)
+          (kept, revoked.toVector)
         }
-        _ <- releaseOwned(owned, log)
+        _ <- releaseOwned(revoked, log)
         _ <- log.info(s"partitions revoked: ${ partitions.toSortedSet.map(_.value).mkString(",") }")
       } yield ()
     }
@@ -368,7 +368,7 @@ private[journal] object ShardedTopicCache {
         revoke(topicPartitions)
 
       private def partitionsOf(topicPartitions: NonEmptySet[TopicPartition]): Option[NonEmptySet[Partition]] =
-        topicPartitions.toSortedSet.toVector.collect { case a if a.topic == topic => a.partition }.toNonEmptySet
+        NonEmptySet.fromSet(topicPartitions.collect { case a if a.topic == topic => a.partition })
 
       private def revoke(topicPartitions: NonEmptySet[TopicPartition]): RebalanceCallback[F, Unit] =
         partitionsOf(topicPartitions).fold[RebalanceCallback[F, Unit]](unit) { partitions =>

@@ -144,10 +144,12 @@ class ShardedHeadCacheSpec extends AsyncWordSpec with Matchers {
             _ <- pod.assign(NonEmptySet.of(partition0))
             _ <- pod.enqueue(appends(key, partition1, Offset.unsafe(10)))
             _ <- pod.enqueue(appends(key, partition0, Offset.unsafe(10)))
-            result <- headCache.get(key, partition0, Offset.unsafe(10))
+            result1 <- headCache.get(key, partition0, Offset.unsafe(10))
+            result2 <- headCache.get(key, partition1, Offset.unsafe(10))
             state <- pod.state.get
           } yield {
-            result shouldEqual HeadInfo.append(Offset.min, SeqNr.unsafe(11), none).some
+            result1 shouldEqual HeadInfo.append(Offset.min, SeqNr.unsafe(11), none).some
+            result2 shouldEqual None
             // the consumer did not fail and was not created again
             state.groupIds.size shouldEqual 1
           }
@@ -156,7 +158,7 @@ class ShardedHeadCacheSpec extends AsyncWordSpec with Matchers {
       result.run()
     }
 
-    "release partitions when the consumer is closed" in {
+    "release partitions when the consumer gets closed" in {
       val result = for {
         transport <- TestTransport.make
         pod <- TestPod.make

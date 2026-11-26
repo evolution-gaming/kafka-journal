@@ -30,7 +30,7 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
  * @see
  *   [[ShardedTopicCache]] for the details of consuming and rebalancing.
  */
-object ShardedHeadCache {
+private[journal] object ShardedHeadCache {
 
   /**
    * Creates the cache using a Kafka configuration and Cassandra reader.
