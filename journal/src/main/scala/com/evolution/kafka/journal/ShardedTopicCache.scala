@@ -322,7 +322,7 @@ private[journal] object ShardedTopicCache {
       val config1 = config.copy(
         groupId = groupId.some,
         autoCommit = false,
-        autoOffsetReset = AutoOffsetReset.None,
+        autoOffsetReset = AutoOffsetReset.Earliest,
         partitionAssignmentStrategy = AssignmentStrategy,
       )
       kafkaConsumerOf.apply[String, Unit](config1).map { consumer => apply(consumer, pollTimeout) }
