@@ -41,6 +41,11 @@ trait TopicReplicatorMetrics[F[_]] {
    * Accounts how long and how many records were processed in single batch (poll)
    */
   def round(latency: FiniteDuration, records: Int): F[Unit]
+
+  /**
+   * Sets number of currently active flows: per-partition `PartitionFlow`s and per-key `KeyFlow`s
+   */
+  def flows(partitions: Int, keys: Int): F[Unit]
 }
 
 object TopicReplicatorMetrics {
@@ -69,6 +74,8 @@ object TopicReplicatorMetrics {
       def purge(measurements: Measurements): F[Unit] = unit
 
       def round(duration: FiniteDuration, records: Int): F[Unit] = unit
+
+      def flows(partitions: Int, keys: Int): F[Unit] = unit
     }
   }
 
@@ -166,6 +173,12 @@ object TopicReplicatorMetrics {
       labels = LabelNames("topic", "expiration"),
     )
 
+    val flowsGauge = registry.gauge(
+      name = s"${ prefix }_flows",
+      help = "Number of active flows, kind: partitions or keys",
+      labels = LabelNames("topic", "kind"),
+    )
+
     for {
       replicationLatencyObserver <- replicationLatencyObserver
       deliverySummary <- deliverySummary
@@ -176,6 +189,7 @@ object TopicReplicatorMetrics {
       roundRecordsSummary <- roundRecordsSummary
       clientVersionGauge <- clientVersionGauge
       expirationDurationGauge <- expirationDurationGauge
+      flowsGauge <- flowsGauge
     } yield { (topic: Topic) =>
       {
 
@@ -218,6 +232,13 @@ object TopicReplicatorMetrics {
             for {
               _ <- roundSummary.labels(topic).observe(duration.toNanos.nanosToSeconds)
               _ <- roundRecordsSummary.labels(topic).observe(records.toDouble)
+            } yield {}
+          }
+
+          def flows(partitions: Int, keys: Int): F[Unit] = {
+            for {
+              _ <- flowsGauge.labels(topic, "partitions").set(partitions.toDouble)
+              _ <- flowsGauge.labels(topic, "keys").set(keys.toDouble)
             } yield {}
           }
         }

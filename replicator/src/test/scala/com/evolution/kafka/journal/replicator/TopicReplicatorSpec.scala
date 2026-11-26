@@ -1061,6 +1061,9 @@ object TopicReplicatorSpec {
         s + Metrics.Round(duration = duration, records = records)
       }
     }
+
+    def flows(partitions: Int, keys: Int): StateT[Unit] =
+      ().pure[StateT]
   }
 
   val topicReplicator: StateT[Unit] = {
