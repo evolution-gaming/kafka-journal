@@ -71,7 +71,7 @@ object ShardedHeadCache {
     )
   }
 
-  // for unit tests
+  // marked package-private to be called in unit tests with a fake consumer implementation, is not public API
   private[journal] def make[F[_]: Async: Parallel: Runtime: LogOf: MeasureDuration: FromJsResult: JsonCodec.Decode](
     eventual: Eventual[F],
     consumer: String => Resource[F, ShardedTopicCache.Consumer[F]],

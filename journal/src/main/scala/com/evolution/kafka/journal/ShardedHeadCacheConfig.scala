@@ -14,9 +14,9 @@ import scala.concurrent.duration.*
  *   Topics to start consuming when the cache is created. Other topics start on the first
  *   [[HeadCache#get]] for them.
  * @param pointerTimeout
- *   How long to wait for the replicated offset of a partition, read from Cassandra when the
- *   partition is assigned. The read blocks the consumer, so it must be bounded. If it times out,
- *   the consumer fails and is created again.
+ *   The timeout of the initial pointer request to Cassandra. This is called in a Kafka rebalance
+ *   callback, so it must be bounded. If the request times out, the consumer fails and is created
+ *   again.
  */
 final case class ShardedHeadCacheConfig(
   applicationId: String,
