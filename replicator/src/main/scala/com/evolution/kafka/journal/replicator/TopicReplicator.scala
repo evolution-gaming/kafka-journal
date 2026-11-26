@@ -276,11 +276,18 @@ private[journal] object TopicReplicator {
 
     topicFlowOfAndStats.flatMap {
       case (topicFlowOf, stats) =>
+        // runs after `ConsumeTopic` released all flows and the `stats` got cancelled, swallowed the errors
+        val resetStats = metrics
+          .flows(partitions = 0, keys = 0)
+          .handleErrorWith { e => log.error(s"stats reset failed: $e", e) }
+          .handleError { _ => () }
+
         stats
           .handleErrorWith { e => log.error(s"stats failed: $e", e) }
           .foreverM[Unit]
           .background
           .surround { ConsumeTopic(topic, consumer, topicFlowOf, log) }
+          .guarantee(resetStats)
     }
   }
 
