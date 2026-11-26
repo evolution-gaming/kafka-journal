@@ -55,8 +55,8 @@ private[journal] object HeadAction {
    * returns `None`, and the caller must use the full decoder, which then either decodes the header
    * or reports the error.
    *
-   * `metadata` of an append: it is skipped, not decoded, so the head cache
-   * does not depend on its content.
+   * `metadata` of an append: it is skipped, not decoded, so the head cache does not depend on its
+   * content.
    *
    * @return
    *   `None` if the caller must use the full decoder, `Some(None)` if the header has no action,

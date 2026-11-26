@@ -12,7 +12,7 @@ import scala.util.Try
 class HeadActionSpec extends AnyFunSuite with Matchers with ScalaCheckPropertyChecks {
   import HeadActionSpec.*
 
-  implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
+  override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 2000)
 
   /**
@@ -146,7 +146,11 @@ object HeadActionSpec {
   } yield SeqRange(SeqNr.unsafe(a min b), SeqNr.unsafe(a max b))
 
   // any text, including quotes, escapes and non-ASCII characters
-  private val genString: Gen[String] = Gen.oneOf(Gen.alphaNumStr, Gen.asciiStr, Gen.listOf(Gen.oneOf(Gen.alphaChar, Gen.oneOf('"', '\\', '\n', 'é', '中', '\u0001'))).map(_.mkString))
+  private val genString: Gen[String] = Gen.oneOf(
+    Gen.alphaNumStr,
+    Gen.asciiStr,
+    Gen.listOf(Gen.oneOf(Gen.alphaChar, Gen.oneOf('"', '\\', '\n', 'é', '中', '\u0001'))).map(_.mkString),
+  )
 
   private val genOrigin: Gen[Option[Origin]] = Gen.option(genString.map(Origin(_)))
 
@@ -200,8 +204,20 @@ object HeadActionSpec {
   )
 
   private val keys = List(
-    "append", "mark", "delete", "purge", "range", "from", "to", "id", "payloadType", "origin", "version",
-    "metadata", "data", "other",
+    "append",
+    "mark",
+    "delete",
+    "purge",
+    "range",
+    "from",
+    "to",
+    "id",
+    "payloadType",
+    "origin",
+    "version",
+    "metadata",
+    "data",
+    "other",
   )
 
   // values that are valid somewhere in a header, and values that are not
@@ -217,7 +233,9 @@ object HeadActionSpec {
   private def genHeaderLike(depth: Int): Gen[JsValue] = {
     val obj = Gen
       .choose(0, 4)
-      .flatMap { n => Gen.listOfN(n, Gen.zip(Gen.oneOf(keys), if (depth <= 0) genHeaderValue else genHeaderLike(depth - 1))) }
+      .flatMap { n =>
+        Gen.listOfN(n, Gen.zip(Gen.oneOf(keys), if (depth <= 0) genHeaderValue else genHeaderLike(depth - 1)))
+      }
       .map(JsObject(_))
     if (depth <= 0) genHeaderValue else Gen.frequency(1 -> genHeaderValue, 4 -> obj)
   }
