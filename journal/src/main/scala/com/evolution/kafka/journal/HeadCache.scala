@@ -53,7 +53,8 @@ trait HeadCache[F[_]] {
    *
    * @return
    *   [[HeadInfo]] with the current metainformation about non-replicated events, or `None` if it
-   *   was not present in [[HeadCache]] and could not be loaded either.
+   *   was not present in [[HeadCache]] or if the cache cannot give a correct answer due to
+   *   previously dropped entries.
    */
   def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]]
 }
