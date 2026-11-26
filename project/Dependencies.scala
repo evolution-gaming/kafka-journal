@@ -2,6 +2,7 @@ import sbt.*
 
 object Dependencies {
   val ScalaTest = "org.scalatest" %% "scalatest" % "3.2.20"
+  val ScalaTestScalaCheck = "org.scalatestplus" %% "scalacheck-1-20" % "3.2.20.0" // keep in sync with ScalaTest
   val KindProjector = "org.typelevel" % "kind-projector" % "0.13.4"
   val CassandraDriver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.5"
   val KafkaClients = "org.apache.kafka" % "kafka-clients" % "4.4.0"

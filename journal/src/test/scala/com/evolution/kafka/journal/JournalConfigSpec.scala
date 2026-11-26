@@ -35,7 +35,11 @@ class JournalConfigSpec extends AnyFunSuite with Matchers {
           config = default
             .headCache
             .config
-            .copy(timeout = 2.seconds, partition = HeadCacheConfig.Partition(maxSize = 50000)),
+            .copy(
+              timeout = 2.seconds,
+              partition = HeadCacheConfig.Partition(maxSize = 50000),
+              lightHeaderDecoder = false,
+            ),
         ),
     )
     ConfigSource.fromConfig(config).load[JournalConfig] shouldEqual expected.asRight

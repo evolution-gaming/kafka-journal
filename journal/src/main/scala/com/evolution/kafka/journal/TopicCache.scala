@@ -6,7 +6,7 @@ import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
 import com.evolution.kafka.journal.HeadCache.Eventual
-import com.evolution.kafka.journal.conversions.ConsRecordToActionHeader
+import com.evolution.kafka.journal.conversions.ConsRecordToHeadAction
 import com.evolution.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
@@ -65,7 +65,7 @@ private[journal] object TopicCache {
    *   [[HeadCache]] will try to recreate consumer in case of the failure.
    * @param config
    *   [[HeadCache]] configuration.
-   * @param consRecordToActionHeader
+   * @param consRecordToHeadAction
    *   Function used to parse records coming from `consumer`. Only headers will be parsed, and the
    *   payload will be ignored.
    * @param metrics
@@ -81,7 +81,7 @@ private[journal] object TopicCache {
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
     config: HeadCacheConfig,
-    consRecordToActionHeader: ConsRecordToActionHeader[F],
+    consRecordToHeadAction: ConsRecordToHeadAction[F],
     metrics: Option[HeadCache.Metrics[F]],
   ): Resource[F, TopicCache[F]] = {
 
@@ -156,9 +156,9 @@ private[journal] object TopicCache {
                       record
                         .key
                         .traverseFilter { key =>
-                          consRecordToActionHeader
+                          consRecordToHeadAction
                             .apply(record)
-                            .map { header => PartitionCache.Record.Data(key.value, header) }
+                            .map { action => PartitionCache.Record.Data(key.value, action) }
                             .value
                         }
                         .map { data =>
