@@ -263,7 +263,7 @@ object ShardedHeadCacheSpec {
   }
 
   final case class TestTransport(
-    handlers: Ref[IO, Map[(Topic, Partition), HeadCacheRequest => IO[Option[HeadInfo]]]],
+    handlers: Ref[IO, Map[(Topic, Partition), PartitionHeadCacheHandle[IO]]],
     requests: Ref[IO, Int],
   ) extends HeadCacheTransport[IO] {
     def served: IO[Set[(Topic, Partition)]] = handlers.get.map(_.keySet)
@@ -271,18 +271,18 @@ object ShardedHeadCacheSpec {
     def serve(
       topic: Topic,
       partition: Partition,
-      handle: HeadCacheRequest => IO[Option[HeadInfo]],
+      local: PartitionHeadCacheHandle[IO],
     ): Resource[IO, Unit] = Resource.make {
-      handlers.update(_.updated((topic, partition), handle))
+      handlers.update(_.updated((topic, partition), local))
     } { _ =>
       handlers.update(_ - ((topic, partition)))
     }
 
-    def request(request: HeadCacheRequest): IO[Option[HeadInfo]] = {
+    def getRemote(key: Key, partition: Partition, offset: Offset): IO[Option[HeadInfo]] = {
       for {
         _ <- requests.update(_ + 1)
         handlers <- handlers.get
-        answer <- handlers.get((request.topic, request.partition)).flatTraverse { handle => handle(request) }
+        answer <- handlers.get((key.topic, partition)).flatTraverse { _.get(offset, key.id) }
       } yield answer
     }
   }
@@ -290,7 +290,7 @@ object ShardedHeadCacheSpec {
   object TestTransport {
     def make: IO[TestTransport] = {
       for {
-        handlers <- Ref[IO].of(Map.empty[(Topic, Partition), HeadCacheRequest => IO[Option[HeadInfo]]])
+        handlers <- Ref[IO].of(Map.empty[(Topic, Partition), PartitionHeadCacheHandle[IO]])
         requests <- Ref[IO].of(0)
       } yield TestTransport(handlers, requests)
     }

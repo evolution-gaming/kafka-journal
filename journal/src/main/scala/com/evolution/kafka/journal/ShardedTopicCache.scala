@@ -46,20 +46,20 @@ private[journal] final class ShardedTopicCache[F[_]: MonadThrow: MeasureDuration
       owned <- ownedRef.get
       answer <- owned.get(partition) match {
         case Some(owned) => local(owned.cache, id, offset)
-        case None => remote(HeadCacheRequest(topic = topic, partition = partition, id = id, offset = offset))
+        case None => remote(Key(id = id, topic = topic), partition, offset)
       }
       duration <- duration
       _ <- metrics.foldMapM { _.get(topic, duration, answer.result, answer.now) }
     } yield answer.headInfo
   }
 
-  private def remote(request: HeadCacheRequest): F[Answer] = {
-    transport.request(request).map {
+  private def remote(key: Key, partition: Partition, offset: Offset): F[Answer] = {
+    transport.getRemote(key, partition, offset).map {
       case a @ Some(_) => Answer(a, "remote", now = false)
       case None => Answer(none, "remote_none", now = false)
     }.handleErrorWith { e =>
       log
-        .warn(s"request failed, partition=${ request.partition }, id=${ request.id }", e)
+        .warn(s"request failed, partition=$partition, id=${ key.id }", e)
         .as(Answer(none, "remote_failure", now = false))
     }
   }
@@ -221,6 +221,10 @@ private[journal] object ShardedTopicCache {
       case ReleasedError => Answer(none, "released", now = false)
     }
 
+  private final class LocalHandle[F[_]: MonadThrow](cache: PartitionCache[F]) extends PartitionHeadCacheHandle[F] {
+    def get(offset: Offset, id: String): F[Option[HeadInfo]] = local(cache, id, offset).map { _.headInfo }
+  }
+
   private def releaseOwned[F[_]: MonadThrow: Parallel](owned: Vector[(Partition, Owned[F])], log: Log[F]): F[Unit] = {
     owned.parTraverse_ {
       case (partition, owned) =>
@@ -288,17 +292,7 @@ private[journal] object ShardedTopicCache {
         )
         pointer <- eventual.pointer(topic, partition).timeout(pointerTimeout).toResource
         _ <- pointer.traverse_ { offset => cache.remove(offset) }.toResource
-        _ <- transport.serve(
-          topic,
-          partition,
-          request => {
-            if (request.topic == topic && request.partition == partition) {
-              local(cache, request.id, request.offset).map { _.headInfo }
-            } else {
-              none[HeadInfo].pure[F]
-            }
-          },
-        )
+        _ <- transport.serve(topic, partition, new LocalHandle(cache))
         from <- pointer.traverse { _.inc[F] }.toResource
       } yield (cache, from)
 
