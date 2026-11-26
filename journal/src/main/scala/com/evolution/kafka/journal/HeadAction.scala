@@ -3,6 +3,8 @@ package com.evolution.kafka.journal
 import com.evolutiongaming.skafka.Offset
 import com.github.plokhotnyuk.jsoniter_scala.core.*
 
+import java.math.MathContext
+
 /**
  * Part of [[ActionHeader]] used by [[HeadCache]]: the kind of the action and its sequence numbers.
  *
@@ -55,8 +57,10 @@ private[journal] object HeadAction {
    * returns `None`, and the caller must use the full decoder, which then either decodes the header
    * or reports the error.
    *
-   * `metadata` of an append: it is skipped, not decoded, so the head cache does not depend on its
-   * content.
+   * `metadata` of an append and unknown fields are skipped, not decoded: the decoder checks that
+   * they are valid JSON, and falls back if not. The only difference to the full decoder: a number
+   * in them can have up to 100 000 digits, while the JSON parsers allow about 300, so the head
+   * cache does not fail on such a number in `metadata`.
    *
    * @return
    *   `None` if the caller must use the full decoder, `Some(None)` if the header has no action,
@@ -74,11 +78,13 @@ private[journal] object HeadAction {
 
     def nullValue: Option[HeadAction] = None
 
-    def encodeValue(x: Option[HeadAction], out: JsonWriter): Unit = {
+    def encodeValue(value: Option[HeadAction], out: JsonWriter): Unit = {
       throw new UnsupportedOperationException("HeadAction is decoded only")
     }
 
     def decodeValue(in: JsonReader, default: Option[HeadAction]): Option[HeadAction] = {
+      // `null` and `0L` mark a missing value in this decoder: it runs for every consumed record, so
+      // it avoids an `Option` for each field; `readString(null)` is the jsoniter way to say "no default"
       var action: HeadAction = null
       readObject(in) { len =>
         if (action ne null) in.decodeError("more than one action")
@@ -124,7 +130,7 @@ private[journal] object HeadAction {
       } else if (isOriginOrVersion(in, len)) {
         readOptionalString(in)
       } else {
-        in.skip()
+        skipValue(in)
       }
     }
     if ((range eq null) || !payloadType) in.decodeError("expected range and payloadType")
@@ -140,7 +146,7 @@ private[journal] object HeadAction {
       } else if (isOriginOrVersion(in, len)) {
         readOptionalString(in)
       } else {
-        in.skip()
+        skipValue(in)
       }
     }
     if (to == 0L) in.decodeError("expected to")
@@ -149,7 +155,7 @@ private[journal] object HeadAction {
 
   private def readPurge(in: JsonReader): HeadAction = {
     readObject(in) { len =>
-      if (isOriginOrVersion(in, len)) readOptionalString(in) else in.skip()
+      if (isOriginOrVersion(in, len)) readOptionalString(in) else skipValue(in)
     }
     Purge
   }
@@ -164,7 +170,7 @@ private[journal] object HeadAction {
       } else if (isOriginOrVersion(in, len)) {
         readOptionalString(in)
       } else {
-        in.skip()
+        skipValue(in)
       }
     }
     if (!id) in.decodeError("expected id")
@@ -182,7 +188,7 @@ private[journal] object HeadAction {
         if (to != 0L) in.decodeError("duplicate to")
         to = readSeqNr(in)
       } else {
-        in.skip()
+        skipValue(in)
       }
     }
     if (from == 0L || to == 0L || from > to) in.decodeError("invalid range")
@@ -204,6 +210,57 @@ private[journal] object HeadAction {
   private def readPayloadType(in: JsonReader): Unit = {
     val value = in.readString(null)
     if (value != PayloadType.Binary.name && value != PayloadType.Json.name) in.decodeError("invalid payloadType")
+  }
+
+  private val SkipNumberContext = new MathContext(1)
+
+  // far beyond the numbers the journal writes, but still a guard against a huge literal, see `UbJsonCodec` in UB
+  private val SkipNumberDigitsLimit = 100000
+
+  private val SkipDepthLimit = 64
+
+  /**
+   * Skips a JSON value, and checks that it is valid JSON: brackets, strings, literals and the
+   * number syntax. Unlike `JsonReader.skip`, which does not check the syntax. The value is not
+   * decoded, and numbers have a much higher digit limit than in the JSON parsers.
+   */
+  private def skipValue(in: JsonReader, depth: Int = 0): Unit = {
+    if (depth > SkipDepthLimit) in.decodeError("too deep")
+    val token = in.nextToken()
+    if (token == '"') {
+      in.rollbackToken()
+      in.readStringAsCharBuf()
+      ()
+    } else if (token == '{') {
+      if (!in.isNextToken('}')) {
+        in.rollbackToken()
+        while ({
+          in.readKeyAsCharBuf()
+          skipValue(in, depth + 1)
+          in.isNextToken(',')
+        }) ()
+        if (!in.isCurrentToken('}')) in.objectEndOrCommaError()
+      }
+    } else if (token == '[') {
+      if (!in.isNextToken(']')) {
+        in.rollbackToken()
+        while ({
+          skipValue(in, depth + 1)
+          in.isNextToken(',')
+        }) ()
+        if (!in.isCurrentToken(']')) in.arrayEndOrCommaError()
+      }
+    } else if (token == 'n') {
+      in.readNullOrError((), "expected value")
+    } else if (token == 't' || token == 'f') {
+      in.rollbackToken()
+      in.readBoolean()
+      ()
+    } else {
+      in.rollbackToken()
+      in.readBigDecimal(null, SkipNumberContext, Int.MaxValue, SkipNumberDigitsLimit)
+      ()
+    }
   }
 
   private def isOriginOrVersion(in: JsonReader, len: Int): Boolean = {

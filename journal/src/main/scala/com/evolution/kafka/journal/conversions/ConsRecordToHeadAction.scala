@@ -46,10 +46,14 @@ private[journal] object ConsRecordToHeadAction {
           .fold {
             OptionT.none[F, HeadAction]
           } { header =>
-            HeadAction.fromJson(header.value) match {
-              case Some(action) => OptionT.fromOption[F](action)
-              case None => fallback(record).map { HeadAction(_) }
-            }
+            val action = MonadThrowable[F]
+              .catchNonFatal { HeadAction.fromJson(header.value) }
+              .adaptError { case e => JournalError(s"ConsRecordToHeadAction failed for $record: $e", e) }
+              .flatMap {
+                case Some(action) => action.pure[F]
+                case None => fallback(record).map { HeadAction(_) }.value
+              }
+            OptionT(action)
           }
       }
     }

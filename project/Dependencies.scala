@@ -11,6 +11,7 @@ object Dependencies {
 
   private val PekkoExtensionVersion = "2.1.3"
   val PlayJsonJsoniter = "com.evolution" %% "play-json-jsoniter" % "1.5.1"
+  val JsoniterScalaCore = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.39.1" // as in PlayJsonJsoniter
   val ExecutorTools = "com.evolutiongaming" %% "executor-tools" % "1.0.5"
   val AkkaSerialization = "com.evolutiongaming" %% "akka-serialization" % "1.1.0"
   val PekkoSerialization = "com.evolution" %% "pekko-extension-serialization" % PekkoExtensionVersion

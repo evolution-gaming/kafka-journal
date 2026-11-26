@@ -1,10 +1,13 @@
 package com.evolution.kafka.journal
 
+import com.evolution.kafka.journal.conversions.{ConsRecordToActionHeader, ConsRecordToHeadAction}
+import com.evolutiongaming.skafka.{Header, Offset, Partition, TopicPartition}
 import org.scalacheck.Gen
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import play.api.libs.json.*
+import scodec.bits.ByteVector
 
 import java.nio.charset.StandardCharsets.UTF_8
 import scala.util.Try
@@ -15,17 +18,15 @@ class HeadActionSpec extends AnyFunSuite with Matchers with ScalaCheckPropertyCh
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 2000)
 
+  private implicit val jsonCodec: JsonCodec[Try] = JsonCodec.default[Try]
+
+  private val fullFromBytes: FromBytes[Try, Option[ActionHeader]] = ActionHeader.fromBytesOptActionHeader[Try]
+
   /**
-   * The full decoder, [[ActionHeader.formatOptActionHeader]]: `None` on failure.
+   * The full decoder, with the codec that the journal uses by default: `None` on failure.
    */
   private def full(json: String): Option[Option[HeadAction]] = {
-    Try {
-      ActionHeader
-        .formatOptActionHeader
-        .reads(Json.parse(json))
-        .asOpt
-        .map { _.map { HeadAction(_) } }
-    }.toOption.flatten
+    fullFromBytes(ByteVector.view(json.getBytes(UTF_8))).toOption.map { _.map { HeadAction(_) } }
   }
 
   private def fast(json: String): Option[Option[HeadAction]] = HeadAction.fromJson(json.getBytes(UTF_8))
@@ -132,6 +133,37 @@ class HeadActionSpec extends AnyFunSuite with Matchers with ScalaCheckPropertyCh
         full(json1) shouldEqual Some(result)
       }
     }
+  }
+
+  test("falls back if a skipped value is not valid JSON") {
+    val append = """"append":{"range":{"from":1,"to":2},"payloadType":"json""""
+    val invalid = List("1.2.3", "01", "-", "tru", "nul", "\"\\q\"", "[1,,2]", "[1}", "{\"a\"}")
+    for {
+      value <- invalid
+      json <- List(s"""{$append,"metadata":{"a":$value}}}""", s"""{$append,"other":$value}}""")
+    } {
+      withClue(json) {
+        full(json) shouldEqual None
+        fast(json) shouldEqual None
+      }
+    }
+  }
+
+  test("falls back if a skipped value is nested too deep") {
+    val json = s"""{"append":{"range":{"from":1,"to":2},"payloadType":"json","other":${ "[" * 100 + "]" * 100 }}}"""
+    full(json) shouldEqual Some(Some(HeadAction.Append(SeqRange.unsafe(1, 2))))
+    fast(json) shouldEqual None
+  }
+
+  test("reports a header without a value as JournalError") {
+    val record = ConsRecord(
+      topicPartition = TopicPartition("topic", Partition.min),
+      offset = Offset.min,
+      timestampAndType = None,
+      headers = List(Header(ActionHeader.key, null)),
+    )
+    val result = ConsRecordToHeadAction[Try](ConsRecordToActionHeader[Try]).apply(record).value
+    result.failed.get shouldBe a[JournalError]
   }
 }
 

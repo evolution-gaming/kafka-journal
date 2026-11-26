@@ -195,6 +195,7 @@ lazy val journal = project
       CatsHelper,
       PlayJson,
       PlayJsonJsoniter,
+      JsoniterScalaCore,
       SCache,
       Pureconfig.Core,
       Pureconfig.Cats,
