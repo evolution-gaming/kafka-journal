@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal
 
-import cats.data.NonEmptySet as Nes
+import cats.data.NonEmptySet
 import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
@@ -244,7 +244,7 @@ private[journal] object ShardedTopicCache {
     log: Log[F],
   ) {
 
-    def onAssigned(partitions: Nes[Partition]): F[Map[Partition, Option[Offset]]] = {
+    def onAssigned(partitions: NonEmptySet[Partition]): F[Map[Partition, Option[Offset]]] = {
       for {
         results <- partitions.toSortedSet.toVector.parTraverse { partition =>
           allocate(partition).attempt
@@ -270,7 +270,7 @@ private[journal] object ShardedTopicCache {
       } yield allocated.map { case (partition, _, from) => (partition, from) }.toMap
     }
 
-    def onRevoked(partitions: Nes[Partition]): F[Unit] = {
+    def onRevoked(partitions: NonEmptySet[Partition]): F[Unit] = {
       for {
         owned <- ownedRef.modify { owned =>
           val revoked = partitions.toSortedSet.toVector.flatMap { partition =>
@@ -342,7 +342,7 @@ private[journal] object ShardedTopicCache {
       private val api = RebalanceCallback.api[F]
       private val unit = api.pure(())
 
-      def onPartitionsAssigned(topicPartitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] = {
+      def onPartitionsAssigned(topicPartitions: NonEmptySet[TopicPartition]): RebalanceCallback[F, Unit] = {
         partitionsOf(topicPartitions).fold[RebalanceCallback[F, Unit]](unit) { partitions =>
           for {
             offsets <- api.lift(listener.onAssigned(partitions))
@@ -352,35 +352,38 @@ private[journal] object ShardedTopicCache {
               case (partition, offset) =>
                 api.seek(TopicPartition(topic = topic, partition = partition), offset)
             }
-            _ <- nesOf {
-              offsets.toVector.collect {
-                case (partition, None) => TopicPartition(topic = topic, partition = partition)
-              }
-            }.traverse_ { partitions =>
+            _ <- offsets.toVector.collect {
+              case (partition, None) => TopicPartition(topic = topic, partition = partition)
+            }.toNonEmptySet.traverse_ { partitions =>
               api.seekToBeginning(partitions)
             }
           } yield ()
         }
       }
 
-      def onPartitionsRevoked(topicPartitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] =
+      def onPartitionsRevoked(topicPartitions: NonEmptySet[TopicPartition]): RebalanceCallback[F, Unit] =
         revoke(topicPartitions)
 
-      def onPartitionsLost(topicPartitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] =
+      def onPartitionsLost(topicPartitions: NonEmptySet[TopicPartition]): RebalanceCallback[F, Unit] =
         revoke(topicPartitions)
 
-      private def partitionsOf(topicPartitions: Nes[TopicPartition]): Option[Nes[Partition]] = nesOf {
-        topicPartitions.toSortedSet.toVector.collect { case a if a.topic == topic => a.partition }
-      }
+      private def partitionsOf(topicPartitions: NonEmptySet[TopicPartition]): Option[NonEmptySet[Partition]] =
+        topicPartitions.toSortedSet.toVector.collect { case a if a.topic == topic => a.partition }.toNonEmptySet
 
-      private def revoke(topicPartitions: Nes[TopicPartition]): RebalanceCallback[F, Unit] =
+      private def revoke(topicPartitions: NonEmptySet[TopicPartition]): RebalanceCallback[F, Unit] =
         partitionsOf(topicPartitions).fold[RebalanceCallback[F, Unit]](unit) { partitions =>
           api.lift(listener.onRevoked(partitions))
         }
 
-      private def nesOf[A: Order](values: Vector[A]): Option[Nes[A]] = {
-        Nes.fromSet(SortedSet.from(values)(Order[A].toOrdering))
-      }
+    }
+  }
+
+  private implicit class vectorOps[A](private val self: Vector[A]) extends AnyVal {
+    def toNonEmptySet(
+      implicit
+      O: Order[A],
+    ): Option[NonEmptySet[A]] = {
+      NonEmptySet.fromSet(SortedSet.from(self)(Order[A].toOrdering))
     }
   }
 }

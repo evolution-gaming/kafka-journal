@@ -1,6 +1,6 @@
 package com.evolution.kafka.journal
 
-import cats.data.NonEmptySet as Nes
+import cats.data.NonEmptySet
 import cats.effect.*
 import cats.syntax.all.*
 import com.evolution.kafka.journal.HeadCacheSpec.*
@@ -28,7 +28,7 @@ class ShardedHeadCacheSpec extends AsyncWordSpec with Matchers {
         pod <- TestPod.make
         _ <- headCacheOf(eventual, pod, transport, eagerTopics = Set(topic)).use { _ =>
           for {
-            offsets <- pod.assign(Nes.of(partition0, partition1))
+            offsets <- pod.assign(NonEmptySet.of(partition0, partition1))
             state <- pod.state.get
           } yield {
             offsets shouldEqual Map((partition0, Offset.unsafe(11).some), (partition1, none))
@@ -68,7 +68,7 @@ class ShardedHeadCacheSpec extends AsyncWordSpec with Matchers {
         pod <- TestPod.make
         _ <- headCacheOf(HeadCache.Eventual.empty[IO], pod, transport).use { headCache =>
           for {
-            _ <- pod.assign(Nes.of(partition0))
+            _ <- pod.assign(NonEmptySet.of(partition0))
             _ <- pod.enqueue(appends(key, partition0, Offset.unsafe(10)))
             result <- headCache.get(key, partition0, Offset.unsafe(10))
             requests <- transport.requests.get
@@ -93,8 +93,8 @@ class ShardedHeadCacheSpec extends AsyncWordSpec with Matchers {
         ).tupled.use {
           case (_, otherCache) =>
             for {
-              _ <- owner.assign(Nes.of(partition0))
-              _ <- other.assign(Nes.of(partition1))
+              _ <- owner.assign(NonEmptySet.of(partition0))
+              _ <- other.assign(NonEmptySet.of(partition1))
               _ <- owner.enqueue(appends(key, partition0, Offset.unsafe(10)))
               result <- otherCache.get(key, partition0, Offset.unsafe(10))
               requests <- transport.requests.get
@@ -114,13 +114,13 @@ class ShardedHeadCacheSpec extends AsyncWordSpec with Matchers {
         pod <- TestPod.make
         _ <- headCacheOf(HeadCache.Eventual.empty[IO], pod, transport).use { headCache =>
           for {
-            _ <- pod.assign(Nes.of(partition0))
+            _ <- pod.assign(NonEmptySet.of(partition0))
             served <- transport.served
             _ = served shouldEqual Set((topic, partition0))
             // the consumer has not reached this offset, so the request waits
             waiting <- headCache.get(key, partition0, Offset.unsafe(100)).start
             _ <- IO.sleep(50.millis)
-            _ <- pod.revoke(Nes.of(partition0))
+            _ <- pod.revoke(NonEmptySet.of(partition0))
             waiting <- waiting.joinWithNever
             served <- transport.served
             afterRevoke <- headCache.get(key, partition0, Offset.unsafe(100))
@@ -141,7 +141,7 @@ class ShardedHeadCacheSpec extends AsyncWordSpec with Matchers {
         pod <- TestPod.make
         _ <- headCacheOf(HeadCache.Eventual.empty[IO], pod, transport).use { headCache =>
           for {
-            _ <- pod.assign(Nes.of(partition0))
+            _ <- pod.assign(NonEmptySet.of(partition0))
             _ <- pod.enqueue(appends(key, partition1, Offset.unsafe(10)))
             _ <- pod.enqueue(appends(key, partition0, Offset.unsafe(10)))
             result <- headCache.get(key, partition0, Offset.unsafe(10))
@@ -161,7 +161,7 @@ class ShardedHeadCacheSpec extends AsyncWordSpec with Matchers {
         transport <- TestTransport.make
         pod <- TestPod.make
         _ <- headCacheOf(HeadCache.Eventual.empty[IO], pod, transport).use { _ =>
-          pod.assign(Nes.of(partition0, partition1))
+          pod.assign(NonEmptySet.of(partition0, partition1))
         }
         served <- transport.served
       } yield {
@@ -224,10 +224,10 @@ object ShardedHeadCacheSpec {
         state.listener.fold(IO.sleep(1.milli).as(none[ShardedTopicCache.Listener[IO]]))(_.some.pure[IO])
       }.untilDefinedM.timeout(5.seconds)
 
-    def assign(partitions: Nes[Partition]): IO[Map[Partition, Option[Offset]]] =
+    def assign(partitions: NonEmptySet[Partition]): IO[Map[Partition, Option[Offset]]] =
       listener.flatMap(_.onAssigned(partitions))
 
-    def revoke(partitions: Nes[Partition]): IO[Unit] =
+    def revoke(partitions: NonEmptySet[Partition]): IO[Unit] =
       listener.flatMap(_.onRevoked(partitions))
 
     def enqueue(records: ConsumerRecords[String, Unit]): IO[Unit] =
