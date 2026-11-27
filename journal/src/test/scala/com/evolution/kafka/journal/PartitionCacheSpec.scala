@@ -563,7 +563,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           // id2 is fully known
           _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset3, seqNr0, none)) }
           a <- cache.get(id3, offset4)
-          // id3 is not fully known, because is `droppedUpTo` is after the replicated offset
+          // id3 is not fully known, because its `droppedUpTo` is after the replicated offset
           _ <- IO { a shouldEqual Result.limited }
 
           // we confirm that the replication moved past `droppedUpTo` of id3, now it is fully known
@@ -746,6 +746,35 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
       .run()
   }
 
+  test("get Result.limited for a journal added again after being dropped when it gets a new record") {
+    partitionCacheOf(maxSize = 1)
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, offset0, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id1, offset1, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id0, offset2, actionHeaderOf(seqNr1)))
+          _ <- cache.add(Record(id0, offset3, actionHeaderOf(seqNr2)))
+          result <- cache.get(id0, offset3)
+          _ <- IO { result shouldEqual Result.limited }
+        } yield {}
+      }
+      .run()
+  }
+
+  test("get Result.value for a journal kept upon a drop when it gets a new record") {
+    partitionCacheOf(maxSize = 1)
+      .use { cache =>
+        for {
+          _ <- cache.add(Record(id0, offset0, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id1, offset1, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id1, offset2, actionHeaderOf(seqNr1)))
+          result <- cache.get(id1, offset2)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.append(offset1, seqNr1, none)) }
+        } yield {}
+      }
+      .run()
+  }
+
   test("get Result.Later.Behind[IO] and drop journals") {
     partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
       .use { cache =>
@@ -923,6 +952,7 @@ object PartitionCacheSpec {
   val id4: String = "id4"
   val seqNr0: SeqNr = SeqNr.min
   val seqNr1: SeqNr = seqNr0.next[Try].get
+  val seqNr2: SeqNr = seqNr1.next[Try].get
 
   val actionHeader: ActionHeader = ActionHeader.Mark("mark", none, none)
 

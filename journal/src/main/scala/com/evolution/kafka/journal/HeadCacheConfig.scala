@@ -44,8 +44,9 @@ object HeadCacheConfig {
    *   Maximum number of head info entries to store for a single partition in [[PartitionCache]].
    *   The total number of entries stored in a [[TopicCache]] will not exceed
    *   `[number-of=partitions-in-topic] x [maxSize]`. When a partition cache exceeds `maxSize`,
-   *   oldest entries will be dropped, making the head cache return `None` for non-present keys
-   *   until replication catches up to the offset of the most recent drop.
+   *   oldest entries will be dropped, making the head cache return `None` for non-present keys and
+   *   for keys added after the drop, until replication catches up to the offset of the most recent
+   *   drop.
    * @param dropUponLimit
    *   Proportion of number of journals to drop from a partition cache if `maxSize` is reached.
    *   Value outside of the range of `0.01` to `1.0` will be ignored. `0.01` means that 1% of
