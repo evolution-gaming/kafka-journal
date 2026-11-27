@@ -168,6 +168,28 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       .toResource
   }
 
+  /**
+   * Creates [[HeadCacheOf]] used by the journal when the head cache is enabled.
+   *
+   * Override it to use another head cache implementation, i.e. [[HeadCacheOf#sharded]].
+   *
+   * @param kafkaConsumerOf
+   *   Kafka consumer factory, which reports the consumer metrics.
+   * @param metrics
+   *   Head cache metrics, if enabled.
+   */
+  def headCacheOf(
+    kafkaConsumerOf: KafkaConsumerOf[IO],
+    metrics: Option[HeadCacheMetrics[IO]],
+  )(implicit
+    logOf: LogOf[IO],
+    measureDuration: MeasureDuration[IO],
+    jsonCodec: JsonCodec[IO],
+  ): Resource[IO, HeadCacheOf[IO]] = {
+    implicit val kafkaConsumerOf1: KafkaConsumerOf[IO] = kafkaConsumerOf
+    HeadCacheOf[IO](metrics).pure[Resource[IO, *]]
+  }
+
   def jsonCodec(config: KafkaJournalConfig): IO[JsonCodec[IO]] = {
     val codec: JsonCodec[IO] = config.jsonCodec match {
       case KafkaJournalConfig.JsonCodec.Default => JsonCodec.default
@@ -292,6 +314,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       batching = batching,
       appendMetadataOf = appendMetadataOf,
       cassandraClusterOf = cassandraClusterOf,
+      headCacheOf = (kafkaConsumerOf: KafkaConsumerOf[IO], metrics: Option[HeadCacheMetrics[IO]]) =>
+        headCacheOf(kafkaConsumerOf, metrics),
     )
   }
 

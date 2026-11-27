@@ -35,6 +35,23 @@ object HeadCacheOf {
     metrics: Option[HeadCacheMetrics[F]],
   ): HeadCacheOf[F] = new Main(metrics)
 
+  /**
+   * Creates [[ShardedHeadCache]] instances, sharded between the pods of an application.
+   *
+   * @param kafkaConsumerOf
+   *   Creates the Kafka consumers, one per topic.
+   * @param transport
+   *   Communication with the other pods of the application.
+   * @param config
+   *   Application id and eager topics.
+   */
+  def sharded[F[_]: Async: Parallel: Runtime: LogOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
+    kafkaConsumerOf: KafkaConsumerOf[F],
+    transport: HeadCacheTransport[F],
+    config: ShardedHeadCacheConfig,
+    metrics: Option[HeadCacheMetrics[F]],
+  ): HeadCacheOf[F] = new Sharded(kafkaConsumerOf, transport, config, metrics)
+
   private final class Const[F[_]](value: Resource[F, HeadCache[F]]) extends HeadCacheOf[F] {
     def apply(
       consumerConfig: ConsumerConfig,
@@ -54,6 +71,31 @@ object HeadCacheOf {
       config: HeadCacheConfig,
     ): Resource[F, HeadCache[F]] = {
       HeadCache.make[F](consumerConfig, eventualJournal, metrics, config)
+    }
+  }
+
+  private final class Sharded[
+    F[_]: Async: Parallel: Runtime: LogOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode,
+  ](
+    kafkaConsumerOf: KafkaConsumerOf[F],
+    transport: HeadCacheTransport[F],
+    shardedConfig: ShardedHeadCacheConfig,
+    metrics: Option[HeadCacheMetrics[F]],
+  ) extends HeadCacheOf[F] {
+    def apply(
+      consumerConfig: ConsumerConfig,
+      eventualJournal: EventualJournal[F],
+      config: HeadCacheConfig,
+    ): Resource[F, HeadCache[F]] = {
+      ShardedHeadCache.make[F](
+        kafkaConsumerOf,
+        consumerConfig,
+        eventualJournal,
+        transport,
+        shardedConfig,
+        config,
+        metrics,
+      )
     }
   }
 }

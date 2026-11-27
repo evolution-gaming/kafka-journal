@@ -79,6 +79,47 @@ object JournalAdapter {
     appendMetadataOf: AppendMetadataOf[F],
     cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, (JournalAdapter[F], Journals[F])] = {
+    makeWithJournals[F, A](
+      toKey = toKey,
+      origin = origin,
+      serializer = serializer,
+      journalReadWrite = journalReadWrite,
+      config = config,
+      metrics = metrics,
+      log = log,
+      batching = batching,
+      appendMetadataOf = appendMetadataOf,
+      cassandraClusterOf = cassandraClusterOf,
+      headCacheOf = (kafkaConsumerOf: KafkaConsumerOf[F], metrics: Option[HeadCacheMetrics[F]]) => {
+        implicit val kafkaConsumerOf1: KafkaConsumerOf[F] = kafkaConsumerOf
+        HeadCacheOf[F](metrics).pure[Resource[F, *]]
+      },
+    )
+  }
+
+  /**
+   * Same as the overload above, with a custom [[HeadCacheOf]], i.e. [[HeadCacheOf#sharded]].
+   *
+   * @param headCacheOf
+   *   Creates [[HeadCacheOf]] from the Kafka consumer factory, which reports the consumer metrics,
+   *   and from the head cache metrics.
+   */
+  def makeWithJournals[
+    F[_]: Async: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: Fail: JsonCodec,
+    A,
+  ](
+    toKey: ToKey[F],
+    origin: Option[Origin],
+    serializer: EventSerializer[F, A],
+    journalReadWrite: JournalReadWrite[F, A],
+    config: KafkaJournalConfig,
+    metrics: Metrics[F],
+    log: Log[F],
+    batching: Batching[F],
+    appendMetadataOf: AppendMetadataOf[F],
+    cassandraClusterOf: CassandraClusterOf[F],
+    headCacheOf: (KafkaConsumerOf[F], Option[HeadCacheMetrics[F]]) => Resource[F, HeadCacheOf[F]],
+  ): Resource[F, (JournalAdapter[F], Journals[F])] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
 
@@ -102,13 +143,6 @@ object JournalAdapter {
       KafkaProducerOf[F](producerMetrics)
     }
 
-    def headCacheOf(
-      implicit
-      kafkaConsumerOf: KafkaConsumerOf[F],
-    ): HeadCacheOf[F] = {
-      HeadCacheOf[F](metrics.headCache)
-    }
-
     def journal(
       eventualJournal: EventualJournal[F],
     )(implicit
@@ -130,8 +164,6 @@ object JournalAdapter {
         .map { _.withLogError(log) }
     }
 
-    val headCacheOf1 = headCacheOf(kafkaConsumerOf)
-
     for {
       eventualJournal <- EventualCassandra.make[F](
         config.cassandra,
@@ -140,6 +172,7 @@ object JournalAdapter {
         cassandraClusterOf,
         config.dataIntegrity,
       )
+      headCacheOf1 <- headCacheOf(kafkaConsumerOf, metrics.headCache)
       journals <- journal(eventualJournal)(kafkaConsumerOf, kafkaProducerOf, headCacheOf1)
     } yield {
       val adapter = JournalAdapter[F, A](journals, toKey, serializer, journalReadWrite, appendMetadataOf)
