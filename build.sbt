@@ -101,6 +101,8 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
   ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCache.make"),
+  // new `flows` method in `TopicReplicatorMetrics`
+  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolution.kafka.journal.replicator.TopicReplicatorMetrics.flows"),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(
