@@ -908,11 +908,11 @@ private[journal] object PartitionCache {
      *
      * @param id
      *   Journal identifier.
-     * @param header
-     *   Metainformation, including the purpose such as if this record appended events, deleted them
-     *   or purged the journal.
+     * @param action
+     *   The purpose of the record, such as if this record appended events, deleted them or purged
+     *   the journal.
      */
-    final case class Data(id: String, header: ActionHeader)
+    final case class Data(id: String, action: HeadAction)
 
     /**
      * Convenience constructor, for records where `data` is strictly defined.
@@ -923,7 +923,7 @@ private[journal] object PartitionCache {
      *   [[Record]] for more details.
      */
     def apply(id: String, offset: Offset, header: ActionHeader): Record = {
-      apply(offset, Data(id, header).some)
+      apply(offset, Data(id, HeadAction(header)).some)
     }
   }
 
@@ -974,7 +974,7 @@ private[journal] object PartitionCache {
             case (offset, _) =>
               val headInfo0 = entry.fold(HeadInfo.empty)(_.headInfo)
               val headInfo = records1.foldLeft(headInfo0) {
-                case (headInfo, (offset, data)) => headInfo.apply(data.header, offset)
+                case (headInfo, (offset, data)) => data.action.applyTo(headInfo, offset)
               }
               headInfo match {
                 case HeadInfo.Empty => values

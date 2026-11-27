@@ -5,7 +5,7 @@ import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
 import com.evolution.kafka.journal.PartitionCache.Result
-import com.evolution.kafka.journal.conversions.ConsRecordToActionHeader
+import com.evolution.kafka.journal.conversions.{ConsRecordToActionHeader, ConsRecordToHeadAction}
 import com.evolution.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolution.scache.{Cache, ExpiringCache}
 import com.evolutiongaming.catshelper.*
@@ -155,7 +155,10 @@ object HeadCache {
     config: HeadCacheConfig = HeadCacheConfig.default,
   ): Resource[F, HeadCache[F]] = {
 
-    val consRecordToActionHeader = ConsRecordToActionHeader[F]
+    val consRecordToHeadAction = {
+      val full = ConsRecordToActionHeader[F]
+      if (config.lightHeaderDecoder) ConsRecordToHeadAction[F](full) else ConsRecordToHeadAction.full[F](full)
+    }
     for {
       cache <- Cache.expiring(
         ExpiringCache.Config[F, Topic, TopicCache[F]](expireAfterRead = config.expiry),
@@ -172,7 +175,7 @@ object HeadCache {
           cache
             .getOrUpdateResource(topic) {
               TopicCache
-                .make(eventual, topic, log1, consumer, config, consRecordToActionHeader, metrics.map { _.headCache })
+                .make(eventual, topic, log1, consumer, config, consRecordToHeadAction, metrics.map { _.headCache })
                 .map { cache =>
                   metrics
                     .fold(cache) { metrics => cache.withMetrics(topic, metrics.headCache) }

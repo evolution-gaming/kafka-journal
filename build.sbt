@@ -101,6 +101,10 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
   ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheOf.apply"),
   ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCache.make"),
+  // added `lightHeaderDecoder` field in `HeadCacheConfig`
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheConfig.this"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheConfig.apply"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolution.kafka.journal.HeadCacheConfig.copy"),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(
@@ -114,7 +118,10 @@ val alias: Seq[sbt.Def.Setting[?]] =
       "check", // check is called with + from the release action
       "all versionPolicyCheck Compile/doc scalafmtCheckRepo",
     ) ++
-    addCommandAlias("build", "all compile testFull")
+    addCommandAlias("build", "all compile testFull") ++
+    // The JMH generator scans the test classes of `benchmark`, but does not wait for `Test / compile`.
+    // Usage: `runBenchmarks <JMH arguments>`, e.g. `runBenchmarks -prof gc HeadActionBenchmark`
+    addCommandAlias("runBenchmarks", "benchmark/Test/compile; benchmark/Jmh/run")
 
 lazy val root = project
   .in(file("."))
@@ -188,6 +195,7 @@ lazy val journal = project
       CatsHelper,
       PlayJson,
       PlayJsonJsoniter,
+      JsoniterScalaCore,
       SCache,
       Pureconfig.Core,
       Pureconfig.Cats,
@@ -197,6 +205,7 @@ lazy val journal = project
       Cats.Effect,
       ResourcePool,
       ScalaTest % Test,
+      ScalaTestScalaCheck % Test,
       ExecutorTools % Test,
       Logback.Core % Test,
       Logback.Classic % Test,
@@ -370,7 +379,7 @@ lazy val benchmark = project
   .settings(commonSettings)
   .settings(
     Jmh / sourceDirectory := (Test / sourceDirectory).value,
-    Jmh / classDirectory := (Test / classDirectory).value,
+    Jmh / jmhBytecodeDirectory := (Test / classDirectory).value,
     Jmh / dependencyClasspath := (Test / dependencyClasspath).value,
   )
 

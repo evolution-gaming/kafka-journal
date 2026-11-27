@@ -20,12 +20,17 @@ import scala.concurrent.duration.*
  *   How often Cassandra is being polled for the information about already replicated records.
  * @param partition
  *   Partition cache configuration as described in [[HeadCacheConfig.Partition]].
+ * @param lightHeaderDecoder
+ *   Decode the action header of consumed records with [[HeadAction.fromJson]], which reads only the
+ *   fields used by the cache and skips `metadata`. If `false`, use the full [[ActionHeader]]
+ *   decoder for every record.
  */
 final case class HeadCacheConfig(
   timeout: FiniteDuration = 1.second,
   expiry: FiniteDuration = 10.minutes,
   removeInterval: FiniteDuration = 100.millis,
   partition: HeadCacheConfig.Partition = HeadCacheConfig.Partition.default,
+  lightHeaderDecoder: Boolean = true,
 )
 
 object HeadCacheConfig {
