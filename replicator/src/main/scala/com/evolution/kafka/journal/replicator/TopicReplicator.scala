@@ -255,12 +255,6 @@ private[journal] object TopicReplicator {
               }
             }
           }
-
-          override def assignedPartitionCount: F[Int] =
-            partitionsCount.get
-
-          override def cachedKeyCount: F[Int] =
-            keysCount.get
         }
 
         val stats =

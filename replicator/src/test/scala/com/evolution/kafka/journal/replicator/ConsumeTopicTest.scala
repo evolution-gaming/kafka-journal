@@ -232,10 +232,6 @@ object ConsumeTopicTest {
       }
       Resource(result)
     }
-
-    def assignedPartitionCount: StateT[Int] = StateT.pure { state => (state, 0) }
-
-    def cachedKeyCount: StateT[Int] = StateT.pure { state => (state, 0) }
   }
 
   val consumer: Resource[StateT, TopicConsumer[StateT]] = {
