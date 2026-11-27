@@ -185,7 +185,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       result.run()
     }
 
-    "return none after journals are dropped, until their records are replicated" in {
+    "return none for dropped journals, until their records are replicated" in {
       val keyDropped = Key(id = "id0", topic = topic)
       val keyKept = Key(id = "id2", topic = topic)
       val records = ConsumerRecordsOf {
@@ -219,7 +219,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             dropped <- headCache.get(key = keyDropped, partition = partition, offset = offsetLast)
             _ = dropped shouldEqual none
             kept <- headCache.get(key = keyKept, partition = partition, offset = offsetLast)
-            _ = kept shouldEqual none
+            _ = kept shouldEqual HeadInfo.append(offsetLast, SeqNr.min, none).some
             _ <- pointers.set(Map((partition, offsetDropped)))
             _ <- headCache
               .get(key = keyDropped, partition = partition, offset = offsetLast)

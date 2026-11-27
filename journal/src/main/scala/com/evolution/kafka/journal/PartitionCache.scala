@@ -652,9 +652,12 @@ private[journal] object PartitionCache {
        * In other words, we could not return a [[HeadInfo]] value to be used, and it has to be
        * calculated again.
        *
-       * After some journals are dropped, it is returned for every journal until the records of the
-       * dropped journals are replicated, because [[PartitionCache]] does not remember which
-       * journals were dropped.
+       * After some head info entries are dropped, `Limited` is returned for every key not present
+       * in the cache until the replicator reaches the offset of the drop, because
+       * [[PartitionCache]] does not remember which keys were dropped. The entries which stayed in
+       * the cache are not affected and can be returned safely. An entry that is added after the
+       * drop cannot be returned until the replication has reached the moment of the drop, because
+       * we cannot guarantee that the information stored in the cache is complete.
        */
       sealed trait Limited[F[_]] extends Now[F]
       object Limited {
@@ -942,8 +945,10 @@ private[journal] object PartitionCache {
    *   also seen by [[PartitionCache]].
    * @param headInfo
    *   [[HeadInfo]] of this journal.
+   * @param droppedUpTo
+   *   Initialized with [[Entries#droppedUpTo]] at the moment the entry was created.
    */
-  private final case class Entry(offset: Offset, headInfo: HeadInfo.NonEmpty)
+  private final case class Entry(offset: Offset, headInfo: HeadInfo.NonEmpty, droppedUpTo: Option[Offset])
 
   private object Entry {
 
@@ -960,9 +965,11 @@ private[journal] object PartitionCache {
    *   Journal specific entries (i.e. the key is journal id). All offsets stored there are meant to
    *   be within `bounds` interval.
    * @param droppedUpTo
-   *   [[Offset]] of the last (i.e. newest) record of the journals dropped upon reaching the size
-   *   limit. Until it is replicated, a journal might have non-replicated records, which `values` do
-   *   not reflect.
+   *   [[Offset]] of the most recent cache entry that was dropped upon reaching the size limit:
+   *   - if the partition is not replicated to this offset, a lack of an entry is not a proof that
+   *     the journal is fully replicated;
+   *   - if the partition is replicated to this offset or past it, a lack of an entry is a proof
+   *     that all events for the key have been fully replicated.
    */
   private final case class Entries(bounds: Bounds[Offset], values: Map[String, Entry], droppedUpTo: Option[Offset])
 
@@ -989,7 +996,9 @@ private[journal] object PartitionCache {
               }
               headInfo match {
                 case HeadInfo.Empty => values
-                case a: HeadInfo.NonEmpty => values.updated(id, Entry(offset = offset, headInfo = a))
+                case a: HeadInfo.NonEmpty =>
+                  val droppedUpTo = entry.fold(entries.flatMap(_.droppedUpTo))(_.droppedUpTo)
+                  values.updated(id, Entry(offset = offset, headInfo = a, droppedUpTo = droppedUpTo))
               }
           }
       }
@@ -1029,18 +1038,18 @@ private[journal] object PartitionCache {
       }
 
       /**
+       * @param id
+       *   The journal's key in Kafka.
+       * @param offset
+       *   The offset of the mark action produced before querying the head cache.
        * @param replicated
        *   The last replicated offset seen by [[PartitionCache]].
        */
       def result[F[_]](id: String, offset: Offset, replicated: Option[Offset]): Option[Result.Now[F]] = {
 
-        def entry = {
-          self
-            .values
-            .get(id)
-        }
-
-        if (replicated < self.droppedUpTo) {
+        val entry = self.values.get(id)
+        val droppedUpTo = entry.fold(self.droppedUpTo)(_.droppedUpTo)
+        if (replicated < droppedUpTo) {
           Result
             .Now
             .limited[F]

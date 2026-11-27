@@ -530,23 +530,46 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
       .use { cache =>
         for {
           a <- cache.add(Record(id0, offset0, actionHeaderOf(seqNr0)))
+          // the cache size = 1
           _ <- IO { a shouldEqual none }
           a <- cache.get(id0, offset0)
           _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset0, seqNr0, none)) }
           a <- cache.add(Record(id0, offset1, actionHeaderOf(seqNr1)))
+          // the cache size = 1
           _ <- IO { a shouldEqual Diff(1).some }
           a <- cache.get(id0, offset1)
           _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset0, seqNr1, none)) }
           a <- cache.add(Record(id1, offset2, actionHeaderOf(seqNr0)))
+          // the cache size = 2
           _ <- IO { a shouldEqual Diff(1).some }
           a <- cache.get(id1, offset2)
           _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset2, seqNr0, none)) }
+
+          // this overflows the cache
           a <- cache.add(Record(id2, offset3, actionHeaderOf(seqNr0)))
+          // the cache size = 1, we drop id0 and id1
           _ <- IO { a shouldEqual Diff(1).some }
           a <- cache.get(id2, offset3)
-          _ <- IO { a shouldEqual Result.limited }
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset3, seqNr0, none)) }
           a <- cache.get(id0, offset2)
           _ <- IO { a shouldEqual Result.limited }
+          a <- cache.get(id1, offset2)
+          _ <- IO { a shouldEqual Result.limited }
+
+          a <- cache.add(Record(id3, offset4, actionHeaderOf(seqNr0)))
+          // the cache size = 2, stores id2 and id3
+          _ <- IO { a shouldEqual Diff(1).some }
+          a <- cache.get(id2, offset3)
+          // id2 is fully known
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset3, seqNr0, none)) }
+          a <- cache.get(id3, offset4)
+          // id3 is not fully known, because is `droppedUpTo` is after the replicated offset
+          _ <- IO { a shouldEqual Result.limited }
+
+          // we confirm that the replication moved past `droppedUpTo` of id3, now it is fully known
+          _ <- cache.remove(offset3)
+          a <- cache.get(id3, offset4)
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset4, seqNr0, none)) }
         } yield {}
       }
       .run()
@@ -567,7 +590,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           a <- cache.get(id1, offset1)
           _ <- IO { a shouldEqual Result.limited }
           a <- cache.get(id2, offset2)
-          _ <- IO { a shouldEqual Result.limited }
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset2, seqNr0, none)) }
         } yield {}
       }
       .run()
@@ -594,13 +617,13 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           a <- cache.get(id1, offset0)
           _ <- IO { a shouldEqual Result.limited }
           a <- cache.get(id2, offset2)
-          _ <- IO { a shouldEqual Result.limited }
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset2, seqNr0, none)) }
         } yield {}
       }
       .run()
   }
 
-  test("get Result.limited for all journals when some of them are dropped") {
+  test("get Result.limited for dropped and unknown journals, Result.value for kept ones") {
     partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
       .use { cache =>
         for {
@@ -608,7 +631,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           result <- cache.get(id0, offset2)
           _ <- IO { result shouldEqual Result.limited }
           result <- cache.get(id2, offset2)
-          _ <- IO { result shouldEqual Result.limited }
+          _ <- IO { result shouldEqual Result.value(HeadInfo.append(offset2, seqNr0, none)) }
           result <- cache.get(id3, offset2)
           _ <- IO { result shouldEqual Result.limited }
         } yield {}
@@ -628,7 +651,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
       .run()
   }
 
-  test("get Result.value after dropped records are replicated") {
+  test("get Result.limited for a journal added again after being dropped, until dropped records are replicated") {
     partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
       .use { cache =>
         for {
@@ -636,6 +659,8 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           _ <- cache.add(Record(id0, offset3, actionHeaderOf(seqNr1)))
           result <- cache.get(id0, offset3)
           _ <- IO { result shouldEqual Result.limited }
+          result <- cache.get(id2, offset3)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.append(offset2, seqNr0, none)) }
           _ <- cache.remove(offset0)
           result <- cache.get(id0, offset3)
           _ <- IO { result shouldEqual Result.limited }
@@ -653,20 +678,29 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
       .run()
   }
 
-  test("get Result.limited after two drops until all dropped records are replicated") {
+  test("get Result.limited after two drops until the records dropped before a journal was added are replicated") {
     partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
       .use { cache =>
         for {
           _ <- dropTwoJournals(cache)
           _ <- cache.add(Record(id3, offset3, actionHeaderOf(seqNr0)))
           _ <- cache.add(Record(id4, offset4, actionHeaderOf(seqNr0)))
+          // id4 was added after the first drop, and survived the second one
+          result <- cache.get(id4, offset4)
+          _ <- IO { result shouldEqual Result.limited }
           _ <- cache.remove(offset1)
           result <- cache.get(id4, offset4)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.append(offset4, seqNr0, none)) }
+          result <- cache.get(id2, offset4)
+          _ <- IO { result shouldEqual Result.limited }
+          result <- cache.get(id3, offset4)
           _ <- IO { result shouldEqual Result.limited }
           _ <- cache.remove(offset3)
           result <- cache.get(id4, offset4)
           _ <- IO { result shouldEqual Result.value(HeadInfo.append(offset4, seqNr0, none)) }
           result <- cache.get(id2, offset4)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.empty) }
+          result <- cache.get(id3, offset4)
           _ <- IO { result shouldEqual Result.value(HeadInfo.empty) }
         } yield {}
       }
