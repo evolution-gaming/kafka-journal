@@ -1,5 +1,6 @@
 package com.evolution.kafka.journal
 
+import cats.arrow.FunctionK
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsString, Json}
@@ -22,5 +23,15 @@ class JsonCodecTest extends AnyFunSuite with Matchers {
 
   test("JsonCodec.default") {
     JsonCodec.default[Try].decode.fromBytes(malformed).isSuccess shouldEqual true
+  }
+
+  test("JsonCodec.streaming") {
+    JsonCodec.streaming[Try].decode.fromBytes(malformed).isSuccess shouldEqual true
+  }
+
+  test("JsonCodec.streaming stays streaming after mapK") {
+    JsonCodec.streaming[Try].decode.isStreaming shouldEqual true
+    JsonCodec.streaming[Try].mapK(FunctionK.id).decode.isStreaming shouldEqual true
+    JsonCodec.default[Try].mapK(FunctionK.id).decode.isStreaming shouldEqual false
   }
 }

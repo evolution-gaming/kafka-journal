@@ -86,6 +86,7 @@ object KafkaJournalConfig {
     case object Default extends JsonCodec
     case object PlayJson extends JsonCodec
     case object Jsoniter extends JsonCodec
+    case object Streaming extends JsonCodec
 
     implicit val configReaderJsonCodec: ConfigReader[JsonCodec] = deriveEnumerationReader
   }

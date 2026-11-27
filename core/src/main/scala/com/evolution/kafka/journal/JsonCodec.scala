@@ -36,6 +36,18 @@ object JsonCodec {
     )
   }
 
+  /**
+   * The same as [[default]], except that the types having a streaming decoder are decoded straight
+   * from bytes, without building a `JsValue` tree first. Currently, it is only `ActionHeader`,
+   * parsed from every record consumed by the head cache and when reading a journal.
+   *
+   * A streaming decoder only handles the JSON written by the journal, and falls back to decoding
+   * the tree with [[default]] otherwise, so the results are the same as with [[default]].
+   */
+  def streaming[F[_]: ApplicativeThrowable: FromTry]: JsonCodec[F] = {
+    JsonCodec(encode = default[F].encode, decode = Decode.streaming)
+  }
+
   implicit class JsonCodecOps[F[_]](val self: JsonCodec[F]) extends AnyVal {
 
     def mapK[G[_]](f: F ~> G): JsonCodec[G] = JsonCodec(self.encode.mapK(f), self.decode.mapK(f))
@@ -144,9 +156,38 @@ object JsonCodec {
       })
     }
 
+    /**
+     * @see
+     *   [[JsonCodec#streaming]]
+     */
+    def streaming[F[_]: ApplicativeThrowable: FromTry]: Decode[F] = {
+      Decode(new Streaming(default[F].decode.fromBytes))
+    }
+
+    /**
+     * Decodes `JsValue` with `tree`, and tells the types having a streaming decoder to use it, see
+     * [[JsonCodec#streaming]].
+     *
+     * It is a marker rather than a field of [[Decode]], so that [[Decode]] stays binary compatible.
+     */
+    private[journal] final class Streaming[F[_]](val tree: FromBytes[F, JsValue]) extends FromBytes[F, JsValue] {
+
+      def apply(bytes: ByteVector): F[JsValue] = tree(bytes)
+    }
+
     implicit class DecodeOps[F[_]](val self: Decode[F]) extends AnyVal {
 
-      def mapK[G[_]](f: F ~> G): Decode[G] = Decode(self.fromBytes.mapK(f))
+      def mapK[G[_]](f: F ~> G): Decode[G] = {
+        self.fromBytes match {
+          case streaming: Streaming[F @unchecked] => Decode(new Streaming(streaming.tree.mapK(f)))
+          case fromBytes => Decode(fromBytes.mapK(f))
+        }
+      }
+
+      /**
+       * Whether the types having a streaming decoder should use it, see [[JsonCodec#streaming]].
+       */
+      def isStreaming: Boolean = self.fromBytes.isInstanceOf[Streaming[F @unchecked]]
 
       def fallbackTo(
         decode: Decode[F],

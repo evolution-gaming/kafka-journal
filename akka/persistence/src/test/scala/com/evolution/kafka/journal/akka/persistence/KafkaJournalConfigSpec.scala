@@ -38,6 +38,22 @@ class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
       .load[KafkaJournalConfig] shouldEqual expected.pure[ConfigReader.Result]
   }
 
+  test("json-codec") {
+    List(
+      ("default", KafkaJournalConfig.JsonCodec.Default),
+      ("play-json", KafkaJournalConfig.JsonCodec.PlayJson),
+      ("jsoniter", KafkaJournalConfig.JsonCodec.Jsoniter),
+      ("streaming", KafkaJournalConfig.JsonCodec.Streaming),
+    ).foreach {
+      case (value, jsonCodec) =>
+        val config = ConfigFactory.parseString(s"json-codec = $value")
+        ConfigSource
+          .fromConfig(config)
+          .load[KafkaJournalConfig]
+          .map { _.jsonCodec } shouldEqual jsonCodec.pure[ConfigReader.Result]
+    }
+  }
+
   test("apply from reference.conf") {
     val config = ConfigFactory.load()
     val expected = KafkaJournalConfig.default
