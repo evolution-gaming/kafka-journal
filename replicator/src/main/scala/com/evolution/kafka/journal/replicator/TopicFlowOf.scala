@@ -10,9 +10,9 @@ private[journal] trait TopicFlowOf[F[_]] {
 
   def apply(topic: Topic): Resource[F, TopicFlow[F]]
 
-  def partitions: F[Int]
+  def assignedPartitionCount: F[Int]
 
-  def keys: F[Int]
+  def cachedKeyCount: F[Int]
 }
 
 private[journal] object TopicFlowOf {
@@ -20,9 +20,9 @@ private[journal] object TopicFlowOf {
   def empty[F[_]: Applicative]: TopicFlowOf[F] = new TopicFlowOf[F] {
     def apply(topic: Topic): Resource[F, TopicFlow[F]] = TopicFlow.empty[F].pure[F].toResource
 
-    def partitions: F[Int] = 0.pure[F]
+    def assignedPartitionCount: F[Int] = 0.pure[F]
 
-    def keys: F[Int] = 0.pure[F]
+    def cachedKeyCount: F[Int] = 0.pure[F]
   }
 
   implicit class TopicFlowOfOps[F[_]](val self: TopicFlowOf[F]) extends AnyVal {
@@ -36,9 +36,9 @@ private[journal] object TopicFlowOf {
       new TopicFlowOf[G] {
         def apply(topic: Topic): Resource[G, TopicFlow[G]] = self(topic).map(_.mapK(f)).mapK(f)
 
-        def partitions: G[Int] = f(self.partitions)
+        def assignedPartitionCount: G[Int] = f(self.assignedPartitionCount)
 
-        def keys: G[Int] = f(self.keys)
+        def cachedKeyCount: G[Int] = f(self.cachedKeyCount)
       }
     }
   }

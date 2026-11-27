@@ -256,10 +256,10 @@ private[journal] object TopicReplicator {
             }
           }
 
-          override def partitions: F[Int] =
+          override def assignedPartitionCount: F[Int] =
             partitionsCount.get
 
-          override def keys: F[Int] =
+          override def cachedKeyCount: F[Int] =
             keysCount.get
         }
 
