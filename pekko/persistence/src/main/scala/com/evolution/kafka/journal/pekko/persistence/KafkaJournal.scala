@@ -65,18 +65,22 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   implicit val system: ActorSystem = context.system
   implicit val executor: ExecutionContextExecutor = context.dispatcher
 
-  private val (blocking, blockingShutdown) = IORuntime.createDefaultBlockingExecutionContext("kafka-journal-blocking")
-  private val (scheduler, schedulerShutdown) = IORuntime.createDefaultScheduler("kafka-journal-scheduler")
-  implicit val ioRuntime: IORuntime = IORuntime(
-    compute = executor,
-    blocking = blocking,
-    scheduler = scheduler,
-    shutdown = () => {
-      blockingShutdown()
-      schedulerShutdown()
-    },
-    config = IORuntimeConfig(),
-  )
+  implicit val ioRuntime: IORuntime = createIORuntime()
+
+  protected def createIORuntime(): IORuntime = {
+    val (blocking, blockingShutdown) = IORuntime.createDefaultBlockingExecutionContext("kafka-journal-blocking")
+    val (scheduler, schedulerShutdown) = IORuntime.createDefaultScheduler("kafka-journal-scheduler")
+    IORuntime(
+      compute = executor,
+      blocking = blocking,
+      scheduler = scheduler,
+      shutdown = () => {
+        blockingShutdown()
+        schedulerShutdown()
+      },
+      config = IORuntimeConfig(),
+    )
+  }
   implicit val toFuture: ToFuture[IO] = ToFuture.ioToFuture
   implicit val fromFuture: FromFuture[IO] = FromFuture.lift[IO]
   implicit val fromAttempt: FromAttempt[IO] = FromAttempt.lift[IO]
