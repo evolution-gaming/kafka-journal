@@ -775,6 +775,20 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
       .run()
   }
 
+  test("get Result.value for a journal dropped after its records are replicated") {
+    partitionCacheOf(maxSize = 1)
+      .use { cache =>
+        for {
+          _ <- cache.remove(offset0)
+          _ <- cache.add(Record(id0, offset0, actionHeaderOf(seqNr0)))
+          _ <- cache.add(Record(id1, offset1, actionHeaderOf(seqNr0)))
+          result <- cache.get(id0, offset1)
+          _ <- IO { result shouldEqual Result.value(HeadInfo.empty) }
+        } yield {}
+      }
+      .run()
+  }
+
   test("get Result.Later.Behind[IO] and drop journals") {
     partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
       .use { cache =>
